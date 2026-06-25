@@ -34,6 +34,11 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "DRIFT_BLOCK_THRESHOLD",
         "TOOL_RISK_THRESHOLD",
         "RISK_ANCHORS_PATH",
+        "PROXY_HOST",
+        "PROXY_PORT",
+        "MCP_BACKEND_URL",
+        "MCP_BACKEND_TIMEOUT",
+        "MAX_TRAJECTORY_DEPTH",
     ):
         monkeypatch.delenv(f"SECURESG_{key}", raising=False)
 
@@ -174,5 +179,62 @@ def test_rejects_tool_risk_threshold_above_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("SECURESG_TOOL_RISK_THRESHOLD", "1.5")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_proxy_defaults_are_safe(clean_env: None) -> None:
+    settings = Settings(_env_file=None)
+    assert settings.proxy_host == "127.0.0.1"
+    assert 1 <= settings.proxy_port <= 65535
+    assert settings.mcp_backend_url is None
+    assert settings.mcp_backend_timeout > 0.0
+    assert settings.max_trajectory_depth >= 1
+
+
+def test_env_overrides_proxy_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SECURESG_PROXY_PORT", "9443")
+    assert Settings(_env_file=None).proxy_port == 9443
+
+
+def test_rejects_proxy_port_above_range(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SECURESG_PROXY_PORT", "70000")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_rejects_proxy_port_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SECURESG_PROXY_PORT", "0")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_rejects_non_positive_backend_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SECURESG_MCP_BACKEND_TIMEOUT", "0")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_rejects_trajectory_depth_below_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SECURESG_MAX_TRAJECTORY_DEPTH", "0")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_accepts_mcp_backend_url_with_http_scheme(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SECURESG_MCP_BACKEND_URL", "http://localhost:9000/rpc")
+    assert Settings(_env_file=None).mcp_backend_url == "http://localhost:9000/rpc"
+
+
+def test_rejects_mcp_backend_url_with_unsupported_scheme(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SECURESG_MCP_BACKEND_URL", "ftp://example.com")
     with pytest.raises(ValidationError):
         Settings(_env_file=None)

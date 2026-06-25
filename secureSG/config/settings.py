@@ -8,6 +8,7 @@ exposed as env-overridable fields.
 
 from pathlib import Path
 from typing import Final, Self
+from urllib.parse import urlparse
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +17,9 @@ from secureSG.schemas.verdict import Verdict
 
 HASH_ALGORITHM: Final[str] = "sha256"
 """Audit hash algorithm. SHA-256 only — never weaken this (CLAUDE.md section 6)."""
+
+_ALLOWED_BACKEND_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
+"""URL schemes permitted for the MCP backend; O(1) membership, fail-closed."""
 
 
 class Settings(BaseSettings):
@@ -58,6 +62,13 @@ class Settings(BaseSettings):
         Path(__file__).resolve().parent.parent / "warden" / "risk_anchors.yaml"
     )
 
+    # Runtime proxy + MCP backend (SP5).
+    proxy_host: str = "127.0.0.1"  # loopback default; never 0.0.0.0 (ruff S104)
+    proxy_port: int = 8080
+    mcp_backend_url: str | None = None
+    mcp_backend_timeout: float = 30.0
+    max_trajectory_depth: int = 50
+
     @model_validator(mode="after")
     def _validate_thresholds(self) -> Self:
         """Fail loudly unless ``0 < review < block <= 1`` (fail-closed config).
@@ -95,6 +106,34 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"tool_risk_threshold must be in [0, 1]; got {self.tool_risk_threshold}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_proxy(self) -> Self:
+        """Fail loudly on out-of-bounds proxy/backend/trajectory config.
+
+        Enforces a valid TCP port, a positive backend timeout, a trajectory
+        depth of at least one, and an http(s) backend URL when one is set.
+
+        Time complexity: O(1). Space complexity: O(1).
+        """
+        if not (1 <= self.proxy_port <= 65535):
+            raise ValueError(f"proxy_port must be in [1, 65535]; got {self.proxy_port}")
+        if self.mcp_backend_timeout <= 0.0:
+            raise ValueError(
+                f"mcp_backend_timeout must be > 0; got {self.mcp_backend_timeout}"
+            )
+        if self.max_trajectory_depth < 1:
+            raise ValueError(
+                f"max_trajectory_depth must be >= 1; got {self.max_trajectory_depth}"
+            )
+        if self.mcp_backend_url is not None:
+            scheme = urlparse(self.mcp_backend_url).scheme
+            if scheme not in _ALLOWED_BACKEND_SCHEMES:
+                raise ValueError(
+                    "mcp_backend_url scheme must be one of "
+                    f"{sorted(_ALLOWED_BACKEND_SCHEMES)}; got '{scheme}'"
+                )
         return self
 
 
