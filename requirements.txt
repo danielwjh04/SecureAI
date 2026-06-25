@@ -17,6 +17,11 @@ huggingface-hub>=0.24      # one-time weights download (scripts/fetch_model.py)
 sentence-transformers>=3.0  # all-MiniLM-L6-v2 sentence embeddings (CPU)
 torch>=2.2                  # sentence-transformers backend
 
+# Runtime — SP5 (Proxy). The transparent proxy is an HTTP service; httpx is the
+# async client used to forward approved calls to the MCP backend (and to drive
+# the ASGI app in tests). Not gated — required to run and test the proxy.
+httpx>=0.27                 # async MCP backend client + ASGI test transport
+
 # Test tooling
 pytest>=8.0
 pytest-asyncio>=0.23

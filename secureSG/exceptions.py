@@ -37,3 +37,7 @@ class InferenceError(ModelError):
 
 class AuthoringError(SecureSGError):
     """Raised when LLM policy authoring yields invalid or ungrounded output."""
+
+
+class BackendError(SecureSGError):
+    """Raised when forwarding a call to the MCP backend fails or is malformed."""
