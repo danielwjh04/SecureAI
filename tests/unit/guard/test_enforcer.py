@@ -13,7 +13,8 @@ from secureSG.audit.logger import AuditLogger
 from secureSG.audit.verifier import ChainStatus, ChainVerifier
 from secureSG.config.settings import Settings
 from secureSG.exceptions import ModelError
-from secureSG.guard.enforcer import Enforcer, load_policy
+from secureSG.guard.enforcer import Enforcer
+from secureSG.guard.policy import load_policy
 from secureSG.guard.screening import Screener
 from secureSG.guard.taint import SessionTaintStore
 from secureSG.models.provider import ModelProvider

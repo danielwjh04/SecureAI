@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 from secureSG.config.settings import Settings
-from secureSG.guard.enforcer import load_policy
+from secureSG.guard.policy import load_policy
 from secureSG.guard.screening import (
     Screener,
     escalate,

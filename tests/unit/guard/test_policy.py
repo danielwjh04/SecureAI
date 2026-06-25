@@ -6,7 +6,7 @@ import pytest
 
 from secureSG.config.settings import Settings
 from secureSG.exceptions import PolicyError
-from secureSG.guard.enforcer import CompiledPolicy, load_policy
+from secureSG.guard.policy import CompiledPolicy, load_policy
 from secureSG.guard.taint import TaintTier
 from secureSG.schemas.verdict import Verdict
 
