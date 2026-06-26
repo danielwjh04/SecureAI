@@ -74,3 +74,20 @@ pip install -r requirements-ml.txt
 python -m scripts.fetch_model
 export SECURESG_MODEL_PATH=model_weights/Qwen_Qwen3-0.6B-Q4_K_M.gguf
 ```
+
+### Or run it fully on Ollama (no ML wheels)
+
+Prefer to keep your laptop free of torch and llama-cpp? Point both the guard and
+the embeddings at a local [Ollama](https://ollama.com) server instead — SecureSG
+then needs nothing but `httpx`, and no content it screens ever leaves the machine.
+
+```
+ollama pull hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M
+ollama pull nomic-embed-text
+export SECURESG_GUARD_PROVIDER=ollama
+export SECURESG_EMBEDDING_PROVIDER=ollama
+```
+
+The judge still decides from SAFE/UNSAFE token logprobs — the same calibrated
+probability, just read over HTTP. Retune the semantic and drift thresholds for
+the new models.
