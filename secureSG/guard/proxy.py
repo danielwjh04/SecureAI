@@ -17,8 +17,9 @@ re-forwarding the call or re-writing the audit chain (CLAUDE.md section 2).
 """
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any, Final
 from uuid import UUID, uuid4
 
@@ -30,7 +31,7 @@ from secureSG.audit.logger import AuditLogger
 from secureSG.config.settings import Settings
 from secureSG.exceptions import BackendError, InferenceError, ModelError
 from secureSG.guard.backend import McpBackend
-from secureSG.guard.enforcer import Enforcer
+from secureSG.guard.enforcer import Enforcer, result_text
 from secureSG.guard.interceptor import (
     derive_result_transaction_id,
     derive_transaction_id,
@@ -41,7 +42,8 @@ from secureSG.guard.policy import CompiledPolicy
 from secureSG.guard.screening import serialize_call
 from secureSG.guard.taint import SessionTaintStore
 from secureSG.guard.trajectory import SessionTrajectory
-from secureSG.schemas.tool_call import JsonValue, ToolCallSchema
+from secureSG.schemas.events import DashboardEvent
+from secureSG.schemas.tool_call import JsonValue, ToolCallSchema, ToolResult
 from secureSG.schemas.verdict import PolicyVerdict, Verdict
 from secureSG.warden.embeddings import EmbeddingCache
 from secureSG.warden.intent import IntentDriftDetector
@@ -138,11 +140,14 @@ class SessionGuard:
         enforcer: Enforcer,
         mcp_backend: McpBackend,
         embedding_cache: EmbeddingCache | None,
+        emit: Callable[[DashboardEvent], None] | None = None,
     ) -> None:
         self.session_id = session_id
         self.lock = asyncio.Lock()
         self._enforcer = enforcer
         self._backend = mcp_backend
+        self._emit_fn = emit
+        self._preview_chars = settings.dashboard_content_preview_chars
         self._taint = SessionTaintStore()
         self._trajectory = SessionTrajectory(
             policy, max_depth=settings.max_trajectory_depth
@@ -162,6 +167,47 @@ class SessionGuard:
         """Ground drift detection in the agent's stated intent (once). O(embed)."""
         if self._drift is not None:
             await self._drift.set_intent(intent)
+
+    def _emit(self, event: DashboardEvent) -> None:
+        if self._emit_fn is not None:
+            self._emit_fn(event)
+
+    def _emit_verdict(self, verdict: PolicyVerdict) -> None:
+        self._emit(
+            DashboardEvent.verdict_event(
+                created_at=datetime.now(UTC),
+                session_id=self.session_id,
+                tool_name=verdict.tool_name,
+                verdict=verdict.verdict.value,
+                rule_id=verdict.rule_id,
+            )
+        )
+
+    def _emit_model_state(self, state: str) -> None:
+        self._emit(
+            DashboardEvent.model_state_event(
+                created_at=datetime.now(UTC),
+                session_id=self.session_id,
+                model_state=state,
+            )
+        )
+
+    def _emit_content(
+        self, result: ToolResult, screen: PolicyVerdict, txn: UUID
+    ) -> None:
+        text = self._taint.redact(result_text(result.result))[: self._preview_chars]
+        self._emit(
+            DashboardEvent.content_event(
+                created_at=datetime.now(UTC),
+                session_id=self.session_id,
+                tool_name=result.tool_name,
+                content=text,
+                verdict=screen.verdict.value,
+                rule_id=screen.rule_id,
+                reason=screen.reason,
+                transaction_id=str(txn),
+            )
+        )
 
     async def handle_call(self, body: dict[str, Any]) -> dict[str, Any]:
         """Run the full guard pipeline for one tool call; idempotent on replay.
@@ -193,6 +239,7 @@ class SessionGuard:
             verdict = await self._enforcer.evaluate(
                 body, self._taint, txn, session_id=self.session_id
             )
+            self._emit_verdict(verdict)
             return _deny(response_id, verdict)
         signals = [self._trajectory.assess(call.tool_name)]
         if self._drift is not None:
@@ -205,6 +252,7 @@ class SessionGuard:
             session_id=self.session_id,
         )
         self._trajectory.record(call.tool_name, verdict.verdict)
+        self._emit_verdict(verdict)
         if verdict.verdict is not Verdict.ALLOW:
             return _deny(response_id, verdict)
         return await self._forward_and_screen(call, response_id, txn)
@@ -224,17 +272,22 @@ class SessionGuard:
                 response_id, _BLOCK_CODE, "malformed backend response; blocked"
             )
         result_txn = derive_result_transaction_id(call_txn)
+        self._emit_model_state("screening")
         try:
             screen = await self._enforcer.screen_result(
                 result, result_txn, session_id=self.session_id
             )
         except ModelError:
+            self._emit_model_state("idle")
             return _jsonrpc_error(
                 response_id, _BLOCK_CODE, "result screening unavailable; blocked"
             )
+        self._emit_model_state("idle")
         if screen.verdict is Verdict.BLOCK:
+            self._emit_content(result, screen, result_txn)
             return _deny(response_id, screen)
         self._enforcer.observe_result(result, self._taint)
+        self._emit_content(result, screen, result_txn)
         return _jsonrpc_success(response_id, result.result)
 
 
@@ -246,11 +299,13 @@ def create_app(
     policy: CompiledPolicy,
     mcp_backend: McpBackend,
     embedding_cache: EmbeddingCache | None = None,
+    emit: Callable[[DashboardEvent], None] | None = None,
 ) -> FastAPI:
     """Wire the SecureSG proxy: session control plane plus the RPC data plane.
 
     The audit logger is opened on startup and the logger and backend are closed
-    on shutdown via the app lifespan. Time complexity: O(1).
+    on shutdown via the app lifespan. When ``emit`` is supplied, each session
+    publishes live dashboard events through it. Time complexity: O(1).
     """
 
     @asynccontextmanager
@@ -281,6 +336,7 @@ def create_app(
             enforcer=enforcer,
             mcp_backend=mcp_backend,
             embedding_cache=embedding_cache,
+            emit=emit,
         )
         if payload.intent is not None:
             await guard.set_intent(payload.intent)

@@ -15,6 +15,12 @@ from fastapi import FastAPI
 from secureSG.audit.chain import derive_genesis_hash
 from secureSG.audit.logger import AuditLogger
 from secureSG.config.settings import Settings
+from secureSG.dashboard import api as dashboard_api
+from secureSG.dashboard import ws as dashboard_ws
+from secureSG.dashboard.hub import EventHub
+from secureSG.dashboard.reader import AuditReader
+from secureSG.dashboard.service import DashboardService
+from secureSG.dashboard.store import DashboardStore
 from secureSG.exceptions import ModelLoadError, SecureSGError
 from secureSG.guard.backend import HttpMcpBackend, McpBackend
 from secureSG.guard.enforcer import Enforcer
@@ -69,17 +75,46 @@ def _build_embedding_cache(settings: Settings) -> EmbeddingCache | None:
     return EmbeddingCache(provider)
 
 
+def _build_dashboard(settings: Settings, genesis_hash: str) -> DashboardService | None:
+    """Build the dashboard service, or None when the dashboard is disabled."""
+    if not settings.dashboard_enabled:
+        return None
+    hub = EventHub(queue_size=settings.dashboard_ws_queue_size)
+    store = DashboardStore(
+        max_alerts=settings.dashboard_max_alerts,
+        max_registry=settings.dashboard_max_registry,
+    )
+    return DashboardService(
+        hub=hub, store=store, db_path=settings.db_path, genesis_hash=genesis_hash
+    )
+
+
+def _mount_dashboard(
+    app: FastAPI, settings: Settings, dashboard: DashboardService
+) -> None:
+    """Mount the dashboard routers and place its dependencies on app state."""
+    app.state.dashboard = dashboard
+    app.state.audit_reader = AuditReader(settings.db_path)
+    app.state.settings = settings
+    app.include_router(dashboard_api.router)
+    app.include_router(dashboard_ws.router)
+
+
 def build_app(settings: Settings) -> FastAPI:
     """Construct the proxy app, degrading to deterministic-only without models.
+
+    Mounts the dashboard (REST + WebSocket) and wires its live-event emitter
+    when ``dashboard_enabled``; otherwise the proxy runs headless.
 
     Time complexity: O(policy size) plus a one-time model load.
     Space complexity: O(model size).
     """
     backend = _build_backend(settings)
     policy = load_policy(settings.policy_dir)
+    genesis_hash = derive_genesis_hash(settings.genesis_seed)
     audit_logger = AuditLogger(
         db_path=settings.db_path,
-        genesis_hash=derive_genesis_hash(settings.genesis_seed),
+        genesis_hash=genesis_hash,
         journal_mode=settings.sqlite_journal_mode,
     )
     enforcer = Enforcer(
@@ -87,14 +122,19 @@ def build_app(settings: Settings) -> FastAPI:
         audit_logger=audit_logger,
         screener=_build_screener(settings, policy),
     )
-    return create_app(
+    dashboard = _build_dashboard(settings, genesis_hash)
+    app = create_app(
         settings=settings,
         enforcer=enforcer,
         audit_logger=audit_logger,
         policy=policy,
         mcp_backend=backend,
         embedding_cache=_build_embedding_cache(settings),
+        emit=dashboard.handle if dashboard is not None else None,
     )
+    if dashboard is not None:
+        _mount_dashboard(app, settings, dashboard)
+    return app
 
 
 def main() -> None:

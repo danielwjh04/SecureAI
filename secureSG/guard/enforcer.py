@@ -28,7 +28,7 @@ from secureSG.schemas.tool_call import JsonValue, ToolCallSchema, ToolResult
 from secureSG.schemas.verdict import PolicyVerdict, Verdict
 
 
-def _result_text(result: JsonValue) -> str:
+def result_text(result: JsonValue) -> str:
     """Flatten a tool result to text for content screening. O(result size)."""
     if isinstance(result, str):
         return result
@@ -210,7 +210,7 @@ class Enforcer:
             )
         else:
             decision = await self._screener.screen_content(
-                _result_text(result.result)
+                result_text(result.result)
             )
             verdict = decision.model_copy(update={"tool_name": result.tool_name})
         await self._audit.append(

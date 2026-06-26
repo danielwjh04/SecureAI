@@ -7,7 +7,7 @@ fail-closed degradation, idempotent replay, concurrency, and chain integrity.
 
 import asyncio
 import sqlite3
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -25,6 +25,7 @@ from secureSG.guard.proxy import create_app
 from secureSG.guard.screening import Screener
 from secureSG.models.provider import ModelProvider
 from secureSG.schemas.assessment import AssessmentTask, SemanticAssessment
+from secureSG.schemas.events import DashboardEvent
 from secureSG.schemas.tool_call import JsonValue
 from secureSG.warden.embeddings import EmbeddingCache, EmbeddingProvider, Vector
 
@@ -88,6 +89,7 @@ async def proxy_client(
     with_screener: bool = True,
     with_drift: bool = False,
     backend: McpBackend | None = None,
+    emit: Callable[[DashboardEvent], None] | None = None,
 ) -> AsyncIterator[tuple[httpx.AsyncClient, Path]]:
     settings = Settings(_env_file=None)
     db_path = tmp_path / "audit.db"
@@ -113,6 +115,7 @@ async def proxy_client(
         policy=policy,
         mcp_backend=mcp,
         embedding_cache=cache,
+        emit=emit,
     )
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
@@ -305,6 +308,20 @@ async def test_drift_aligned_call_is_forwarded(tmp_path: Path) -> None:
             f"/sessions/{session}/rpc", json=_rpc(1, "read_file", {"path": "/x"})
         )
     assert response.json()["result"] == "ordinary file contents"
+
+
+async def test_proxy_emits_dashboard_events(tmp_path: Path) -> None:
+    events: list[DashboardEvent] = []
+    async with proxy_client(tmp_path, emit=events.append) as (client, _db):
+        session = await _new_session(client)
+        await client.post(f"/sessions/{session}/rpc", json=_rpc(1, "read_secret"))
+    kinds = {event.kind.value for event in events}
+    assert "VERDICT" in kinds
+    assert "CONTENT" in kinds
+    assert "MODEL_STATE" in kinds
+    # the secret is taint-redacted before it reaches a dashboard event
+    content = next(e.content for e in events if e.kind.value == "CONTENT")
+    assert _SECRET not in (content or "")
 
 
 async def test_intent_is_accepted_without_drift(tmp_path: Path) -> None:

@@ -66,6 +66,30 @@ def test_build_app_wires_models_when_available(
     assert main_mod.build_app(_settings(tmp_path)) is not None
 
 
+def test_build_app_mounts_dashboard_when_enabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main_mod, "load_guard_provider", _raise_model_load)
+    monkeypatch.setattr(main_mod, "load_embedding_provider", _raise_model_load)
+    app = main_mod.build_app(_settings(tmp_path))
+    assert "/dashboard/summary" in app.openapi()["paths"]
+
+
+def test_build_app_omits_dashboard_when_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main_mod, "load_guard_provider", _raise_model_load)
+    monkeypatch.setattr(main_mod, "load_embedding_provider", _raise_model_load)
+    settings = Settings(
+        _env_file=None,
+        db_path=tmp_path / "audit.db",
+        mcp_backend_url="http://mcp.local/rpc",
+        dashboard_enabled=False,
+    )
+    app = main_mod.build_app(settings)
+    assert "/dashboard/summary" not in app.openapi()["paths"]
+
+
 def test_main_runs_uvicorn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
