@@ -7,15 +7,10 @@ pydantic-settings>=2.2
 aiosqlite>=0.20
 pyyaml>=6.0
 
-# Runtime — SP3 (GuardFormer semantic layer). Both are imported lazily, so the
-# package and the full non-gated test suite import and run without them present.
-llama-cpp-python>=0.2.90   # local Qwen3-0.6B Q4_K_M GGUF inference (CPU)
-huggingface-hub>=0.24      # one-time weights download (scripts/fetch_model.py)
-
-# Runtime — SP4 (Warden embeddings). Lazy-imported and gated like the SP3 model;
-# the non-gated test suite runs on a stub and needs neither.
-sentence-transformers>=3.0  # all-MiniLM-L6-v2 sentence embeddings (CPU)
-torch>=2.2                  # sentence-transformers backend
+# Runtime — optional ML wheels (the real Qwen judge + MiniLM embeddings) live in
+# requirements-ml.txt. They are lazy-imported and gated: this package and the
+# full non-gated test suite import and run without them, so the default install
+# and CI stay lean. Install them only for real-model validation (see README).
 
 # Runtime — SP5 (Proxy). The transparent proxy is an HTTP service; httpx is the
 # async client used to forward approved calls to the MCP backend (and to drive
@@ -33,3 +28,4 @@ hypothesis>=6.100
 # Lint + type-check (strict typing is a project requirement)
 ruff>=0.6
 mypy>=1.11
+types-PyYAML>=6.0  # stubs for pyyaml so mypy --strict types policy/anchor loads
