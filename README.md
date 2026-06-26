@@ -17,7 +17,7 @@ A safety checkpoint for AI agents — the kind that can read your files, send em
 - Python 3.12 with FastAPI and Uvicorn — the guard is a transparent HTTP proxy
 - SQLite for the append-only, SHA-256 hash-chained audit log
 - React 19, Vite, and TypeScript for the dashboard
-- An optional local LLM (Qwen3-0.6B via llama-cpp) and MiniLM embeddings, behind swappable interfaces
+- An optional model layer behind swappable interfaces — a small local LLM plus embeddings, served either by Ollama (no extra wheels) or in-process via llama-cpp and sentence-transformers
 - pytest, ruff, and mypy --strict for the test and type-check gate
 
 ## Running locally
@@ -67,19 +67,9 @@ Other checks: `ruff check .`, `mypy secureSG tests scripts`, and `pytest` (the f
 
 ## Using real models (optional)
 
-SecureSG runs on its deterministic rules out of the box. To switch on the AI second-opinion layer, install the optional model dependencies, download the weights, and point SecureSG at them:
+SecureSG runs on its deterministic rules out of the box — everything above works with no model installed. The optional model layer adds a second opinion: a small language model that scores borderline content for risk, plus embeddings that flag when an agent drifts from its stated task. It can only ever make a verdict *stricter*, never weaker. Pick one of two backends — both sit behind the same swappable interface.
 
-```
-pip install -r requirements-ml.txt
-python -m scripts.fetch_model
-export SECURESG_MODEL_PATH=model_weights/Qwen_Qwen3-0.6B-Q4_K_M.gguf
-```
-
-### Or run it fully on Ollama (no ML wheels)
-
-Prefer to keep your laptop free of torch and llama-cpp? Point both the guard and
-the embeddings at a local [Ollama](https://ollama.com) server instead — SecureSG
-then needs nothing but `httpx`, and no content it screens ever leaves the machine.
+**Option A — Ollama (recommended, no Python ML wheels).** Keep your machine free of torch and llama-cpp: run a local [Ollama](https://ollama.com) server and point both the guard and the embeddings at it. Nothing but `httpx` is added, and no content SecureSG screens ever leaves the machine.
 
 ```
 ollama pull hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M
@@ -88,6 +78,14 @@ export SECURESG_GUARD_PROVIDER=ollama
 export SECURESG_EMBEDDING_PROVIDER=ollama
 ```
 
-The judge still decides from SAFE/UNSAFE token logprobs — the same calibrated
-probability, just read over HTTP. Retune the semantic and drift thresholds for
-the new models.
+The judge decides from the model's SAFE/UNSAFE token logprobs — the same calibrated probability as the in-process path, just read over HTTP from your local Ollama. Retune the semantic and drift thresholds for your chosen models.
+
+**Option B — in-process (llama-cpp + sentence-transformers).** Install the optional wheels, download the weights, and point SecureSG at the file:
+
+```
+pip install -r requirements-ml.txt
+python -m scripts.fetch_model
+export SECURESG_MODEL_PATH=model_weights/Qwen_Qwen3-0.6B-Q4_K_M.gguf
+```
+
+With either option set, start the proxy as shown under **Running locally** above and it loads the real judge instead of running deterministic-only.
