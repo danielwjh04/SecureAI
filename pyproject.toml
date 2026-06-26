@@ -16,6 +16,9 @@ source = ["secureSG"]
 
 [tool.coverage.report]
 show_missing = true
+# CLAUDE.md section 8: 85% is the enforced floor (the suite holds 100%). Declared
+# here so a bare ``pytest`` and CI apply the same gate from one source of truth.
+fail_under = 85
 exclude_also = [
     "@(abc\\.)?abstractmethod",
 ]
