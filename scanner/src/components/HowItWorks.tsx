@@ -60,10 +60,7 @@ export function HowItWorks() {
           <span className="w-1.5 h-1.5 rounded-full bg-allow live-dot" />
           How it works
         </p>
-        <h2
-          style={{ fontFamily: "'Instrument Serif', serif" }}
-          className="text-3xl md:text-[44px] font-medium tracking-[-0.01em] text-white"
-        >
+        <h2 className="text-3xl md:text-[44px] font-bold tracking-[-0.02em] text-white">
           Five passes. One proof.
         </h2>
         <p className="text-white/65 text-sm md:text-[15px] max-w-2xl">

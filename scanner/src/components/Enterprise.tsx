@@ -270,10 +270,7 @@ export function Enterprise() {
           <span className="w-1.5 h-1.5 rounded-full bg-allow live-dot" />
           Bastion for teams
         </p>
-        <h1
-          style={{ fontFamily: "'Instrument Serif', serif" }}
-          className="text-4xl md:text-[56px] font-medium tracking-[-0.01em] leading-[1.08] bg-gradient-to-b from-white via-white to-white/85 bg-clip-text text-transparent"
-        >
+        <h1 className="text-4xl md:text-[56px] font-bold tracking-[-0.02em] leading-[1.08] bg-gradient-to-b from-white via-white to-white/85 bg-clip-text text-transparent">
           Verify before your agents act.
         </h1>
         <p className="text-white/70 text-sm md:text-[15px] leading-relaxed max-w-2xl">
@@ -294,10 +291,7 @@ export function Enterprise() {
           {kpis.map(({ Icon, value, label, footnote, accent }) => (
             <div key={label} className="liquid-glass rounded-2xl p-5 flex flex-col gap-3">
               <Icon className={`w-5 h-5 ${accent}`} />
-              <div
-                className={`text-3xl md:text-4xl font-medium tabular-nums ${accent}`}
-                style={{ fontFamily: "'Instrument Serif', serif" }}
-              >
+              <div className={`text-3xl md:text-4xl font-bold tabular-nums ${accent}`}>
                 {value}
               </div>
               <div className="text-white/80 text-sm font-medium">{label}</div>
@@ -312,10 +306,7 @@ export function Enterprise() {
       {/* 3 · API integration ---------------------------------------------- */}
       <motion.section {...RISE} className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
-          <h2
-            style={{ fontFamily: "'Instrument Serif', serif" }}
-            className="text-2xl md:text-[34px] font-medium tracking-[-0.01em] text-white"
-          >
+          <h2 className="text-2xl md:text-[34px] font-bold tracking-[-0.02em] text-white">
             Call it from your pipeline.
           </h2>
           <p className="text-white/55 text-sm md:text-[15px] leading-relaxed max-w-2xl">
@@ -355,10 +346,7 @@ export function Enterprise() {
 
       {/* 4 · How it fits your agents -------------------------------------- */}
       <motion.section {...RISE} className="flex flex-col gap-5">
-        <h2
-          style={{ fontFamily: "'Instrument Serif', serif" }}
-          className="text-2xl md:text-[34px] font-medium tracking-[-0.01em] text-white"
-        >
+        <h2 className="text-2xl md:text-[34px] font-bold tracking-[-0.02em] text-white">
           How it fits your agents.
         </h2>
         <div className="flex flex-col md:flex-row items-stretch gap-3">
@@ -413,10 +401,7 @@ export function Enterprise() {
 
       {/* 5 · Guarantees --------------------------------------------------- */}
       <motion.section {...RISE} className="flex flex-col gap-5">
-        <h2
-          style={{ fontFamily: "'Instrument Serif', serif" }}
-          className="text-2xl md:text-[34px] font-medium tracking-[-0.01em] text-white"
-        >
+        <h2 className="text-2xl md:text-[34px] font-bold tracking-[-0.02em] text-white">
           The guarantees you get.
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

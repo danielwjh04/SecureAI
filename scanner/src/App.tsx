@@ -6,8 +6,8 @@
  *   - scanner, idle/scan -> the scrollable landing (hero + how-it-works + examples)
  *   - scanner, done      -> the full result report (scrolls; video dimmed behind)
  *   - scanner, error     -> a fail-closed error card
- * The navbar mark and Scanner link call `reset`, so they always return to a
- * fresh scanner landing.
+ * The navbar mark calls `reset`, so it always returns to a fresh scanner
+ * landing.
  */
 
 import type { ReactNode } from 'react'
@@ -26,7 +26,7 @@ import { REPO_URL } from './config'
 import type { ScanState } from './scan/scanMachine'
 
 const SHELL =
-  'relative bg-black w-screen min-h-screen flex flex-col overflow-x-hidden selection:bg-white selection:text-black'
+  'relative bg-black w-screen min-h-screen flex flex-col selection:bg-white selection:text-black'
 
 /** The site footer: the product mark (Bastion, by the SecureSG team) + links. */
 function Footer(): ReactNode {
