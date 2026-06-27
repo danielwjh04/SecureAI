@@ -1,8 +1,6 @@
 // DTOs faithful to the SecureSG backend wire shape (Pydantic model_dump). Every
 // optional backend field serializes as `null`, not absent, so they are `T | null`.
 
-export type Verdict = 'ALLOW' | 'BLOCK' | 'HUMAN_APPROVAL_REQUIRED'
-
 export type DashboardEventKind = 'VERDICT' | 'CONTENT' | 'MODEL_STATE'
 
 export interface DashboardEvent {
