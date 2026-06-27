@@ -1,6 +1,6 @@
 /**
  * The hero: the dark cinematic landing surface. A security-forward tagline, a
- * bold sans headline, a one-line explanation of the pipeline, and the
+ * Instrument Serif headline, a one-line explanation of the pipeline, and the
  * scan control. While a scan runs, the control swaps to the live pipeline
  * stepper in place (same focal point), then the app transitions to the result.
  */
@@ -47,7 +47,8 @@ export function Hero({ state, onScan }: HeroProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="text-5xl md:text-[68px] font-bold tracking-[-0.03em] leading-[1.05] text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]"
+          style={{ fontFamily: "'Instrument Serif', serif" }}
+          className="text-5xl md:text-[68px] font-medium tracking-[-0.01em] leading-[1.05] text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]"
         >
           Don't trust the skill.
           <br className="hidden md:block" /> Verify it.
