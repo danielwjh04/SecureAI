@@ -11,6 +11,11 @@ Conventional Commits specification and reports any violations with a suggested
 correction. Read-only: it inspects the message text it is given and prints
 feedback, nothing else.
 
+This is the benign control fixture for the Skill Safety Scanner demo. It should
+stay boring: no shell installers, no hidden instructions, no raw-IP hosts, no URL
+shorteners, no punycode domains, and no instructions to read credentials or send
+data away from the machine.
+
 ## How it works
 
 1. The commit message is split into header, body, and footer.
@@ -28,7 +33,9 @@ feedback, nothing else.
 
 ## Notes
 
-The skill only reads the commit text supplied to it. It makes no network
-requests and never reads files outside the message under review, so no
-credentials, environment variables, or repository contents ever leave the
+At execution time, the skill only reads the commit text supplied to it. It makes
+no network requests and never reads files outside the message under review, so
+no credentials, environment variables, or repository contents ever leave the
 machine.
+
+Scanner expectation: `ALLOW`.
