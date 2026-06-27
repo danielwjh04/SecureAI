@@ -14,7 +14,7 @@ Two subsystems:
 - **Guard**: inline interceptor that evaluates tool calls (ALLOW / BLOCK / HUMAN_APPROVAL_REQUIRED)
 - **Warden**: governance engine that performs risk discovery, scope reduction, and intent-to-action drift detection
 
-Stack: Python 3.12+, FastAPI, Uvicorn, PyTorch, HuggingFace Transformers (Qwen3-0.8B q4_K_M), Pydantic, SQLite, WebSockets/HTTP.
+Stack: Python 3.12+, FastAPI, Uvicorn, the OpenAI API (semantic guard judge + embeddings), Pydantic, SQLite, WebSockets/HTTP, with an optional offline embedding backend (sentence-transformers on PyTorch).
 
 This is the official github repo: https://github.com/danielwjh04/SecureSG.git
 
@@ -37,7 +37,7 @@ SecureSG is a **build2026 / PetaniAI** hackathon submission. Weigh every feature
 | Innovation & Sponsor Tech | 30% | **Highest weight.** A sponsor tool (OpenAI/Codex, Exa, Cursor, Zo) must be *central and inventive*, not bolted on. The core idea must read as genuinely fresh. |
 
 ### Strategic priority — the 30% lever
-The single biggest scoring lever is **sponsor-tech centrality (30%)**. SecureSG currently centers on Claude Code + Ollama — **neither is a listed sponsor.** Closing this gap is the top non-engineering priority. Make one sponsor tool load-bearing in the demo, e.g.:
+The single biggest scoring lever is **sponsor-tech centrality (30%)**. SecureSG now centers its semantic layer on **OpenAI**, a listed sponsor: the guard judge, policy authoring, and the default embedding backend all run on the OpenAI API. Keep that sponsor tech load-bearing in the demo, e.g.:
 - **OpenAI / Codex** — guard a Codex agent via its PreToolUse hooks (same mechanism as the existing Claude Code integration). Most natural fit; closes the sponsor gap directly.
 - **Exa** — power *dynamic* URL/content reputation in the Warden, replacing the static blocklist with live search-based risk discovery.
 - **Cursor / Zo** — protect the agent operating inside those environments.
@@ -333,12 +333,12 @@ This is a security product and you are a security senior engineer working for to
 - Taint propagation follows data flow through the call graph. A derived field inherits the highest risk tier of its sources.
 - Sending any field with taint tier `HIGH` to an external communication tool is an automatic `BLOCK` before the semantic check runs.
 
-### Model Inference (GuardFormer)
+### Model Inference (OpenAI guard provider)
 
-- Model weights load once at startup. Never reload per request.
-- Inference runs in a dedicated thread pool via `asyncio.to_thread()`.
+- The OpenAI client is constructed once at startup from `OPENAI_API_KEY`. Never reconstruct it per request.
+- Inference is an `async` call to the OpenAI API. On any OpenAI error the provider raises `InferenceError` so the Screener fails closed.
 - The model does not receive raw user PII. Strip identifying fields before inference if the policy tier is `REDACT`.
-- Model output is a probability vector. The ALLOW / HUMAN_APPROVAL_REQUIRED / BLOCK thresholds live in `settings.py`, not in the inference function.
+- Model output is a probability that the content is unsafe, returned via strict JSON-schema structured output. The ALLOW / HUMAN_APPROVAL_REQUIRED / BLOCK thresholds live in `settings.py`, not in the inference function.
 
 ### Fail-Closed Default
 
@@ -375,8 +375,8 @@ secureSG/
         logger.py          # Append-only audit log writer
         verifier.py        # Chain integrity checker
     models/
-        guardformer.py     # Qwen3-0.8B q4_K_M inference wrapper
-        loader.py          # One-time model loader on startup
+        openai_provider.py # OpenAI guard provider (P(unsafe) via structured output)
+        loader.py          # One-time guard-provider construction on startup
     schemas/
         tool_call.py       # Pydantic schemas for JSON-RPC
         verdict.py         # Pydantic schemas for policy verdicts
@@ -483,7 +483,7 @@ pytest --cov=secureSG --cov-fail-under=85
 python -m secureSG.main
 ```
 
-Qwen3-0.8B q4_K_M weights load from the `MODEL_PATH` env var. They are never committed.
+The semantic guard judge calls the OpenAI API; set `OPENAI_API_KEY` in `.env`. With no key, the proxy runs deterministic-only (no Screener, intent-drift disabled). API keys are never committed.
 
 ---
 
