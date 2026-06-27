@@ -1,0 +1,50 @@
+/**
+ * The single home for every configurable literal the SPA needs: API paths, the
+ * gallery data location, the scan progress step labels, and the animation
+ * pacing. No component hardcodes any of these — they import from here so the
+ * worker contract and the UI copy stay in lockstep.
+ */
+
+/** Same-origin API endpoints. The Worker serves the SPA and these routes. */
+export const API = {
+  scan: '/api/scan',
+  verify: '/api/verify',
+} as const
+
+/** Static path to the prebuilt gallery dataset shipped alongside the SPA. */
+export const GALLERY_DATA_PATH = '/gallery.json' as const
+
+/**
+ * Ordered labels for the scan progress stepper. The order mirrors the proof
+ * step kinds the Worker emits, so the animation reads as the real pipeline.
+ */
+export const SCAN_STEP_LABELS = [
+  'Parsing SKILL.md',
+  'Extracting links',
+  'Resolving redirect cascades',
+  'Querying Exa reputation',
+  'Running prompt-injection judge',
+  'Sealing proof chain',
+] as const
+
+/** Milliseconds between progress-step advances (decoupled from scan latency). */
+export const SCAN_STEP_PACING_MS = 600
+
+/**
+ * Debounce window before the proof inspector re-hashes the chain after an edit.
+ * Keeps the in-browser `verifyChain` pass off the keystroke hot path without
+ * feeling laggy.
+ */
+export const PROOF_REHASH_DEBOUNCE_MS = 180
+
+/**
+ * The scanner's safety caps, surfaced in the UI so users see the bounded
+ * guarantees of each pass. These mirror the worker's enforced limits (redirect
+ * depth, Exa fan-out, judged content size); they are display copy, not the
+ * authority — the Worker enforces the real bounds.
+ */
+export const CAPS = {
+  redirectDepth: 'Redirect cascades traced up to a bounded depth',
+  exaFanOut: 'Exa reputation queried for final destinations only',
+  judgeContent: 'Prompt-injection judge runs on the parsed skill text',
+} as const
