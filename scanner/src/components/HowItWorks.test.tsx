@@ -13,13 +13,14 @@ describe('HowItWorks', () => {
     ).toBeInTheDocument()
   })
 
-  it('sits flush under the sticky navbar (reduced top padding on the #how anchor)', () => {
+  it('clears the floating navbar with its own top padding on the #how anchor', () => {
     const { container } = render(<HowItWorks />)
     const section = container.querySelector('#how')
     expect(section).not.toBeNull()
-    // Trimmed top padding so the "How it works" jump lands close under the navbar
-    // rather than below a tall void; the lower rhythm (pb-20) is unchanged.
-    expect(section?.className).toContain('pt-10')
+    // The anchor lands flush at the viewport top (no `:target` scroll-margin); its
+    // own top padding clears the floating navbar so the heading is not hidden
+    // behind it, while the lower rhythm (pb-20) stays asymmetric, not py-20.
+    expect(section?.className).toContain('pt-[8.5rem]')
     expect(section?.className).not.toContain('py-20')
   })
 

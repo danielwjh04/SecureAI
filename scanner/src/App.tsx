@@ -138,21 +138,40 @@ function App(): ReactNode {
   useEffect(() => {
     const sameRoute = previousRouteRef.current === route
     previousRouteRef.current = route
-    const frame = window.requestAnimationFrame(() => {
-      if (target === 'how' || target === 'verify') {
-        // Jump straight to the section. A smooth scroll here can stall before it
-        // arrives — interrupted by a route remount, or simply giving up on the
-        // landing — and strand the page with the hero video still showing above
-        // the section. Landing instantly puts it flush under the navbar (the
-        // `:target` scroll-margin clears the navbar) with no gap.
-        document
-          .getElementById(target)
-          ?.scrollIntoView({ block: 'start', behavior: 'instant' })
-        return
-      }
-      window.scrollTo({ top: 0, left: 0, behavior: sameRoute ? 'auto' : 'instant' })
-    })
-    return () => window.cancelAnimationFrame(frame)
+
+    // Non-anchor routes reset to the top.
+    if (target !== 'how' && target !== 'verify') {
+      const frame = window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: sameRoute ? 'auto' : 'instant' })
+      })
+      return () => window.cancelAnimationFrame(frame)
+    }
+
+    // Anchor jump. Coming from another route the landing mounts fresh, so the
+    // first frame fires before the hero web font and height settle: a single
+    // scrollIntoView lands against a layout that then grows and strands the
+    // section under the navbar. Re-scroll on the next frame and once fonts
+    // resolve. The section carries its own top padding, so each landing is flush
+    // (the black wrapper covers the hero video, no scroll-margin offset).
+    let cancelled = false
+    const frames: number[] = []
+    const land = (): void => {
+      if (cancelled) return
+      document
+        .getElementById(target)
+        ?.scrollIntoView({ block: 'start', behavior: 'instant' })
+    }
+    frames.push(
+      window.requestAnimationFrame(() => {
+        land()
+        frames.push(window.requestAnimationFrame(land))
+      }),
+    )
+    void document.fonts?.ready?.then(land)
+    return () => {
+      cancelled = true
+      frames.forEach(window.cancelAnimationFrame)
+    }
   }, [route, target])
 
   // Enterprise surface.

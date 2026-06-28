@@ -46,15 +46,15 @@ describe('VerifyIt', () => {
     ).toBeInTheDocument()
   })
 
-  it('sits flush under the sticky navbar (reduced top padding on the #verify anchor)', () => {
+  it('clears the floating navbar with its own top padding on the #verify anchor', () => {
     mockGallery({ generatedAt: '', entries: [] })
     const { container } = render(<VerifyIt />)
     const section = container.querySelector('#verify')
     expect(section).not.toBeNull()
-    // The anchor section keeps its lower rhythm (pb-20) but trims the top gap so,
-    // combined with the `:target` scroll-margin, the heading lands close under the
-    // navbar instead of leaving a tall void.
-    expect(section?.className).toContain('pt-10')
+    // The anchor lands flush at the viewport top (no `:target` scroll-margin); its
+    // own top padding clears the floating navbar so the heading is not hidden
+    // behind it, while the lower rhythm (pb-20) stays asymmetric, not py-20.
+    expect(section?.className).toContain('pt-[8.5rem]')
     expect(section?.className).not.toContain('py-20')
   })
 
