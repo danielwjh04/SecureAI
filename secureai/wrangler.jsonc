@@ -15,6 +15,9 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    { "pattern": "secureai.zurielst.com", "custom_domain": true }
+  ],
   "ai": { "binding": "AI" },
   "d1_databases": [
     { "binding": "DB", "database_name": "secureai", "database_id": "bf2be342-138a-4367-beea-fad391461259" }
