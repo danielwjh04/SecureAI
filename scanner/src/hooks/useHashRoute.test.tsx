@@ -29,6 +29,15 @@ describe('useHashRoute', () => {
     expect(result.current).toEqual({ route: 'scanner', target: 'how' })
   })
 
+  it('maps the verify hash to the scanner route and verify target', () => {
+    replaceHash('')
+    const { result } = renderHook(() => useHashRoute())
+
+    act(() => dispatchHash('#verify'))
+
+    expect(result.current).toEqual({ route: 'scanner', target: 'verify' })
+  })
+
   it.each([
     ['#pricing', 'pricing'],
     ['#login', 'login'],

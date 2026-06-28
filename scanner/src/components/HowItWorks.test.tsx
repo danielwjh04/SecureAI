@@ -13,6 +13,16 @@ describe('HowItWorks', () => {
     ).toBeInTheDocument()
   })
 
+  it('sits flush under the sticky navbar (reduced top padding on the #how anchor)', () => {
+    const { container } = render(<HowItWorks />)
+    const section = container.querySelector('#how')
+    expect(section).not.toBeNull()
+    // Trimmed top padding so the "How it works" jump lands close under the navbar
+    // rather than below a tall void; the lower rhythm (pb-20) is unchanged.
+    expect(section?.className).toContain('pt-10')
+    expect(section?.className).not.toContain('py-20')
+  })
+
   it('renders all six pipeline steps in order', () => {
     render(<HowItWorks />)
     const titles = ['Parse', 'Trace', 'Rules', 'Indicators', 'Check', 'Seal']

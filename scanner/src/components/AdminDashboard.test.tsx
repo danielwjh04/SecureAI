@@ -130,6 +130,17 @@ describe('AdminDashboard', () => {
     expect(screen.getByText(/Generated/)).toBeInTheDocument()
   })
 
+  it('renders the donut center "N users" label by default (not hovered)', async () => {
+    vi.spyOn(client, 'fetchAdminOverview').mockResolvedValue(overview())
+    vi.spyOn(client, 'fetchMembers').mockResolvedValue(membersPage([member()]))
+    render(<AdminDashboard />)
+    // The center label block is gated on the donut's hover state; in the default
+    // (un-hovered) render it must be present, so the "N users" readout shows when
+    // no tooltip is competing for the donut hole.
+    await waitFor(() => expect(screen.getByText('users')).toBeInTheDocument())
+    expect(screen.getAllByText('42').length).toBeGreaterThanOrEqual(1)
+  })
+
   it('renders an intentional empty state when there is no activity', async () => {
     vi.spyOn(client, 'fetchAdminOverview').mockResolvedValue(emptyOverview())
     vi.spyOn(client, 'fetchMembers').mockResolvedValue(membersPage([]))

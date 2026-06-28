@@ -139,7 +139,7 @@ function App(): ReactNode {
     const sameRoute = previousRouteRef.current === route
     previousRouteRef.current = route
     const frame = window.requestAnimationFrame(() => {
-      if (target === 'how') {
+      if (target === 'how' || target === 'verify') {
         // Jump straight to the section. A smooth scroll here can stall before it
         // arrives — interrupted by a route remount, or simply giving up on the
         // landing — and strand the page with the hero video still showing above
@@ -264,7 +264,7 @@ function App(): ReactNode {
       <BackgroundVideo />
       <Navbar onHome={controller.reset} auth={auth} />
       <Hero state={state} onScan={controller.scan} />
-      <div className="relative z-10 bg-black/60">
+      <div className="relative z-10 bg-black">
         <HowItWorks />
         <EaseOfUse />
         <VerifyIt />

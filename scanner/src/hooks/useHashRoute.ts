@@ -16,7 +16,7 @@ export type Route =
   | 'register'
   | 'dashboard'
   | 'admin'
-export type RouteTarget = 'top' | 'how'
+export type RouteTarget = 'top' | 'how' | 'verify'
 
 export interface HashRoute {
   route: Route
@@ -27,7 +27,8 @@ export interface HashRoute {
  * Map each known hash to its route. The leading `#` is stripped so a hash with a
  * trailing query (none today, but cheap insurance) still resolves. Every entry
  * lands on the `top` target except `#how`, which deep-links into the scanner
- * landing's how-it-works section.
+ * landing's how-it-works section, and `#verify`, which deep-links into the
+ * verify-it section.
  */
 const HASH_ROUTES: Record<string, HashRoute> = {
   enterprise: { route: 'enterprise', target: 'top' },
@@ -37,6 +38,7 @@ const HASH_ROUTES: Record<string, HashRoute> = {
   dashboard: { route: 'dashboard', target: 'top' },
   admin: { route: 'admin', target: 'top' },
   how: { route: 'scanner', target: 'how' },
+  verify: { route: 'scanner', target: 'verify' },
 }
 
 const DEFAULT_ROUTE: HashRoute = { route: 'scanner', target: 'top' }

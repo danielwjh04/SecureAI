@@ -46,6 +46,18 @@ describe('VerifyIt', () => {
     ).toBeInTheDocument()
   })
 
+  it('sits flush under the sticky navbar (reduced top padding on the #verify anchor)', () => {
+    mockGallery({ generatedAt: '', entries: [] })
+    const { container } = render(<VerifyIt />)
+    const section = container.querySelector('#verify')
+    expect(section).not.toBeNull()
+    // The anchor section keeps its lower rhythm (pb-20) but trims the top gap so,
+    // combined with the `:target` scroll-margin, the heading lands close under the
+    // navbar instead of leaving a tall void.
+    expect(section?.className).toContain('pt-10')
+    expect(section?.className).not.toContain('py-20')
+  })
+
   it('depicts the real scan -> verify round trip with both outcomes', () => {
     mockGallery({ generatedAt: '', entries: [] })
     render(<VerifyIt />)

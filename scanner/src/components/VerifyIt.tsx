@@ -98,7 +98,7 @@ export function VerifyIt() {
   }, [])
 
   return (
-    <section id="verify" className="max-w-5xl mx-auto px-6 py-20">
+    <section id="verify" className="max-w-5xl mx-auto px-6 pt-10 pb-20">
       <motion.div
         {...RISE}
         className="flex flex-col items-center text-center gap-3 mb-10"

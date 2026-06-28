@@ -353,6 +353,10 @@ function TierBreakdown({ tiers, total }: { tiers: AdminTierCounts; total: number
     { name: 'Enterprise', value: tiers.enterprise, color: COLOR.enterprise },
   ]
   const hasUsers = total > 0
+  // The hover tooltip (e.g. "Pro 3") paints in the donut hole, where the centered
+  // "N users" label also sits. Hide that label while a segment is hovered so the
+  // two never overlap; it returns the moment the cursor leaves the ring.
+  const [hovered, setHovered] = useState(false)
   return (
     <div className="liquid-glass rounded-2xl p-5 flex flex-col gap-4">
       <h3 className="text-[12px] font-mono uppercase tracking-[0.14em] text-white/55">
@@ -369,6 +373,8 @@ function TierBreakdown({ tiers, total }: { tiers: AdminTierCounts; total: number
               outerRadius={78}
               paddingAngle={hasUsers ? 2 : 0}
               stroke="none"
+              onMouseEnter={() => setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
             >
               {(hasUsers ? data : [{ name: 'None', value: 1, color: 'rgba(255,255,255,0.08)' }]).map(
                 (entry) => (
@@ -381,17 +387,19 @@ function TierBreakdown({ tiers, total }: { tiers: AdminTierCounts; total: number
             )}
           </PieChart>
         </ResponsiveContainer>
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span
-            className="text-2xl font-medium text-white tabular-nums"
-            style={{ fontFamily: "'Instrument Serif', serif" }}
-          >
-            {formatCount(total)}
-          </span>
-          <span className="text-white/45 font-mono text-[10px] uppercase tracking-[0.14em]">
-            users
-          </span>
-        </div>
+        {!hovered && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span
+              className="text-2xl font-medium text-white tabular-nums"
+              style={{ fontFamily: "'Instrument Serif', serif" }}
+            >
+              {formatCount(total)}
+            </span>
+            <span className="text-white/45 font-mono text-[10px] uppercase tracking-[0.14em]">
+              users
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex items-center justify-center gap-4 text-[11px] font-mono">
         {data.map((entry) => (
