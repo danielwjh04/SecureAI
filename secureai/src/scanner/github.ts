@@ -12,10 +12,14 @@
  *
  * Resolution strategy (fewest subrequests first):
  *   - blob URL  → deterministic rewrite to raw.githubusercontent.com (0 API calls).
- *   - tree URL  → list the ref's file tree once, pick the SKILL.md under the dir.
- *   - repo root → read the repo's default branch, then list its tree, pick the
- *                 SKILL.md. Selection is deterministic (shallowest path, then
- *                 lexicographic) so the produced proof is reproducible.
+ *   - repo/tree → a raw HEAD probe of the candidate SKILL.md on the CDN-fronted
+ *                 raw host runs FIRST (repo: `HEAD/SKILL.md`; tree:
+ *                 `<ref>/<subdir>/SKILL.md`). A 200 returns that raw URL with 0
+ *                 API calls, so the unauthenticated api.github.com rate limit is
+ *                 avoided for the common root-SKILL.md case. Only a probe MISS (a
+ *                 nested SKILL.md) falls back to the API: read the default branch
+ *                 (repo), list the recursive tree, pick the SKILL.md
+ *                 deterministically (shallowest path, then lexicographic).
  *
  * All host/endpoint identifiers are GitHub-platform constants, pinned here and
  * deliberately NOT env-overridable (mirroring how the hash algorithm is pinned):
@@ -33,6 +37,13 @@ const GITHUB_RAW_HOST = 'raw.githubusercontent.com'
 const GITHUB_API_HOST = 'api.github.com'
 /** The skill manifest filename (Anthropic Agent Skills convention). */
 const SKILL_MANIFEST_FILENAME = 'SKILL.md'
+/**
+ * raw.githubusercontent.com accepts the literal `HEAD` as a ref, resolving to a
+ * repo's default branch with NO api.github.com default-branch call. Like the host
+ * constants above it is a GitHub-platform fact, deliberately NOT env-overridable
+ * (a tunable ref would be a ref-confusion footgun).
+ */
+const GITHUB_RAW_DEFAULT_REF = 'HEAD'
 /** GitHub requires a User-Agent on every API request; an unset one yields 403. */
 const GITHUB_API_USER_AGENT = 'SecureSG-Skill-Safety-Scanner'
 /** Pin the REST API media type for stable response shapes. */
@@ -136,17 +147,30 @@ export function parseGithubWebUrl(url: URL): GithubTarget | null {
  * Resolve a {@link GithubTarget} to the raw `SKILL.md` URL to fetch and scan.
  *
  * - blob: a direct, deterministic rewrite to the raw host — no API call.
- * - tree/repo: discover the ref (repo → default branch) and list the file tree
- *   once, then choose the SKILL.md deterministically (shallowest path, then
- *   lexicographic) so the resulting proof is reproducible across runs.
+ * - repo/tree: a raw-first HEAD probe runs first (repo-root probes
+ *   `raw/<owner>/<repo>/HEAD/SKILL.md`, a tree probes `…/<ref>/<subdir>/SKILL.md`).
+ *   A 200 returns that raw URL with ZERO api.github.com calls, so the
+ *   unauthenticated API rate limit is avoided for the common root-SKILL.md case.
+ *   A probe MISS (the nested-SKILL.md case) falls back to discovering the ref
+ *   (repo → default branch), listing the recursive file tree once, then choosing
+ *   the SKILL.md deterministically (shallowest path, then lexicographic). The
+ *   probe is HEAD + `redirect: 'manual'` against the pinned raw host and is
+ *   fail-closed (a probe error falls back to the API path).
  *
- * Time complexity: O(t) in the repo tree entry count (one linear filter plus an
- *   O(m log m) sort of the m SKILL.md matches). Space complexity: O(m).
+ * Note: a probe-hit records the moving `HEAD` ref in the resolved URL rather than
+ * a concrete branch; the proof's content hash still reflects exactly what was
+ * served, but the URL does not name the branch/commit. Resolving HEAD to a
+ * concrete ref would re-introduce an API call and is deliberately not done.
+ *
+ * Time complexity: at most one O(1) raw HEAD probe, plus on a miss O(t) in the
+ *   repo tree entry count (a linear filter + an O(m log m) sort of the m SKILL.md
+ *   matches). Space complexity: O(m).
  *
  * @param target - The parsed GitHub web URL.
  * @param fetchImpl - Injected fetch (kept injectable for tests and the gallery).
- * @param timeoutMs - Per-request timeout for the discovery API calls.
- * @param token - Optional GitHub token to raise the API rate limit.
+ * @param timeoutMs - Per-request timeout for the probe and the discovery API calls.
+ * @param token - Optional GitHub token to raise the API rate limit (the raw probe
+ *   is always header-free — a token is never exposed to the CDN).
  * @returns The absolute raw.githubusercontent.com URL of the chosen SKILL.md.
  * @throws {SourceResolutionError} If the API is unreachable/errors, or no
  *   SKILL.md exists under the requested scope.
@@ -159,6 +183,28 @@ export async function resolveGithubSkillUrl(
 ): Promise<string> {
   if (target.kind === 'blob') {
     return buildRawUrl(target.owner, target.repo, target.ref, target.path)
+  }
+
+  // Raw-first fast path: probe the candidate SKILL.md on the CDN-fronted raw host
+  // before any api.github.com call. A repo whose SKILL.md sits at the root (the
+  // common case) resolves here with zero API calls — so the unauthenticated
+  // GitHub API rate limit (60/hr, shared per Cloudflare egress IP) is never hit.
+  // Only a probe MISS (a nested SKILL.md, or no manifest) falls through to the
+  // recursive trees API below.
+  let probeRef: string
+  let probePath: string
+  if (target.kind === 'repo') {
+    probeRef = GITHUB_RAW_DEFAULT_REF
+    probePath = SKILL_MANIFEST_FILENAME
+  } else {
+    probeRef = target.ref
+    probePath =
+      target.subdir.length > 0
+        ? `${target.subdir}/${SKILL_MANIFEST_FILENAME}`
+        : SKILL_MANIFEST_FILENAME
+  }
+  if (await rawSkillExists(target.owner, target.repo, probeRef, probePath, fetchImpl, timeoutMs)) {
+    return buildRawUrl(target.owner, target.repo, probeRef, probePath)
   }
 
   const ref =
@@ -381,6 +427,46 @@ function chooseSkillPath(paths: readonly string[], subdir: string): string | nul
     return a < b ? -1 : a > b ? 1 : 0
   })
   return sorted[0] ?? null
+}
+
+/**
+ * Probe whether `skillPath` exists in `owner/repo` at `ref` on the raw CDN host,
+ * via a single HEAD request to the URL {@link buildRawUrl} produces. This is the
+ * raw-first fast path: a hit means the SKILL.md is fetched straight from
+ * raw.githubusercontent.com with no api.github.com call (so the unauthenticated
+ * API rate limit is avoided), and only a miss falls back to the trees API.
+ *
+ * Security: the request targets ONLY the pinned {@link GITHUB_RAW_HOST} (the URL
+ * is built by {@link buildRawUrl}, which percent-encodes every segment and pins
+ * the host), uses `method: 'HEAD'` so no body is downloaded, and
+ * `redirect: 'manual'` so any 3xx is treated as a MISS and is never followed to
+ * another host (no SSRF). ONLY status 200 is a hit. The probe is header-free — no
+ * Authorization, no User-Agent — because the raw CDN is unauthenticated and a
+ * token must never be exposed to it. A transport error or timeout is caught and
+ * returns `false` (fail-closed onto the API path); this never throws.
+ *
+ * Time complexity: O(1), one bounded subrequest. Space complexity: O(1).
+ */
+async function rawSkillExists(
+  owner: string,
+  repo: string,
+  ref: string,
+  skillPath: string,
+  fetchImpl: typeof fetch,
+  timeoutMs: number,
+): Promise<boolean> {
+  const url = buildRawUrl(owner, repo, ref, skillPath)
+  let response: Response
+  try {
+    response = await fetchImpl(url, {
+      method: 'HEAD',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+  } catch {
+    return false
+  }
+  return response.status === 200
 }
 
 /**
