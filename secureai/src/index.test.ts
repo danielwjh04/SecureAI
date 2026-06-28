@@ -141,6 +141,57 @@ describe('worker.fetch routing', () => {
     expect(me.status).toBe(405)
   })
 
+  it('routes POST /api/login/verify and returns 503 when DB is unconfigured', async () => {
+    const res = await worker.fetch(
+      req('/api/login/verify', 'POST', { challengeId: 'x', code: '123456' }),
+      baseEnv,
+    )
+    expect(res.status).toBe(503)
+  })
+
+  it('routes POST /api/login/resend and returns 503 when DB is unconfigured', async () => {
+    const res = await worker.fetch(req('/api/login/resend', 'POST', { challengeId: 'x' }), baseEnv)
+    expect(res.status).toBe(503)
+  })
+
+  it('rejects a non-POST /api/login/verify and /api/login/resend with 405', async () => {
+    expect((await worker.fetch(req('/api/login/verify', 'GET'), baseEnv)).status).toBe(405)
+    expect((await worker.fetch(req('/api/login/resend', 'GET'), baseEnv)).status).toBe(405)
+  })
+
+  it('routes POST /api/login to a twoFactor challenge when RESEND_API_KEY is set', async () => {
+    const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
+    const env: Env = { DB: d1, SESSION_SECRET: 'router-2fa-secret', RESEND_API_KEY: 're_test' }
+    // Register (no 2FA on register — it issues a session directly).
+    await worker.fetch(
+      req('/api/register', 'POST', { email: 'router-2fa@example.com', password: 'password123' }),
+      env,
+    )
+    // A separate fetch with a stubbed global fetch so the Resend call is captured.
+    const sentTo: string[] = []
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('api.resend.com')) {
+        sentTo.push(String((JSON.parse(String(init?.body)) as { to: string }).to))
+        return new Response(null, { status: 200 })
+      }
+      return originalFetch(input, init)
+    }) as typeof fetch
+    try {
+      const res = await worker.fetch(
+        req('/api/login', 'POST', { email: 'router-2fa@example.com', password: 'password123' }),
+        env,
+      )
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { twoFactor?: boolean; email?: string }
+      expect(body.twoFactor).toBe(true)
+      expect(res.headers.get('Set-Cookie')).toBeNull()
+      expect(sentTo).toContain('router-2fa@example.com')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it('routes POST /api/logout to a 200 that clears the cookie (no DB needed)', async () => {
     const res = await worker.fetch(req('/api/logout', 'POST', {}), baseEnv)
     expect(res.status).toBe(200)

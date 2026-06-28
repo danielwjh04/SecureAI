@@ -4,12 +4,15 @@ import type {
   AuthCredentials,
   AuthResponse,
   CheckoutResponse,
+  LoginResponse,
   MeResponse,
   Proof,
+  ResendResponse,
   RotateKeyResponse,
   ScanRequest,
   ScanResult,
   StatsResponse,
+  VerifyLoginResponse,
   VerifyResult,
 } from './types'
 
@@ -110,14 +113,54 @@ export async function register(
   })
 }
 
-/** Sign in to an existing account. Sets the session cookie. 401 on bad creds. */
+/**
+ * Sign in to an existing account. 401 on bad creds.
+ *
+ * The response is a union: when email 2FA is NOT configured server-side, it
+ * returns `{ user }` and the session cookie is already set. When 2FA IS
+ * configured, it returns `{ twoFactor: true, challengeId, email }` and NO cookie
+ * — the caller must then collect the emailed code and call {@link loginVerify}.
+ * Discriminate on the `twoFactor` field.
+ */
 export async function login(
   credentials: AuthCredentials,
-): Promise<AuthResponse> {
-  return request<AuthResponse>(API.login, {
+): Promise<LoginResponse> {
+  return request<LoginResponse>(API.login, {
     method: 'POST',
     headers: JSON_HEADERS,
     body: JSON.stringify(credentials),
+    ...WITH_CREDENTIALS,
+  })
+}
+
+/**
+ * Complete a 2FA login by submitting the emailed code for a challenge. On
+ * success sets the session cookie and returns `{ user }`. Throws
+ * {@link ApiError}(401) on a wrong/expired/exhausted code, (422) on a malformed
+ * code.
+ */
+export async function loginVerify(
+  challengeId: string,
+  code: string,
+): Promise<VerifyLoginResponse> {
+  return request<VerifyLoginResponse>(API.loginVerify, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ challengeId, code }),
+    ...WITH_CREDENTIALS,
+  })
+}
+
+/**
+ * Request a fresh 2FA code for a pending challenge. Returns the (possibly new)
+ * challenge id to use for the next {@link loginVerify}. Throws
+ * {@link ApiError}(401) when the challenge is gone/expired.
+ */
+export async function loginResend(challengeId: string): Promise<ResendResponse> {
+  return request<ResendResponse>(API.loginResend, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ challengeId }),
     ...WITH_CREDENTIALS,
   })
 }

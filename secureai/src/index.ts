@@ -23,6 +23,8 @@ import { handleWebhook } from './routes/webhook'
 import {
   handleKeyRotate,
   handleLogin,
+  handleLoginResend,
+  handleLoginVerify,
   handleLogout,
   handleMe,
   handleRegister,
@@ -30,6 +32,7 @@ import {
 import { handleStats } from './routes/stats'
 import { handleAdminOverview } from './routes/admin'
 import { d1Database } from './db/database'
+import { buildEmailSender } from './email/sender'
 import { buildStripe, StripeBillingGateway } from './billing/stripe'
 import { ParseError, ScannerError } from './errors'
 
@@ -42,6 +45,8 @@ const ROUTE_PORTAL = '/api/portal'
 const ROUTE_WEBHOOK = '/api/webhook'
 const ROUTE_REGISTER = '/api/register'
 const ROUTE_LOGIN = '/api/login'
+const ROUTE_LOGIN_VERIFY = '/api/login/verify'
+const ROUTE_LOGIN_RESEND = '/api/login/resend'
 const ROUTE_LOGOUT = '/api/logout'
 const ROUTE_ME = '/api/me'
 const ROUTE_STATS = '/api/stats'
@@ -151,6 +156,20 @@ export default {
       return await handleLogin(request, authDeps(env, config))
     }
 
+    if (url.pathname === ROUTE_LOGIN_VERIFY) {
+      if (request.method !== 'POST') {
+        return jsonError('method not allowed', 405)
+      }
+      return await handleLoginVerify(request, authDeps(env, config))
+    }
+
+    if (url.pathname === ROUTE_LOGIN_RESEND) {
+      if (request.method !== 'POST') {
+        return jsonError('method not allowed', 405)
+      }
+      return await handleLoginResend(request, authDeps(env, config))
+    }
+
     if (url.pathname === ROUTE_LOGOUT) {
       if (request.method !== 'POST') {
         return jsonError('method not allowed', 405)
@@ -208,9 +227,18 @@ function sessionSecretOf(env: Env): string | null {
   return typeof secret === 'string' && secret.length > 0 ? secret : null
 }
 
-/** Assemble the auth routes' dependencies (DB seam, session secret, config). */
+/**
+ * Assemble the auth routes' dependencies (DB seam, session secret, config, and
+ * the email sender). The email sender is `null` unless `RESEND_API_KEY` is set,
+ * which is the gate that activates email two-factor on login.
+ */
 function authDeps(env: Env, config: ScannerConfig): AuthDeps {
-  return { db: billingDatabase(env), sessionSecret: sessionSecretOf(env), config }
+  return {
+    db: billingDatabase(env),
+    sessionSecret: sessionSecretOf(env),
+    config,
+    emailSender: buildEmailSender(env, config),
+  }
 }
 
 /** Assemble the stats route's dependencies (DB seam, session secret, config). */

@@ -87,4 +87,27 @@ describe('loadConfig', () => {
     expect(config.adminEmails.has('two@example.com')).toBe(true)
     expect(config.adminEmails.size).toBe(2)
   })
+
+  it('defaults the email-2FA tunables and accepts in-range overrides', () => {
+    const defaults = loadConfig({})
+    expect(defaults.emailFrom).toBe('SecureAI <noreply@zurielst.com>')
+    expect(defaults.otpTtlSeconds).toBe(600)
+    expect(defaults.otpMaxAttempts).toBe(5)
+
+    const overridden = loadConfig({
+      SCANNER_EMAIL_FROM: 'Acme <auth@acme.test>',
+      SCANNER_OTP_TTL_SECONDS: '120',
+      SCANNER_OTP_MAX_ATTEMPTS: '3',
+    })
+    expect(overridden.emailFrom).toBe('Acme <auth@acme.test>')
+    expect(overridden.otpTtlSeconds).toBe(120)
+    expect(overridden.otpMaxAttempts).toBe(3)
+  })
+
+  it('rejects out-of-range OTP tunables (fail-closed at load)', () => {
+    expect(() => loadConfig({ SCANNER_OTP_TTL_SECONDS: '30' })).toThrow()
+    expect(() => loadConfig({ SCANNER_OTP_TTL_SECONDS: '5000' })).toThrow()
+    expect(() => loadConfig({ SCANNER_OTP_MAX_ATTEMPTS: '0' })).toThrow()
+    expect(() => loadConfig({ SCANNER_OTP_MAX_ATTEMPTS: '50' })).toThrow()
+  })
 })

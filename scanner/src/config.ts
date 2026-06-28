@@ -22,6 +22,8 @@ export const API = {
   verify: `${API_BASE}/api/verify`,
   register: `${API_BASE}/api/register`,
   login: `${API_BASE}/api/login`,
+  loginVerify: `${API_BASE}/api/login/verify`,
+  loginResend: `${API_BASE}/api/login/resend`,
   logout: `${API_BASE}/api/logout`,
   me: `${API_BASE}/api/me`,
   stats: `${API_BASE}/api/stats`,

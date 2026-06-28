@@ -57,6 +57,15 @@ interface WebhookEventRecord {
   created_at: string
 }
 
+interface OtpChallengeRecord {
+  id: string
+  user_id: string
+  code_hash: string
+  expires_at: string
+  attempts: number
+  created_at: string
+}
+
 /** Composite key for the usage map, mirroring the `(subject, day)` PK. */
 function usageKey(subject: string, day: string): string {
   return `${subject} ${day}`
@@ -76,6 +85,8 @@ export class MemoryStore {
   public readonly subscriptions = new Map<string, SubscriptionRecord>()
   /** Keyed by Stripe `event_id` (the webhook idempotency ledger). */
   public readonly webhookEvents = new Map<string, WebhookEventRecord>()
+  /** Keyed by challenge `id` (the 2FA OTP challenge store). */
+  public readonly otpChallenges = new Map<string, OtpChallengeRecord>()
 
   /** Per-statement failure injection: when armed, the next call throws once. */
   public failNext = false
@@ -185,6 +196,19 @@ export class MemoryStore {
         }
       }
       return { count }
+    }
+    if (sql.includes('FROM otp_challenges WHERE id')) {
+      const challenge = this.otpChallenges.get(String(params[0]))
+      return challenge === undefined
+        ? null
+        : {
+            id: challenge.id,
+            user_id: challenge.user_id,
+            code_hash: challenge.code_hash,
+            expires_at: challenge.expires_at,
+            attempts: challenge.attempts,
+            created_at: challenge.created_at,
+          }
     }
     throw new Error(`MemoryStore: unrecognized queryOne SQL: ${sql}`)
   }
@@ -396,6 +420,40 @@ export class MemoryStore {
       for (const key of this.apiKeys.values()) {
         if (key.user_id === userId && key.status === 'active') {
           key.status = 'revoked'
+          changes += 1
+        }
+      }
+      return { changes }
+    }
+    if (sql.startsWith('INSERT INTO otp_challenges')) {
+      const id = String(params[0])
+      this.otpChallenges.set(id, {
+        id,
+        user_id: String(params[1]),
+        code_hash: String(params[2]),
+        expires_at: String(params[3]),
+        attempts: 0,
+        created_at: String(params[4]),
+      })
+      return { changes: 1 }
+    }
+    if (sql.startsWith('UPDATE otp_challenges SET attempts = attempts + 1 WHERE id')) {
+      const challenge = this.otpChallenges.get(String(params[0]))
+      if (challenge === undefined) {
+        return { changes: 0 }
+      }
+      challenge.attempts += 1
+      return { changes: 1 }
+    }
+    if (sql.startsWith('DELETE FROM otp_challenges WHERE id')) {
+      return { changes: this.otpChallenges.delete(String(params[0])) ? 1 : 0 }
+    }
+    if (sql.startsWith('DELETE FROM otp_challenges WHERE user_id')) {
+      const userId = String(params[0])
+      let changes = 0
+      for (const [id, challenge] of this.otpChallenges) {
+        if (challenge.user_id === userId) {
+          this.otpChallenges.delete(id)
           changes += 1
         }
       }

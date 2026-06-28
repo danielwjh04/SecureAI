@@ -63,3 +63,20 @@ export class BillingError extends ScannerError {}
  * route fails closed (HTTP 500) rather than leaking an internal error.
  */
 export class AdminError extends ScannerError {}
+
+/**
+ * An email-provider fault: the transactional email API (Resend) rejected the
+ * send or was unreachable. Mapped to HTTP 502 by the login route so a 2FA code
+ * that could not be delivered fails closed — NO session is issued. Only the
+ * upstream status / error class is ever logged, never the code.
+ */
+export class EmailError extends ScannerError {}
+
+/**
+ * A two-factor (OTP) challenge fault in the persistence layer: a database error
+ * while creating, reading, incrementing, or deleting an `otp_challenges` row.
+ * Wraps the underlying store fault so the verify/resend routes fail closed
+ * rather than leaking an internal error. A merely-missing or expired challenge
+ * is NOT an error — it is a generic 401 the route returns directly.
+ */
+export class OtpError extends ScannerError {}

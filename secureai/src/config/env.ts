@@ -28,6 +28,15 @@ export interface Env {
    * Bearer API-key auth keeps working without it.
    */
   SESSION_SECRET?: string
+  /**
+   * API key for the Resend transactional-email provider, used to deliver 2FA
+   * sign-in codes. A SECRET (set via `wrangler secret put RESEND_API_KEY`), so
+   * it is read from `env` at the route — never folded into {@link ScannerConfig},
+   * and never in source. When absent, email 2FA is simply unavailable and login
+   * issues a session immediately after the password check (today's behavior);
+   * when present, a successful password starts an emailed-code challenge.
+   */
+  RESEND_API_KEY?: string
   // SCANNER_* string vars (see wrangler.jsonc). Indexed for forward-compat.
   [key: string]: unknown
 }
@@ -84,6 +93,16 @@ export interface ScannerConfig {
    * `SCANNER_ADMIN_EMAILS` var. The email is NEVER hardcoded in source.
    */
   readonly adminEmails: ReadonlySet<string>
+  /**
+   * The `From` address two-factor sign-in code emails are sent as. Must be on a
+   * domain verified with the email provider (Resend) for delivery to succeed.
+   * Non-secret (it is public on every email), so it lives here as a var.
+   */
+  readonly emailFrom: string
+  /** Lifetime, in seconds, of an emailed 2FA challenge (the code's validity window). */
+  readonly otpTtlSeconds: number
+  /** Max verify attempts per 2FA challenge before it is spent (brute-force cap). */
+  readonly otpMaxAttempts: number
 }
 
 /**
@@ -141,6 +160,14 @@ export function loadConfig(env: Env): ScannerConfig {
   // is set, so the analytics surface is closed by default. The email is supplied
   // by SCANNER_ADMIN_EMAILS in wrangler.jsonc, never hardcoded here.
   const adminEmails = readSet(env, 'SCANNER_ADMIN_EMAILS', '')
+  // Email 2FA tunables (non-secret). The provider secret RESEND_API_KEY is NOT
+  // read here — it is read from env at the route so a missing key degrades login
+  // to immediate-session (today's behavior) rather than failing config load for
+  // every route. emailFrom must be on a Resend-verified domain. The OTP TTL
+  // defaults to 10 minutes; the attempt cap to 5 tries before a code is spent.
+  const emailFrom = readString(env, 'SCANNER_EMAIL_FROM', 'SecureAI <noreply@zurielst.com>')
+  const otpTtlSeconds = readIntInRange(env, 'SCANNER_OTP_TTL_SECONDS', 600, 60, 3600)
+  const otpMaxAttempts = readIntInRange(env, 'SCANNER_OTP_MAX_ATTEMPTS', 5, 1, 20)
 
   // Cross-field invariants (fail-closed).
   if (!(reviewThreshold < blockThreshold)) {
@@ -185,6 +212,9 @@ export function loadConfig(env: Env): ScannerConfig {
     pbkdf2Iterations,
     sessionTtlSeconds,
     adminEmails,
+    emailFrom,
+    otpTtlSeconds,
+    otpMaxAttempts,
   }
 }
 

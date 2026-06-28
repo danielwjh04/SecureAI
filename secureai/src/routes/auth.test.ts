@@ -17,7 +17,10 @@ const config = loadConfig({ SCANNER_PBKDF2_ITERATIONS: '100000' })
 const SECRET = 'route-test-session-secret'
 
 function deps(db: AuthDeps['db'], sessionSecret: string | null = SECRET): AuthDeps {
-  return { db, sessionSecret, config }
+  // The existing suite covers the no-2FA path (emailSender null = today's
+  // behavior: login issues a session immediately). The 2FA path has its own
+  // suite in auth.twofactor.test.ts with a fake sender.
+  return { db, sessionSecret, config, emailSender: null }
 }
 
 function jsonReq(path: string, body: unknown, headers: Record<string, string> = {}): Request {
@@ -301,7 +304,7 @@ describe('handleMe', () => {
       new Request('https://secureai.test/api/me', {
         headers: { Authorization: `Bearer ${apiKey}` },
       }),
-      { db, sessionSecret: SECRET, config: adminConfig },
+      { db, sessionSecret: SECRET, config: adminConfig, emailSender: null },
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as { isAdmin: boolean }

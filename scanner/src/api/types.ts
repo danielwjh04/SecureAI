@@ -37,9 +37,39 @@ export interface AuthUser {
   tier: AccountTier
 }
 
-/** Response body for `POST /api/register` and `POST /api/login`. */
-export interface AuthResponse {
+/** The signed-in shape of an auth response: the user is established (session set). */
+export interface AuthUserResponse {
   user: AuthUser
+}
+
+/**
+ * The two-factor-challenge shape of a login response: the password was correct
+ * but a session was NOT issued. The client must collect the emailed 6-digit code
+ * and POST it to `/api/login/verify` to complete the login. `email` is masked
+ * (e.g. `z***@gmail.com`) for display.
+ */
+export interface TwoFactorChallenge {
+  twoFactor: true
+  challengeId: string
+  email: string
+}
+
+/**
+ * Response body for `POST /api/login`: EITHER a completed login (`{ user }`, no
+ * 2FA configured) OR a two-factor challenge (`{ twoFactor, challengeId, email }`,
+ * 2FA active). Discriminate on the `twoFactor` field.
+ */
+export type LoginResponse = AuthUserResponse | TwoFactorChallenge
+
+/** Response body for `POST /api/register` (always issues a session — no 2FA). */
+export type AuthResponse = AuthUserResponse
+
+/** Response body for `POST /api/login/verify`: the completed login. */
+export type VerifyLoginResponse = AuthUserResponse
+
+/** Response body for `POST /api/login/resend`: the rotated challenge id. */
+export interface ResendResponse {
+  challengeId: string
 }
 
 /** Response body for `GET /api/me`: the signed-in account. */

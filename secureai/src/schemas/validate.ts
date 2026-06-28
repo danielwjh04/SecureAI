@@ -125,3 +125,40 @@ export const loginSchema = z
 
 /** The validated login payload `POST /api/login` operates on. */
 export type LoginPayload = z.infer<typeof loginSchema>
+
+/** Number of decimal digits in a one-time 2FA code. */
+const OTP_CODE_DIGITS = 6
+/** Exact-length 6-digit numeric code, the only accepted OTP shape. */
+const otpCodeSchema = z
+  .string()
+  .trim()
+  .regex(new RegExp(`^[0-9]{${OTP_CODE_DIGITS}}$`), 'code must be 6 digits')
+
+/**
+ * Body of `POST /api/login/verify`: the challenge id from the login response
+ * plus the 6-digit code the user received by email. The code is strictly
+ * shape-validated (exactly 6 digits) before any hash work; a malformed code is a
+ * 422 at the boundary, not a verify attempt. `.strict()` rejects extra fields.
+ */
+export const loginVerifySchema = z
+  .object({
+    challengeId: z.string().min(1).max(100),
+    code: otpCodeSchema,
+  })
+  .strict()
+
+/** The validated payload `POST /api/login/verify` operates on. */
+export type LoginVerifyPayload = z.infer<typeof loginVerifySchema>
+
+/**
+ * Body of `POST /api/login/resend`: the challenge id to rotate to a fresh code.
+ * `.strict()` rejects extra fields so a malformed payload fails closed.
+ */
+export const loginResendSchema = z
+  .object({
+    challengeId: z.string().min(1).max(100),
+  })
+  .strict()
+
+/** The validated payload `POST /api/login/resend` operates on. */
+export type LoginResendPayload = z.infer<typeof loginResendSchema>

@@ -77,6 +77,16 @@
     // Admin allowlist for the analytics dashboard (comma list, lowercased). An
     // account whose email is here sees `isAdmin: true` from /api/me and may read
     // GET /api/admin/overview; every other caller is forbidden. Default empty.
-    "SCANNER_ADMIN_EMAILS": "zuriel.shanley@gmail.com"
+    "SCANNER_ADMIN_EMAILS": "zuriel.shanley@gmail.com",
+    // Email two-factor (2FA) tunables (non-secret). 2FA activates ONLY when the
+    // RESEND_API_KEY SECRET is set (set it with `wrangler secret put
+    // RESEND_API_KEY`); without it login issues a session immediately as before.
+    // SCANNER_EMAIL_FROM must be on a domain verified with Resend for delivery to
+    // succeed. SCANNER_OTP_TTL_SECONDS is the emailed code's validity window
+    // (default 10 min, range 60..3600). SCANNER_OTP_MAX_ATTEMPTS caps verify
+    // tries before a code is spent (default 5, range 1..20).
+    "SCANNER_EMAIL_FROM": "SecureAI <noreply@zurielst.com>",
+    "SCANNER_OTP_TTL_SECONDS": "600",
+    "SCANNER_OTP_MAX_ATTEMPTS": "5"
   }
 }
