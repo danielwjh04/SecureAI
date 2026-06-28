@@ -290,8 +290,8 @@ describe('handleMe', () => {
     const { db } = memoryDatabase()
     const reg = await handleRegister(
       jsonReq('/api/register', {
-        firstName: 'Daniel',
-        lastName: 'Wong',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
         email: 'named@example.com',
         password: 'Sapphire92',
       }),
@@ -306,8 +306,8 @@ describe('handleMe', () => {
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as { firstName: string | null; lastName: string | null }
-    expect(body.firstName).toBe('Daniel')
-    expect(body.lastName).toBe('Wong')
+    expect(body.firstName).toBe('Ada')
+    expect(body.lastName).toBe('Lovelace')
   })
 
   it('returns null names for an account registered without them', async () => {

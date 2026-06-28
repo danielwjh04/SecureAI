@@ -210,16 +210,16 @@ describe('Auth — register without email verification', () => {
       .mockResolvedValue({ user: { email: 'a@b.com', tier: 'free' } })
 
     render(<Auth mode="register" auth={authState({ refresh: vi.fn().mockResolvedValue(undefined) })} />)
-    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Daniel' } })
-    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Wong' } })
+    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Lovelace' } })
     submitCredentials('Create account')
 
     await waitFor(() =>
       expect(reg).toHaveBeenCalledWith({
         email: 'a@b.com',
         password: 'password123',
-        firstName: 'Daniel',
-        lastName: 'Wong',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
       }),
     )
   })

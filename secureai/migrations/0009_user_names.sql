@@ -1,5 +1,5 @@
 -- SecureAI user names layer — give an account a human name so the app can greet
--- the person ("Hi Daniel!") instead of echoing their email.
+-- the person ("Hi Ada!") instead of echoing their email.
 --
 -- Two nullable columns on `users`:
 --   first_name / last_name — the account holder's name, collected at password

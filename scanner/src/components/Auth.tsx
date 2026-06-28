@@ -358,7 +358,7 @@ export function Auth({ mode, auth }: AuthProps) {
                   required
                   value={firstName}
                   onChange={(event) => setFirstName(event.target.value)}
-                  placeholder="Daniel"
+                  placeholder="Ada"
                   className={inputClass}
                 />
               </label>
@@ -373,7 +373,7 @@ export function Auth({ mode, auth }: AuthProps) {
                   required
                   value={lastName}
                   onChange={(event) => setLastName(event.target.value)}
-                  placeholder="Wong"
+                  placeholder="Lovelace"
                   className={inputClass}
                 />
               </label>
