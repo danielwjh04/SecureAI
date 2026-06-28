@@ -45,3 +45,24 @@ export const scanRequestSchema = z
     (body) => Boolean(body.content) !== Boolean(body.sourceUrl),
     { message: 'provide exactly one of `content` or `sourceUrl`' },
   )
+
+/**
+ * Body of `POST /api/guard`: a Claude Code PreToolUse hook payload. Only the
+ * three load-bearing fields are validated strictly — the literal event name, a
+ * non-empty tool name, and the tool-input record the scanner serializes. The
+ * optional context fields Claude Code sends (`session_id`, `transcript_path`,
+ * `cwd`) are accepted when present but not required, and any further fields the
+ * hook protocol adds in future pass through untouched (no `.strict()`), so a
+ * protocol addition never turns a real call into a parse failure.
+ */
+export const preToolUseSchema = z.object({
+  hook_event_name: z.literal('PreToolUse'),
+  tool_name: z.string().min(1),
+  tool_input: z.record(z.string(), z.unknown()),
+  session_id: z.string().optional(),
+  transcript_path: z.string().optional(),
+  cwd: z.string().optional(),
+})
+
+/** The validated PreToolUse payload `POST /api/guard` operates on. */
+export type PreToolUsePayload = z.infer<typeof preToolUseSchema>
