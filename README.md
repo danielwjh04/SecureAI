@@ -1,6 +1,6 @@
 <div align="center">
 
-  <h1>SecureAI</h1>
+  <img src="logo/secureai-logo.png" alt="SecureAI" width="520" />
 
   [![demo](https://img.shields.io/badge/demo-live-22C55E?style=flat-square)](https://secureai.software)
   [![built with](https://img.shields.io/badge/built%20with-TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -41,6 +41,31 @@ Both run the same engine and the same thesis: a tamper-evident cryptographic cha
 
 ---
 
+## 🚀 Getting started (5 minutes)
+
+No security team required: sign up, drop in one line, and every tool call your agent makes is screened from then on.
+
+1. **Create an account** at [secureai.software](https://secureai.software) — email + password. A one-time 6-digit code is emailed to you (2FA) to finish signing in.
+2. **Land on your dashboard**, where your API key, protection stats, recent scans, and the one-line Guard installer all live.
+3. **Scan a skill** — paste a `SKILL.md`, a link, or a GitHub repo in the web app, or call the API:
+
+   ```bash
+   curl -X POST https://secureai.software/api/scan \
+     -H "Authorization: Bearer $SECUREAI_API_KEY" \
+     -H "content-type: application/json" \
+     -d '{"sourceUrl":"https://github.com/owner/some-skill"}'
+   ```
+
+4. **Install the Guard** for Claude Code with the key-embedded one-liner from your dashboard:
+
+   ```bash
+   curl -fsSL https://secureai.software/install.sh | SECUREAI_API_KEY=sk_... bash
+   ```
+
+   It wires a PreToolUse hook into `~/.claude/settings.json` (re-run anytime, idempotent). From then on every tool call is screened **ALLOW / ASK / DENY**, fail-closed.
+
+---
+
 ## 🛡️ Scanner, the hosted scanner
 
 The Scanner is the public, hosted scanner plus API. Paste a skill (or a link to one, including a GitHub repo) and it tells you whether it is safe to give to an agent, and proves its answer. Programmatic callers hit `POST /api/scan` and re-check any result against `POST /api/verify`.
@@ -76,6 +101,28 @@ Deployed on Cloudflare (one Worker serves the React SPA via Static Assets plus t
 ## 🧱 Guard (defense in depth)
 
 Once an agent is running, the same verifiable-enforcement principle guards every action it takes. The Guard is a zero-dependency Claude Code PreToolUse hook you install in one line from your member dashboard. The installer embeds your API key, so every tool call is routed through SecureAI before it runs. A known-bad destination or an injection payload returns a real `deny` inline, and if the check cannot run the action is denied, not allowed (fail-closed). The dashboard hands you both the download and the one-line installer, and Cursor (`beforeShellExecution` / `beforeMCPExecution`) is the documented fast-follow.
+
+---
+
+## 👤 Accounts, plans & dashboard
+
+Sign up with email + password (hashed with PBKDF2, 100,000 iterations) and, when `RESEND_API_KEY` is set, confirm a one-time 6-digit code emailed via Resend (2FA), valid for 10 minutes (max 5 attempts). A login issues an HMAC-signed session cookie that lasts 7 days. Every account carries a rotatable API key, stored only as its SHA-256 hash, for `Authorization: Bearer` calls to `POST /api/scan`.
+
+Each tier has a daily scan cap, and the AI injection judge is reserved for Pro:
+
+| Tier | Daily scan cap | AI injection judge |
+|---|---|---|
+| Anonymous | 10 / day | No |
+| Free | 100 / day | No |
+| Pro (S$9.90/mo) | 5,000 / day | Yes |
+
+> These caps and the Pro price mirror `secureai/wrangler.jsonc` — they're config, not code, so change them there and keep this table in sync.
+
+Pro is sold through Stripe Checkout (idempotent webhooks + billing portal) at S$9.90/mo. Your dashboard shows protection stats, a 30-day trend, recent scans, your API key (with one-click rotation), and the one-line Guard installer.
+
+## 👥 Team & admin
+
+Accounts carry one of three roles — **owner**, **admin**, or **member**. Admins and owners reach an analytics dashboard with a members directory (search, promote/demote between roles, switch a member's plan, and remove an account) plus org-wide protection analytics. The admin allowlist and every cap, threshold, and price above live in `secureai/wrangler.jsonc` vars, read through a typed `Env` — never hardcoded.
 
 ---
 

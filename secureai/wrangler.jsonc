@@ -82,6 +82,9 @@
 		// persisted (privacy).
 		"SCANNER_DETAIL_MAX_BYTES": "16384",
 		"SCANNER_SUBREQUEST_CAP": "50",
+		// NOTE: these per-tier daily caps, the AI-tier gate, and the Stripe Pro price
+		// below are mirrored in the README "Accounts, plans & dashboard" tier table —
+		// keep the README in sync when retuning them here.
 		"SCANNER_CAP_ANONYMOUS_PER_DAY": "10",
 		"SCANNER_CAP_FREE_PER_DAY": "100",
 		"SCANNER_CAP_PRO_PER_DAY": "5000",
