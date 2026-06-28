@@ -48,7 +48,7 @@ export function adminScanDetailPath(id: string): string {
 }
 
 /** Where to email enterprise sales when the Pricing page Contact CTA is used. */
-export const ENTERPRISE_CONTACT_EMAIL = 'sales@secureai.example' as const
+export const ENTERPRISE_CONTACT_EMAIL = 'SecureAI@zurielst.com' as const
 
 /** How many trailing days the dashboard trend chart covers (zero-filled). */
 export const STATS_TREND_DAYS = 30
@@ -89,9 +89,6 @@ export const GALLERY_FETCH_ATTEMPTS = 3
  */
 export const BACKGROUND_VIDEO_SRC =
   'https://stream.mux.com/kimF2ha9zLrX64H00UgLGPflCzNtl1T0215MlAmeOztv8.m3u8' as const
-
-/** Public source repository, linked from the navbar. */
-export const REPO_URL = 'https://github.com/danielwjh04/SecureAI' as const
 
 /**
  * The SecureAI Guard install surface. `GUARD_DOWNLOAD_PATH` is the same-origin
