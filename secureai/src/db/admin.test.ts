@@ -4,13 +4,14 @@ import type { MemoryStore } from './memory.test'
 import { createFreeUser, setUserTier } from './accounts'
 import { recordVerdict } from './usage'
 import { upsertSubscription } from './billing'
-import { insertScan } from './scans'
+import { getScanDetail, insertScan, insertScanDetail } from './scans'
 import { AdminError } from '../errors'
 import {
   activeSubscriptions,
   countMembers,
   countThreats,
   countUsers,
+  deleteMember,
   listMembers,
   listThreats,
   setUserRole,
@@ -385,5 +386,57 @@ describe('countThreats', () => {
     const { db, store } = memoryDatabase()
     store.failNext = true
     await expect(countThreats(db)).rejects.toBeInstanceOf(AdminError)
+  })
+})
+
+describe('deleteMember', () => {
+  it('deletes the member, its scan_history, and its caught scan_details rows', async () => {
+    const { db, store } = memoryDatabase()
+    const target = await seedUser(db, store, 'gone@example.com', 'pro', '2026-06-01')
+    // A second account whose caught scan + detail must survive the removal.
+    const keep = await seedUser(db, store, 'stays@example.com', 'free', '2026-06-02')
+
+    // The target's non-ALLOW scan plus its scan_details row.
+    await seedScan(db, { id: 'tgt-block', userId: target, verdict: 'BLOCK', scannedAt: '2026-06-10T01:00:00.000Z' })
+    await insertScanDetail(db, {
+      scanId: 'tgt-block',
+      content: 'malicious skill body',
+      resultJson: '{"findings":[{"ruleId":"r"}]}',
+      createdAt: '2026-06-10T01:00:00.000Z',
+    })
+    // The surviving account's own caught scan + detail.
+    await seedScan(db, { id: 'keep-block', userId: keep, verdict: 'BLOCK', scannedAt: '2026-06-11T01:00:00.000Z' })
+    await insertScanDetail(db, {
+      scanId: 'keep-block',
+      content: 'other body',
+      resultJson: '{"findings":[]}',
+      createdAt: '2026-06-11T01:00:00.000Z',
+    })
+    // Sanity: both details are present before removal.
+    expect(await getScanDetail(db, 'tgt-block')).not.toBeNull()
+
+    expect(await deleteMember(db, target)).toBe(1)
+
+    // The target's detail row is gone — no longer an orphan.
+    expect(await getScanDetail(db, 'tgt-block')).toBeNull()
+    expect(store.scanDetails.has('tgt-block')).toBe(false)
+    // Its scan_history row and the account itself are removed too.
+    expect(store.scanHistory.has('tgt-block')).toBe(false)
+    expect(store.users.has(target)).toBe(false)
+    // The surviving account's scan + detail are untouched.
+    expect(store.users.has(keep)).toBe(true)
+    expect(store.scanDetails.has('keep-block')).toBe(true)
+    expect(await getScanDetail(db, 'keep-block')).not.toBeNull()
+  })
+
+  it('reports zero changes for an already-removed id (idempotent no-op)', async () => {
+    const { db } = memoryDatabase()
+    expect(await deleteMember(db, 'never-existed')).toBe(0)
+  })
+
+  it('wraps a database failure as an AdminError', async () => {
+    const { db, store } = memoryDatabase()
+    store.failNext = true
+    await expect(deleteMember(db, 'x')).rejects.toBeInstanceOf(AdminError)
   })
 })

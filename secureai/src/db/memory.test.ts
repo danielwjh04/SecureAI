@@ -722,6 +722,28 @@ export class MemoryStore {
       }
       return { changes }
     }
+    // scan_details has no user_id; it is deleted via a `scan_id IN (SELECT id
+    // FROM scan_history WHERE user_id = ?)` subquery, so resolve the account's
+    // scan_history ids first, then drop the matching details. Must run BEFORE the
+    // scan_history delete below (which would otherwise remove the parent rows the
+    // subquery resolves against).
+    if (sql.startsWith('DELETE FROM scan_details WHERE scan_id IN')) {
+      const userId = String(params[0])
+      const scanIds = new Set<string>()
+      for (const record of this.scanHistory.values()) {
+        if (record.user_id === userId) {
+          scanIds.add(record.id)
+        }
+      }
+      let changes = 0
+      for (const [scanId] of this.scanDetails) {
+        if (scanIds.has(scanId)) {
+          this.scanDetails.delete(scanId)
+          changes += 1
+        }
+      }
+      return { changes }
+    }
     if (sql.startsWith('DELETE FROM scan_history WHERE user_id')) {
       const userId = String(params[0])
       let changes = 0

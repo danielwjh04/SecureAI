@@ -453,16 +453,23 @@ export async function setUserRole(
  * `users` row LAST, so a fault partway through can never orphan a `users` row
  * while its credentials/usage still resolve (the account stays removable on a
  * retry). The order is: `api_keys` (`user_id`), `usage` (`subject` = the user
- * id), `scan_history` (`user_id`), `subscriptions` (`user_id`), `otp_challenges`
- * (`user_id`), then `users` (`id`).
+ * id), `scan_details` (its `scan_id` references the account's `scan_history`
+ * rows), `scan_history` (`user_id`), `subscriptions` (`user_id`),
+ * `otp_challenges` (`user_id`), then `users` (`id`). `scan_details` is deleted
+ * BEFORE `scan_history` and keyed via a `scan_id IN (SELECT id FROM scan_history
+ * WHERE user_id = ?)` subquery — the detail table has no `user_id` column, so
+ * once its parent `scan_history` rows are gone the details can no longer be
+ * located and would orphan.
  *
  * Idempotent: replaying a removal for an already-deleted id changes zero rows in
- * every statement and is a no-op, not an error. Returns the `users` row-change
- * count so the route can distinguish a real delete (1) from a vanished target
- * (0) without a follow-up read.
+ * every statement and is a no-op, not an error (the subquery matches nothing
+ * once the parent rows are gone). Returns the `users` row-change count so the
+ * route can distinguish a real delete (1) from a vanished target (0) without a
+ * follow-up read.
  *
  * Time complexity: O(k) in the account's dependent rows (each delete is an
- * indexed range delete on the user id). Space complexity: O(1).
+ * indexed range delete on the user id; the `scan_details` subquery scans the
+ * account's `scan_history` rows by the same index). Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param userId - The account to delete (already gated owner-only by the route).
@@ -473,6 +480,10 @@ export async function deleteMember(db: Database, userId: string): Promise<number
   try {
     await db.execute('DELETE FROM api_keys WHERE user_id = ?', [userId])
     await db.execute('DELETE FROM usage WHERE subject = ?', [userId])
+    await db.execute(
+      'DELETE FROM scan_details WHERE scan_id IN (SELECT id FROM scan_history WHERE user_id = ?)',
+      [userId],
+    )
     await db.execute('DELETE FROM scan_history WHERE user_id = ?', [userId])
     await db.execute('DELETE FROM subscriptions WHERE user_id = ?', [userId])
     await db.execute('DELETE FROM otp_challenges WHERE user_id = ?', [userId])
