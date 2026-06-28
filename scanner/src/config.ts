@@ -141,7 +141,7 @@ export const SCAN_STEP_LABELS = [
   'Parsing SKILL.md',
   'Extracting links',
   'Resolving redirect cascades',
-  'Querying reputation',
+  'Screening known-bad indicators',
   'Running prompt-injection check',
   'Sealing proof chain',
 ] as const
@@ -177,6 +177,6 @@ export const PROOF_REHASH_DEBOUNCE_MS = 180
  */
 export const CAPS = {
   redirectDepth: 'Redirect cascades traced up to a bounded depth',
-  reputationFanOut: 'Reputation queried for final destinations only',
+  reputationFanOut: 'Known-bad indicators matched on final destinations only',
   injectionContent: 'Prompt-injection check runs on the parsed skill text',
 } as const

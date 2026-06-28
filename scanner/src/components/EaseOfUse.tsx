@@ -33,7 +33,7 @@ const STEPS: Step[] = [
   {
     Icon: ShieldCheck,
     title: 'Risky calls get blocked',
-    body: 'Every tool call is screened before it runs. If the Guard cannot clear it, it is denied — fail-closed by default.',
+    body: "Every tool call is screened before it runs. If the Guard can't clear it, it's denied — fail-closed by default.",
   },
 ]
 
