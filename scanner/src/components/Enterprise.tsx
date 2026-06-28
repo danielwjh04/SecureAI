@@ -18,67 +18,18 @@ import {
   ArrowRight,
   ArrowUpCircle,
   Boxes,
+  Database,
   FileCheck,
   Link2,
-  Radar,
   ScanLine,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { GalleryData } from '../api/types'
-import { GALLERY_DATA_PATH } from '../config'
+import type { GalleryStats } from '../lib/galleryStats'
+import { deriveStats, fetchGallery } from '../lib/galleryStats'
 import { CodeBlock } from './CodeBlock'
-
-/** The empty dataset used whenever the gallery file is absent or unreadable. */
-const EMPTY_GALLERY: GalleryData = { generatedAt: '', entries: [] }
-
-/** Honest, gallery-derived numbers shown in the KPI row. */
-interface GalleryStats {
-  skills: number
-  threats: number
-  proofLinks: number
-}
-
-/**
- * Fetch the prebuilt public gallery, degrading to an empty dataset on any
- * failure (a missing or malformed file is an expected, non-error state).
- *
- * Time complexity: O(n) in the response body size. Space complexity: O(n).
- */
-async function fetchGallery(): Promise<GalleryData> {
-  let response: Response
-  try {
-    response = await fetch(GALLERY_DATA_PATH)
-  } catch {
-    return EMPTY_GALLERY
-  }
-  if (!response.ok) return EMPTY_GALLERY
-  try {
-    const data = (await response.json()) as GalleryData
-    return Array.isArray(data.entries) ? data : EMPTY_GALLERY
-  } catch {
-    return EMPTY_GALLERY
-  }
-}
-
-/**
- * Reduce a gallery dataset to honest headline numbers: how many skills are in
- * the live public gallery, how many came back BLOCK (threats caught), and the
- * total number of sealed proof steps across every entry (cryptographic links).
- *
- * Time complexity: O(e) over entries e. Space complexity: O(1).
- */
-function deriveStats(data: GalleryData): GalleryStats {
-  let threats = 0
-  let proofLinks = 0
-  for (const entry of data.entries) {
-    if (entry.result.verdict === 'BLOCK') threats += 1
-    proofLinks += entry.result.proof.steps.length
-  }
-  return { skills: data.entries.length, threats, proofLinks }
-}
 
 /** A single API snippet tab. */
 interface Snippet {
@@ -207,7 +158,7 @@ const RISE = {
 
 const HERO_BADGES = [
   { Icon: ScanLine, label: 'PreToolUse gate' },
-  { Icon: Radar, label: 'Live reputation' },
+  { Icon: Database, label: 'Known-bad indicators' },
   { Icon: ShieldCheck, label: 'Fail-closed allowlist' },
   { Icon: FileCheck, label: 'SHA-256 proof' },
 ] as const
@@ -447,11 +398,12 @@ export function Enterprise() {
             <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-white/45">
               <span>02</span>
             </div>
-            <Radar className="w-5 h-5 text-allow" />
+            <Database className="w-5 h-5 text-allow" />
             <div className="text-white text-sm font-medium">SecureAI scans it</div>
             <p className="text-white/55 text-[13px] leading-relaxed">
-              One API call traces every redirect, checks each destination's
-              reputation, and analyzes the text for prompt injection.
+              One API call traces every redirect, screens each destination against
+              known-bad indicators and structural rules, and analyzes the text for
+              prompt injection.
             </p>
           </div>
 

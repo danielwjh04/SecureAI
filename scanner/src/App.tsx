@@ -18,6 +18,7 @@ import { Navbar } from './components/Navbar'
 import { Hero } from './components/Hero'
 import { HowItWorks } from './components/HowItWorks'
 import { EaseOfUse } from './components/EaseOfUse'
+import { VerifyIt } from './components/VerifyIt'
 import { Gallery } from './components/Gallery'
 import { ResultView } from './components/ResultView'
 import { Enterprise } from './components/Enterprise'
@@ -266,6 +267,7 @@ function App(): ReactNode {
       <div className="relative z-10 bg-black/60">
         <HowItWorks />
         <EaseOfUse />
+        <VerifyIt />
         <section className="max-w-5xl mx-auto px-6 pb-20">
           <Gallery onPick={controller.loadResult} />
         </section>

@@ -6,7 +6,7 @@
  */
 
 import { AnimatePresence, motion } from 'motion/react'
-import { GitBranch, Radar, ScanLine, Lock } from 'lucide-react'
+import { GitBranch, Database, ScanLine, Lock } from 'lucide-react'
 import { SkillInput } from './SkillInput'
 import { ScanProgress } from './ScanProgress'
 import type { ScanRequest } from '../api/types'
@@ -19,7 +19,7 @@ interface HeroProps {
 
 const TRUST = [
   { Icon: GitBranch, label: 'Redirect tracing' },
-  { Icon: Radar, label: 'Live reputation' },
+  { Icon: Database, label: 'Known-bad indicators' },
   { Icon: ScanLine, label: 'Injection check' },
   { Icon: Lock, label: 'SHA-256 proof' },
 ] as const
@@ -61,8 +61,9 @@ export function Hero({ state, onScan }: HeroProps) {
           className="text-white/75 text-[15px] md:text-base leading-relaxed max-w-xl -mt-1"
         >
           Paste a SKILL.md, drop a file, or point us at a GitHub repo. We trace
-          redirects, score reputation, check for prompt injection, and seal the
-          verdict into a proof you can re-verify yourself.
+          redirects behind an SSRF guard, screen against known-bad indicators and
+          structural rules, check for prompt injection, and seal the verdict into
+          a proof you can re-verify yourself.
         </motion.p>
 
         <motion.div
