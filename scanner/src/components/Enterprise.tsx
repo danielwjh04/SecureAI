@@ -19,7 +19,6 @@ import {
   ArrowUpCircle,
   Boxes,
   FileCheck,
-  GitBranch,
   Link2,
   Radar,
   ScanLine,
@@ -30,7 +29,6 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import type { GalleryData } from '../api/types'
 import { GALLERY_DATA_PATH } from '../config'
-import { REPO_URL } from '../config'
 import { CodeBlock } from './CodeBlock'
 
 /** The empty dataset used whenever the gallery file is absent or unreadable. */
@@ -508,15 +506,6 @@ export function Enterprise() {
         >
           Start scanning
           <ArrowRight className="w-4 h-4" />
-        </a>
-        <a
-          href={REPO_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="glass-pill inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-white/70 hover:text-white transition-colors"
-        >
-          <GitBranch className="w-4 h-4" />
-          Read the source
         </a>
       </motion.section>
         </div>
