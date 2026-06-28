@@ -34,9 +34,9 @@ Priorities, in order:
 
 ## Codebase Navigation: Graphify First
 
-Read the graphify output before reading source files. It is the generated code-graph of this repo: modules, exported symbols, and call edges. Treat it as the index. Resolve a function, class, or module through the graph, then open only the specific files the task touches. Do not crawl the tree file by file when the graph already answers the question. This saves tokens and keeps context on the task.
+Read the graphify output in obsidian before reading source files. It is the generated code-graph of this repo: modules, exported symbols, and call edges. Treat it as the index. Resolve a function, class, or module through the graph, then open only the specific files the task touches. Do not crawl the tree file by file when the graph already answers the question. This saves tokens and keeps context on the task.
 
-If the graphify output is missing or stale, stop and ask the user to regenerate or download it before proceeding. Do not silently fall back to reading the whole repo. Its location is read from config, never hardcoded inline.
+If the graphify output is missing or stale, stop and ask the user to regenerate or download it before proceeding. Do not silently fall back to reading the whole repo. Its location is read from config, never hardcoded inline. But make sure that graphify does not get pushed to github and is gitignored.
 
 ## 0. Think Before Coding
 
