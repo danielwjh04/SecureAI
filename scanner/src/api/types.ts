@@ -50,10 +50,10 @@ export interface AuthUserResponse {
 }
 
 /**
- * The two-factor-challenge shape of a login response: the password was correct
- * but a session was NOT issued. The client must collect the emailed 6-digit code
- * and POST it to `/api/login/verify` to complete the login. `email` is masked
- * (e.g. `z***@gmail.com`) for display.
+ * The two-factor-challenge shape of a login or register response: the
+ * credentials were accepted but a session was NOT issued. The client must
+ * collect the emailed 6-digit code and POST it to `/api/login/verify` to
+ * complete the flow. `email` is masked (e.g. `z***@gmail.com`) for display.
  */
 export interface TwoFactorChallenge {
   twoFactor: true
@@ -68,8 +68,14 @@ export interface TwoFactorChallenge {
  */
 export type LoginResponse = AuthUserResponse | TwoFactorChallenge
 
-/** Response body for `POST /api/register` (always issues a session — no 2FA). */
-export type AuthResponse = AuthUserResponse
+/**
+ * Response body for `POST /api/register`: EITHER a completed signup (`{ user }`,
+ * no email provider configured — the session cookie is already set) OR an email
+ * verification challenge (`{ twoFactor, challengeId, email }`, verification
+ * active — NO session yet, the account is unusable until the emailed code is
+ * verified via `/api/login/verify`). Discriminate on the `twoFactor` field.
+ */
+export type AuthResponse = AuthUserResponse | TwoFactorChallenge
 
 /** Response body for `POST /api/login/verify`: the completed login. */
 export type VerifyLoginResponse = AuthUserResponse

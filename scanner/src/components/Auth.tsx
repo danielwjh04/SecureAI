@@ -4,12 +4,15 @@
  * app-level auth state and redirects to `#dashboard`. Errors from the API are
  * mapped to inline, human messages keyed off the {@link ApiError} status.
  *
- * Login has a second, conditional step: when the server has email two-factor
- * configured, `POST /api/login` returns `{ twoFactor, challengeId, email }`
- * instead of a session, and the card flips to a 6-digit code-entry step. The
- * code is verified via `POST /api/login/verify`; a "Resend code" link rotates to
- * a fresh code. When 2FA is NOT configured, login behaves exactly as before
- * (one step, straight to the dashboard). Register never uses 2FA.
+ * Both modes have a second, conditional step: when the server has email
+ * verification configured, `POST /api/login` (2FA) and `POST /api/register`
+ * (email verification) each return `{ twoFactor, challengeId, email }` instead
+ * of a session, and the card flips to the same 6-digit code-entry step. The code
+ * is verified via `POST /api/login/verify`; a "Resend code" link rotates to a
+ * fresh code via `POST /api/login/resend`. When no email provider is configured,
+ * each behaves exactly as before (one step, straight to the dashboard). The
+ * code step's copy is keyed off the mode so signup reads as "finish creating
+ * your account" while login reads as "sign in".
  */
 
 import { useState, type FormEvent } from 'react'
@@ -42,7 +45,7 @@ function errorMessage(error: unknown, mode: AuthMode): string {
       return 'Enter a valid email and a password of at least 8 characters.'
     }
     if (error.status === 502) {
-      return 'We could not send your sign-in code. Please try again.'
+      return EMAIL_SEND_FAILED[mode]
     }
     if (error.status === 0) {
       return 'Scanner backend unreachable. Please try again.'
@@ -51,14 +54,26 @@ function errorMessage(error: unknown, mode: AuthMode): string {
   return 'Something went wrong. Please try again.'
 }
 
+/**
+ * The inline message when the email provider failed to send the code (502),
+ * keyed by mode so signup and login each describe the right code.
+ */
+const EMAIL_SEND_FAILED: Record<AuthMode, string> = {
+  login: 'We could not send your sign-in code. Please try again.',
+  register: 'We could not send your verification code. Please try again.',
+}
+
 /** Translate a verify/resend failure into the inline code-step message. */
-function codeErrorMessage(error: unknown): string {
+function codeErrorMessage(error: unknown, mode: AuthMode): string {
   if (error instanceof ApiError) {
     if (error.status === 401) {
       return 'That code is invalid or has expired.'
     }
     if (error.status === 422) {
       return 'Enter the 6-digit code from your email.'
+    }
+    if (error.status === 502) {
+      return EMAIL_SEND_FAILED[mode]
     }
     if (error.status === 0) {
       return 'Scanner backend unreachable. Please try again.'
@@ -96,6 +111,32 @@ const COPY: Record<AuthMode, {
   },
 }
 
+/**
+ * Copy for the 6-digit code-entry step, keyed by the mode that reached it.
+ * Login frames it as a sign-in code; register frames it as finishing signup.
+ * The sentence is split around the masked email so the email always renders as
+ * its own highlighted node, with mode-specific text before and after it.
+ */
+const CODE_COPY: Record<AuthMode, {
+  eyebrow: string
+  title: string
+  bodyBefore: string
+  bodyAfter: string
+}> = {
+  login: {
+    eyebrow: 'Check your email',
+    title: 'Enter your code',
+    bodyBefore: 'We sent a 6-digit code to ',
+    bodyAfter: '.',
+  },
+  register: {
+    eyebrow: 'Finish signup',
+    title: 'Verify your email',
+    bodyBefore: 'We emailed a 6-digit code to ',
+    bodyAfter: ' — enter it to finish creating your account.',
+  },
+}
+
 /** The number of digits in a one-time 2FA code (mirrors the server contract). */
 const CODE_LENGTH = 6
 
@@ -123,7 +164,7 @@ export function Auth({ mode, auth }: AuthProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // When set, the login moved to its 2FA code-entry step.
+  // When set, login (2FA) or register (email verification) moved to the code step.
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [code, setCode] = useState('')
 
@@ -138,14 +179,12 @@ export function Auth({ mode, auth }: AuthProps) {
     setError(null)
     try {
       const credentials = { email, password }
-      if (mode === 'register') {
-        await register(credentials)
-        await finishLogin()
-        return
-      }
-      const result = await login(credentials)
+      // register (email verification) and login (2FA) share one union: either a
+      // completed session (`{ user }`) or an emailed-code challenge.
+      const result =
+        mode === 'register' ? await register(credentials) : await login(credentials)
       if ('twoFactor' in result) {
-        // 2FA is configured: flip to the code-entry step, no session yet.
+        // Email verification / 2FA is active: flip to the code step, no session yet.
         setChallenge({ challengeId: result.challengeId, email: result.email })
         setCode('')
         setBusy(false)
@@ -169,7 +208,7 @@ export function Auth({ mode, auth }: AuthProps) {
       await loginVerify(challenge.challengeId, code)
       await finishLogin()
     } catch (caught) {
-      setError(codeErrorMessage(caught))
+      setError(codeErrorMessage(caught, mode))
       setBusy(false)
     }
   }
@@ -185,31 +224,35 @@ export function Auth({ mode, auth }: AuthProps) {
       setChallenge({ challengeId, email: challenge.email })
       setCode('')
     } catch (caught) {
-      setError(codeErrorMessage(caught))
+      setError(codeErrorMessage(caught, mode))
     } finally {
       setBusy(false)
     }
   }
 
-  // -------------------------------------------------------- 2FA code step ---
-  if (mode === 'login' && challenge !== null) {
+  // ----------------------------------------------- email code-entry step ---
+  // Reached by login (2FA) and register (email verification) alike; the copy is
+  // keyed off the mode so signup reads as finishing the account.
+  if (challenge !== null) {
+    const codeCopy = CODE_COPY[mode]
     return (
       <section className="relative z-10 flex-1 flex items-center justify-center px-6 py-16">
         <motion.div {...cardMotion} className="liquid-glass rounded-3xl w-full max-w-md p-8 flex flex-col gap-6">
           <div className="flex flex-col items-center text-center gap-3">
             <MailCheck className="w-7 h-7 text-allow" />
             <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-white/45">
-              Check your email
+              {codeCopy.eyebrow}
             </span>
             <h1
               style={{ fontFamily: "'Instrument Serif', serif" }}
               className="text-3xl md:text-[34px] font-medium tracking-[-0.01em] text-white"
             >
-              Enter your code
+              {codeCopy.title}
             </h1>
             <p className="text-[13px] text-white/50">
-              We sent a 6-digit code to{' '}
-              <span className="text-white/80">{challenge.email}</span>.
+              {codeCopy.bodyBefore}
+              <span className="text-white/80">{challenge.email}</span>
+              {codeCopy.bodyAfter}
             </p>
           </div>
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { memoryDatabase } from '../db/memory.test'
-import { createFreeUser, createUserWithPassword } from '../db/accounts'
+import { createFreeUser, createUserWithPassword, markEmailVerified } from '../db/accounts'
 import { SESSION_COOKIE_NAME, signSession } from '../auth/session'
 import { authenticate } from './auth'
 
@@ -81,7 +81,7 @@ describe('authenticate', () => {
 
   it('resolves a valid session cookie to its user when a secret is supplied', async () => {
     const { db } = memoryDatabase()
-    const { user } = await createUserWithPassword(db, 'cookie@example.com', 'pbkdf2$1$a$b')
+    const { user } = await createUserWithPassword(db, 'cookie@example.com', 'pbkdf2$1$a$b', true)
     const token = await signSession(user.id, nowSeconds(), 3600, SECRET)
     const ctx = await authenticate(
       request({ Cookie: `${SESSION_COOKIE_NAME}=${token}` }),
@@ -93,7 +93,7 @@ describe('authenticate', () => {
 
   it('ignores a session cookie when no secret is configured (anonymous)', async () => {
     const { db } = memoryDatabase()
-    const { user } = await createUserWithPassword(db, 'nosecret@example.com', 'pbkdf2$1$a$b')
+    const { user } = await createUserWithPassword(db, 'nosecret@example.com', 'pbkdf2$1$a$b', true)
     const token = await signSession(user.id, nowSeconds(), 3600, SECRET)
     const ctx = await authenticate(
       request({ Cookie: `${SESSION_COOKIE_NAME}=${token}`, 'CF-Connecting-IP': '1.1.1.1' }),
@@ -104,7 +104,7 @@ describe('authenticate', () => {
 
   it('downgrades an expired session cookie to anonymous', async () => {
     const { db } = memoryDatabase()
-    const { user } = await createUserWithPassword(db, 'expired@example.com', 'pbkdf2$1$a$b')
+    const { user } = await createUserWithPassword(db, 'expired@example.com', 'pbkdf2$1$a$b', true)
     // Issued an hour ago with a 1s TTL → long expired by now.
     const token = await signSession(user.id, nowSeconds() - 3600, 1, SECRET)
     const ctx = await authenticate(
@@ -117,7 +117,7 @@ describe('authenticate', () => {
 
   it('prefers a valid Bearer key over a session cookie', async () => {
     const { db } = memoryDatabase()
-    const { user, apiKey } = await createUserWithPassword(db, 'both@example.com', 'pbkdf2$1$a$b')
+    const { user, apiKey } = await createUserWithPassword(db, 'both@example.com', 'pbkdf2$1$a$b', true)
     const token = await signSession('some-other-user', nowSeconds(), 3600, SECRET)
     const ctx = await authenticate(
       request({ Authorization: `Bearer ${apiKey}`, Cookie: `${SESSION_COOKIE_NAME}=${token}` }),
@@ -129,7 +129,7 @@ describe('authenticate', () => {
 
   it('downgrades a cookie whose user no longer exists to anonymous', async () => {
     const { db, store } = memoryDatabase()
-    const { user } = await createUserWithPassword(db, 'gone@example.com', 'pbkdf2$1$a$b')
+    const { user } = await createUserWithPassword(db, 'gone@example.com', 'pbkdf2$1$a$b', true)
     const token = await signSession(user.id, nowSeconds(), 3600, SECRET)
     store.users.delete(user.id)
     const ctx = await authenticate(
@@ -138,5 +138,32 @@ describe('authenticate', () => {
       SECRET,
     )
     expect(ctx).toEqual({ subject: 'anon:3.3.3.3', tier: 'anonymous' })
+  })
+
+  it('downgrades a valid session for an UNVERIFIED account to anonymous', async () => {
+    const { db } = memoryDatabase()
+    // Created unverified (email provider active at register), so the session
+    // subject must NOT authenticate until the emailed code is verified.
+    const { user } = await createUserWithPassword(db, 'unverified@example.com', 'pbkdf2$1$a$b', false)
+    const token = await signSession(user.id, nowSeconds(), 3600, SECRET)
+    const ctx = await authenticate(
+      request({ Cookie: `${SESSION_COOKIE_NAME}=${token}`, 'CF-Connecting-IP': '4.4.4.4' }),
+      db,
+      SECRET,
+    )
+    expect(ctx).toEqual({ subject: 'anon:4.4.4.4', tier: 'anonymous' })
+  })
+
+  it('authenticates the same session once the account is verified', async () => {
+    const { db } = memoryDatabase()
+    const { user } = await createUserWithPassword(db, 'becomes-verified@example.com', 'pbkdf2$1$a$b', false)
+    const token = await signSession(user.id, nowSeconds(), 3600, SECRET)
+    // Unverified → anonymous.
+    const before = await authenticate(request({ Cookie: `${SESSION_COOKIE_NAME}=${token}` }), db, SECRET)
+    expect(before.tier).toBe('anonymous')
+    // After verification the very same cookie resolves to the account.
+    await markEmailVerified(db, user.id)
+    const after = await authenticate(request({ Cookie: `${SESSION_COOKIE_NAME}=${token}` }), db, SECRET)
+    expect(after).toEqual({ subject: user.id, tier: 'free' })
   })
 })

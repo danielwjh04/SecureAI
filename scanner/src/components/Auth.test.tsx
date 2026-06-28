@@ -41,11 +41,15 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** Fill the credentials form and submit it. */
-function submitCredentials(): void {
+/**
+ * Fill the credentials form and submit it. `submitLabel` is the submit button's
+ * text — "Log in" for the login surface (the default) or "Create account" for
+ * the register surface.
+ */
+function submitCredentials(submitLabel = 'Log in'): void {
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+  fireEvent.click(screen.getByRole('button', { name: submitLabel }))
 }
 
 describe('Auth — login without 2FA', () => {
@@ -152,10 +156,20 @@ describe('Auth — login with 2FA', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }))
     await waitFor(() => expect(verify).toHaveBeenCalledWith('chal-2', '654321'))
   })
+
+  it('keeps the sign-in-code wording on a 502 from login (unchanged)', async () => {
+    vi.spyOn(client, 'login').mockRejectedValue(new ApiError(502, 'send failed'))
+    render(<Auth mode="login" auth={authState()} />)
+    submitCredentials()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'We could not send your sign-in code. Please try again.',
+    )
+  })
 })
 
-describe('Auth — register (never 2FA)', () => {
-  it('registers and redirects without a code step', async () => {
+describe('Auth — register without email verification', () => {
+  it('registers and redirects straight to the dashboard when the server returns { user }', async () => {
     const { calls } = stubAssign()
     const refresh = vi.fn().mockResolvedValue(undefined)
     const reg = vi
@@ -163,11 +177,119 @@ describe('Auth — register (never 2FA)', () => {
       .mockResolvedValue({ user: { email: 'a@b.com', tier: 'free' } })
 
     render(<Auth mode="register" auth={authState({ refresh })} />)
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    submitCredentials('Create account')
 
     await waitFor(() => expect(reg).toHaveBeenCalled())
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
     expect(calls).toContain('#dashboard')
+    // No code step appeared.
+    expect(screen.queryByText('Verify your email')).not.toBeInTheDocument()
+  })
+
+  it('shows an inline error on a 409 (email taken) and stays on the credentials step', async () => {
+    vi.spyOn(client, 'register').mockRejectedValue(new ApiError(409, 'taken'))
+    render(<Auth mode="register" auth={authState()} />)
+    submitCredentials('Create account')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That email is already registered.')
+    expect(screen.queryByText('Verify your email')).not.toBeInTheDocument()
+  })
+})
+
+describe('Auth — register with email verification', () => {
+  it('renders the signup code-entry step (with masked email) on a twoFactor response', async () => {
+    vi.spyOn(client, 'register').mockResolvedValue({
+      twoFactor: true,
+      challengeId: 'reg-1',
+      email: 'a***@b.com',
+    })
+    render(<Auth mode="register" auth={authState()} />)
+    submitCredentials('Create account')
+
+    // The signup-specific copy, not the login wording.
+    expect(await screen.findByText('Verify your email')).toBeInTheDocument()
+    expect(
+      screen.getByText(/enter it to finish creating your account/i),
+    ).toBeInTheDocument()
+    expect(screen.getByText('a***@b.com')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sign-in code')).toBeInTheDocument()
+    // The login heading is NOT shown.
+    expect(screen.queryByText('Enter your code')).not.toBeInTheDocument()
+  })
+
+  it('verifies the emailed code and redirects to the dashboard on success', async () => {
+    const { calls } = stubAssign()
+    const refresh = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(client, 'register').mockResolvedValue({
+      twoFactor: true,
+      challengeId: 'reg-1',
+      email: 'a***@b.com',
+    })
+    const verify = vi
+      .spyOn(client, 'loginVerify')
+      .mockResolvedValue({ user: { email: 'a@b.com', tier: 'free' } })
+
+    render(<Auth mode="register" auth={authState({ refresh })} />)
+    submitCredentials('Create account')
+
+    const codeInput = await screen.findByLabelText('Sign-in code')
+    fireEvent.change(codeInput, { target: { value: '123456' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Verify' }))
+
+    await waitFor(() => expect(verify).toHaveBeenCalledWith('reg-1', '123456'))
+    await waitFor(() => expect(calls).toContain('#dashboard'))
+  })
+
+  it('shows an inline error on a wrong/expired code and stays on the code step', async () => {
+    vi.spyOn(client, 'register').mockResolvedValue({
+      twoFactor: true,
+      challengeId: 'reg-1',
+      email: 'a***@b.com',
+    })
+    vi.spyOn(client, 'loginVerify').mockRejectedValue(new ApiError(401, 'invalid'))
+
+    render(<Auth mode="register" auth={authState()} />)
+    submitCredentials('Create account')
+
+    const codeInput = await screen.findByLabelText('Sign-in code')
+    fireEvent.change(codeInput, { target: { value: '000000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Verify' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That code is invalid or has expired.')
+    expect(screen.getByText('Verify your email')).toBeInTheDocument()
+  })
+
+  it('resends a fresh code, then verifies with the rotated challenge id', async () => {
+    vi.spyOn(client, 'register').mockResolvedValue({
+      twoFactor: true,
+      challengeId: 'reg-1',
+      email: 'a***@b.com',
+    })
+    const resend = vi.spyOn(client, 'loginResend').mockResolvedValue({ challengeId: 'reg-2' })
+    const verify = vi
+      .spyOn(client, 'loginVerify')
+      .mockResolvedValue({ user: { email: 'a@b.com', tier: 'free' } })
+
+    render(<Auth mode="register" auth={authState()} />)
+    submitCredentials('Create account')
+
+    await screen.findByLabelText('Sign-in code')
+    fireEvent.click(screen.getByRole('button', { name: 'Resend code' }))
+    await waitFor(() => expect(resend).toHaveBeenCalledWith('reg-1'))
+
+    fireEvent.change(screen.getByLabelText('Sign-in code'), { target: { value: '654321' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Verify' }))
+    await waitFor(() => expect(verify).toHaveBeenCalledWith('reg-2', '654321'))
+  })
+
+  it('shows the verification-code send-failure message on a 502 from register', async () => {
+    vi.spyOn(client, 'register').mockRejectedValue(new ApiError(502, 'send failed'))
+    render(<Auth mode="register" auth={authState()} />)
+    submitCredentials('Create account')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'We could not send your verification code. Please try again.',
+    )
+    expect(screen.queryByText('Verify your email')).not.toBeInTheDocument()
   })
 })

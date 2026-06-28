@@ -11,7 +11,7 @@ import { memoryDatabase } from '../db/memory.test'
 import type { Database } from '../db/database'
 import { loadConfig } from '../config/env'
 import { SESSION_COOKIE_NAME } from '../auth/session'
-import { handleLogin, handleLoginResend, handleLoginVerify, handleRegister } from './auth'
+import { handleLogin, handleLoginResend, handleLoginVerify, handleMe, handleRegister } from './auth'
 
 const config = loadConfig({ SCANNER_PBKDF2_ITERATIONS: '100000' })
 const SECRET = 'twofactor-test-secret'
@@ -300,5 +300,117 @@ describe('handleLoginResend', () => {
     sender.failNext = true
     const res = await handleLoginResend(jsonReq('/api/login/resend', { challengeId }), deps(db, sender))
     expect(res.status).toBe(502)
+  })
+})
+
+describe('handleRegister with an email sender (verification at signup)', () => {
+  it('creates an UNVERIFIED account, opens a challenge, emails the code, and sets NO cookie', async () => {
+    const { db, store } = memoryDatabase()
+    const sender = new FakeEmailSender()
+
+    const res = await handleRegister(
+      jsonReq('/api/register', { email: 'zuriel@gmail.com', password: 'password123' }),
+      deps(db, sender),
+    )
+
+    // Same shape as handleLogin's 2FA branch: 200 { twoFactor, challengeId, email }.
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { twoFactor: boolean; challengeId: string; email: string }
+    expect(body.twoFactor).toBe(true)
+    expect(typeof body.challengeId).toBe('string')
+    expect(body.email).toBe('z***@gmail.com')
+    // No session cookie — the account is not usable until verified.
+    expect(sessionCookieValue(res)).toBeNull()
+    // The user row exists but is UNVERIFIED.
+    const user = [...store.users.values()].find((u) => u.email === 'zuriel@gmail.com')
+    expect(user?.email_verified).toBe(0)
+    // A challenge row exists and the code was emailed to the real address.
+    expect(store.otpChallenges.size).toBe(1)
+    expect(sender.sent).toHaveLength(1)
+    expect(sender.sent[0]?.to).toBe('zuriel@gmail.com')
+    expect(codeFromMessage(sender.sent[0] as EmailMessage)).toMatch(/^[0-9]{6}$/)
+  })
+
+  it("an UNVERIFIED registrant's API key does not authenticate, but verifying enables it", async () => {
+    const { db, store } = memoryDatabase()
+    const sender = new FakeEmailSender()
+    await handleRegister(jsonReq('/api/register', { email: 'gate@example.com', password: 'password123' }), deps(db, sender))
+
+    // Rotate is unreachable without a session; mint a key directly to assert the
+    // verified gate on the API-key path (the account is unverified post-register).
+    const { rotateApiKey } = await import('../db/accounts')
+    const { findUserByApiKey } = await import('../db/accounts')
+    const user = [...store.users.values()].find((u) => u.email === 'gate@example.com')
+    const apiKey = await rotateApiKey(db, user?.id as string)
+    expect(await findUserByApiKey(db, apiKey)).toBeNull()
+
+    // Verify the emailed code → the account becomes usable and the key resolves.
+    const challengeId = [...store.otpChallenges.keys()][0] as string
+    const code = codeFromMessage(sender.sent[sender.sent.length - 1] as EmailMessage)
+    const verify = await handleLoginVerify(jsonReq('/api/login/verify', { challengeId, code }), deps(db, sender))
+    expect(verify.status).toBe(200)
+    expect(await findUserByApiKey(db, apiKey)).toEqual({ userId: user?.id, tier: 'free' })
+  })
+
+  it('login/verify flips email_verified to 1, issues a session, and /api/me then works', async () => {
+    const { db, store } = memoryDatabase()
+    const sender = new FakeEmailSender()
+    await handleRegister(jsonReq('/api/register', { email: 'flow@example.com', password: 'password123' }), deps(db, sender))
+
+    const challengeId = [...store.otpChallenges.keys()][0] as string
+    const code = codeFromMessage(sender.sent[sender.sent.length - 1] as EmailMessage)
+    const verify = await handleLoginVerify(jsonReq('/api/login/verify', { challengeId, code }), deps(db, sender))
+    expect(verify.status).toBe(200)
+    const cookie = sessionCookieValue(verify)
+    expect(cookie).not.toBeNull()
+
+    const user = [...store.users.values()].find((u) => u.email === 'flow@example.com')
+    expect(user?.email_verified).toBe(1)
+
+    // The freshly minted session cookie authenticates /api/me.
+    const me = await handleMe(
+      new Request('https://secureai.test/api/me', {
+        headers: { Cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
+      }),
+      deps(db, sender),
+    )
+    expect(me.status).toBe(200)
+    const profile = (await me.json()) as { email: string }
+    expect(profile.email).toBe('flow@example.com')
+  })
+
+  it('rejects a duplicate email with 409 BEFORE any challenge or email', async () => {
+    const { db, store } = memoryDatabase()
+    const sender = new FakeEmailSender()
+    // First register opens one challenge + one email.
+    await handleRegister(jsonReq('/api/register', { email: 'dupe@example.com', password: 'password123' }), deps(db, sender))
+    const challengesAfterFirst = store.otpChallenges.size
+    const emailsAfterFirst = sender.sent.length
+
+    const res = await handleRegister(
+      jsonReq('/api/register', { email: 'dupe@example.com', password: 'otherpass1' }),
+      deps(db, sender),
+    )
+    expect(res.status).toBe(409)
+    // The duplicate did NOT open a second challenge or send a second email.
+    expect(store.otpChallenges.size).toBe(challengesAfterFirst)
+    expect(sender.sent).toHaveLength(emailsAfterFirst)
+  })
+
+  it('returns 502 and issues NO session when the verification email fails', async () => {
+    const { db, store } = memoryDatabase()
+    const sender = new FakeEmailSender()
+    sender.failNext = true
+
+    const res = await handleRegister(
+      jsonReq('/api/register', { email: 'sendfail@example.com', password: 'password123' }),
+      deps(db, sender),
+    )
+    expect(res.status).toBe(502)
+    expect(sessionCookieValue(res)).toBeNull()
+    // The account exists but UNVERIFIED; a challenge row remains so resend can retry.
+    const user = [...store.users.values()].find((u) => u.email === 'sendfail@example.com')
+    expect(user?.email_verified).toBe(0)
+    expect(store.otpChallenges.size).toBe(1)
   })
 })

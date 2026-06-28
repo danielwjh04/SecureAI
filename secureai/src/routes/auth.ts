@@ -1,8 +1,11 @@
 /**
  * Email + password authentication routes: register, login, logout, me, and
  * key rotation. These sit alongside the existing Bearer-API-key auth — a
- * registered account gets BOTH a session cookie (for the browser) and an API key
- * (for programmatic callers).
+ * registered, email-verified account gets BOTH a session cookie (for the
+ * browser) and an API key (for programmatic callers). When email verification
+ * is active (a provider is configured), register creates the account UNVERIFIED
+ * and neither credential authenticates it until its emailed code is verified via
+ * `POST /api/login/verify`.
  *
  * Session model: a stateless, HMAC-signed cookie (see `auth/session.ts`). There
  * is no server-side session table; logout simply clears the cookie. Register and
@@ -38,6 +41,7 @@ import {
   findTierByUserId,
   findUserByEmail,
   getAccountProfile,
+  markEmailVerified,
   rotateApiKey,
 } from '../db/accounts'
 import { canManageRoles, canViewAdmin, effectiveRole } from '../auth/roles'
@@ -69,10 +73,13 @@ const STATUS_SERVICE_UNAVAILABLE = 503
 /**
  * A configured auth route's dependencies, assembled by the worker entry.
  *
- * `emailSender` is the email two-factor gate: `null` (no provider configured)
- * means login issues a session immediately after the password check, exactly as
- * before; a non-`null` sender activates the emailed-code challenge so a session
- * is minted only after the code is verified.
+ * `emailSender` is the email-verification gate for BOTH register and login:
+ * `null` (no provider configured) means register and login each issue a session
+ * immediately, and a new account is created already-verified, exactly as before;
+ * a non-`null` sender activates the emailed-code challenge so (a) login mints a
+ * session only after the code is verified and (b) a new account is created
+ * UNVERIFIED — unusable until its emailed code is verified via
+ * `POST /api/login/verify`.
  */
 export interface AuthDeps {
   readonly db: Database | null
@@ -253,14 +260,31 @@ async function sessionResponse(
 
 /**
  * Handle `POST /api/register`. Validates `{ email, password }`, rejects a
- * duplicate email with 409, hashes the password (PBKDF2), provisions a free user
- * with an API key, and returns `201 { user: { email, tier } }` with a session
- * cookie. Requires `env.DB` and `env.SESSION_SECRET` (503 otherwise).
+ * duplicate email with 409 (before any challenge or email), hashes the password
+ * (PBKDF2), and provisions a free user with an API key. The outcome GATES on
+ * whether email verification is configured (`deps.emailSender`), mirroring
+ * `handleLogin`:
+ *   - sender `null` (no provider) → the account is created VERIFIED (no code can
+ *     be sent), the session cookie is issued immediately, and the route returns
+ *     `201 { user: { email, tier } }`, exactly as before this feature existed.
+ *   - sender present → the account is created UNVERIFIED and is NOT usable yet
+ *     (its API key does not resolve and no session is issued). An emailed-code
+ *     challenge is opened and the route returns `200 { twoFactor: true,
+ *     challengeId, email: <masked> }` with NO Set-Cookie. Verification completes
+ *     via `POST /api/login/verify`, which flips the account to verified and mints
+ *     the session — so no separate verify endpoint is needed. If the email
+ *     cannot be sent, the route returns 502 and issues no session (fail-closed);
+ *     the unverified account + its pending challenge remain so `/api/login/resend`
+ *     can retry.
  *
  * The minted API key is NOT returned by register (the contract returns only the
- * user); programmatic callers obtain one via `POST /api/key/rotate`.
+ * user); programmatic callers obtain one via `POST /api/key/rotate` once the
+ * account is verified.
  *
- * Time complexity: O(iterations) (PBKDF2) + O(1) inserts. Space complexity: O(1).
+ * Requires `env.DB` and `env.SESSION_SECRET` (503 otherwise).
+ *
+ * Time complexity: O(iterations) (PBKDF2) + O(1) inserts [+ one email round trip
+ * when verification is active]. Space complexity: O(1).
  */
 export async function handleRegister(request: Request, deps: AuthDeps): Promise<Response> {
   if (deps.db === null) {
@@ -283,7 +307,31 @@ export async function handleRegister(request: Request, deps: AuthDeps): Promise<
     }
 
     const passwordHash = await hashPassword(body.password, deps.config.pbkdf2Iterations)
-    const { user } = await createUserWithPassword(db, body.email, passwordHash)
+    // With a provider the account is UNVERIFIED until the emailed code is
+    // verified; without one it is verified at creation (no code can be sent).
+    const verifiedAtCreation = deps.emailSender === null
+    const { user } = await createUserWithPassword(
+      db,
+      body.email,
+      passwordHash,
+      verifiedAtCreation,
+    )
+
+    // Verification active: withhold the session, open an emailed-code challenge,
+    // and return the same shape as handleLogin's 2FA branch (no Set-Cookie).
+    if (deps.emailSender !== null) {
+      const challengeId = await openChallenge(
+        db,
+        deps.emailSender,
+        deps.config,
+        user.id,
+        user.email,
+      )
+      return Response.json(
+        { twoFactor: true, challengeId, email: maskEmail(user.email) },
+        { status: STATUS_OK },
+      )
+    }
 
     return await sessionResponse(
       user.id,
@@ -299,6 +347,11 @@ export async function handleRegister(request: Request, deps: AuthDeps): Promise<
     console.error(`[handleRegister] ${className}`)
     if (error instanceof ParseError) {
       return Response.json({ error: className, message }, { status: STATUS_UNPROCESSABLE })
+    }
+    // A verification code that could not be delivered fails closed: the account
+    // exists but UNVERIFIED, and NO session is issued (the user can resend).
+    if (error instanceof EmailError) {
+      return Response.json({ error: 'email_send_failed' }, { status: STATUS_BAD_GATEWAY })
     }
     return Response.json({ error: 'registration_failed' }, { status: statusForError(error) })
   }
@@ -393,6 +446,15 @@ export async function handleLogin(request: Request, deps: AuthDeps): Promise<Res
  * generic 401, so the response cannot be used to probe challenge state. A wrong
  * code additionally increments the attempt counter (fail-closed brute-force cap).
  *
+ * This endpoint ALSO completes a signup verification: a correct emailed code
+ * proves control of the address, so before minting the session the account is
+ * marked email-verified ({@link markEmailVerified}, idempotent). For an account
+ * that registered while verification was active, this is the step that makes it
+ * usable (its API key and session begin to authenticate); for the login flow it
+ * is a harmless no-op (the account was already verified). Marking BEFORE the
+ * session is built means the freshly minted cookie passes the middleware's
+ * email-verified gate on the very next request.
+ *
  * Requires `env.DB` and `env.SESSION_SECRET` (503 otherwise).
  *
  * Time complexity: O(1) lookup + O(n) constant-time compare. Space complexity: O(1).
@@ -429,6 +491,11 @@ export async function handleLoginVerify(request: Request, deps: AuthDeps): Promi
     // Correct code: the challenge is single-use, so delete it before minting the
     // session — a replay of the same code then finds no challenge (generic 401).
     await deleteChallenge(db, challenge.id)
+    // A correct emailed code proves control of the address, which completes a
+    // signup verification: mark the account verified (idempotent) BEFORE the
+    // session is built so the new cookie — and the account's API key — begin to
+    // authenticate. For an already-verified login account this is a no-op.
+    await markEmailVerified(db, challenge.userId)
     const tier = await findTierByUserId(db, challenge.userId)
     const profile = await getAccountProfile(db, challenge.userId)
     if (tier === null || profile === null) {

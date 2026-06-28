@@ -44,7 +44,7 @@ function sessionCookieValue(res: Response): string | null {
 
 describe('handleRegister', () => {
   it('creates a free user, returns 201 { user }, and sets a session cookie', async () => {
-    const { db } = memoryDatabase()
+    const { db, store } = memoryDatabase()
     const res = await handleRegister(
       jsonReq('/api/register', { email: 'new@example.com', password: 'password123' }),
       deps(db),
@@ -54,6 +54,10 @@ describe('handleRegister', () => {
     expect(body.user).toEqual({ email: 'new@example.com', tier: 'free' })
     expect(sessionCookieValue(res)).not.toBeNull()
     expect(res.headers.get('Set-Cookie')).toContain('HttpOnly')
+    // With no email provider, the account is verified at creation (no code can be
+    // sent), so its session/key are immediately usable — exactly as before.
+    const user = [...store.users.values()].find((u) => u.email === 'new@example.com')
+    expect(user?.email_verified).toBe(1)
   })
 
   it('mints an API key behind the scenes (rotatable after register)', async () => {

@@ -18,7 +18,7 @@
 
 import type { Database } from '../db/database'
 import type { AccountTier } from '../db/accounts'
-import { findUserByApiKey, findTierByUserId } from '../db/accounts'
+import { findUserByApiKey, findTierByUserId, isEmailVerified } from '../db/accounts'
 import { readSessionCookie, verifySession } from '../auth/session'
 
 /** The tier dimension used for gating, widened with the anonymous pseudo-tier. */
@@ -76,11 +76,20 @@ function nowSeconds(): number {
 
 /**
  * Resolve the session cookie to an authenticated context, or `null` when there
- * is no usable session: no `sessionSecret` configured, no cookie present, or a
- * cookie that fails verification (bad signature / expired) or maps to a user id
- * that no longer resolves to a live account.
+ * is no usable session: no `sessionSecret` configured, no cookie present, a
+ * cookie that fails verification (bad signature / expired), one that maps to a
+ * user id that no longer resolves to a live account, OR one whose account has
+ * not verified its email.
  *
- * Time complexity: O(1) — one HMAC verify + one indexed tier lookup.
+ * The email-verified gate fails closed: a session subject whose account is
+ * UNVERIFIED (e.g. a registration that issued no session but whose cookie was
+ * somehow presented, or an account un-verified after the fact) is rejected here
+ * so the cookie downgrades to anonymous — mirroring the API-key gate in
+ * {@link findUserByApiKey}, so NEITHER credential authenticates an unverified
+ * account. The check runs before the tier lookup so an unverified account never
+ * reaches an authenticated context.
+ *
+ * Time complexity: O(1) — one HMAC verify + two indexed lookups.
  * Space complexity: O(1).
  *
  * @throws {AuthError} Only if the resolved user's stored tier is corrupt.
@@ -96,6 +105,9 @@ async function resolveSession(
   }
   const userId = await verifySession(token, nowSeconds(), sessionSecret)
   if (userId === null) {
+    return null
+  }
+  if (!(await isEmailVerified(db, userId))) {
     return null
   }
   const tier = await findTierByUserId(db, userId)

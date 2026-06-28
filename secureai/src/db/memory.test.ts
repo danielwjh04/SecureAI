@@ -26,6 +26,13 @@ interface UserRecord {
   stripe_customer_id: string | null
   created_at: string
   password_hash: string | null
+  /**
+   * Email-verification flag (migration 0008): 1 = verified, 0 = unverified. An
+   * unverified account authenticates via neither its API key nor its session
+   * cookie. DEFAULTs to 0 on a bare insert; createFreeUser / verified register
+   * set 1, and markEmailVerified flips it to 1.
+   */
+  email_verified: number
 }
 
 interface ApiKeyRecord {
@@ -132,7 +139,15 @@ export class MemoryStore {
         return null
       }
       const user = this.users.get(key.user_id)
-      return user === undefined ? null : { id: user.id, tier: user.tier }
+      if (user === undefined) {
+        return null
+      }
+      // Honor `AND u.email_verified = 1` (migration 0008): an UNVERIFIED account's
+      // key resolves to null (an auth miss), so it has no working credential.
+      if (sql.includes('u.email_verified = 1') && user.email_verified !== 1) {
+        return null
+      }
+      return { id: user.id, tier: user.tier }
     }
     if (sql.includes('FROM usage WHERE subject')) {
       const record = this.usage.get(usageKey(String(params[0]), String(params[1])))
@@ -169,6 +184,10 @@ export class MemoryStore {
     if (sql.includes('SELECT role FROM users WHERE id')) {
       const user = this.users.get(String(params[0]))
       return user === undefined ? null : { role: user.role }
+    }
+    if (sql.includes('SELECT email_verified FROM users WHERE id')) {
+      const user = this.users.get(String(params[0]))
+      return user === undefined ? null : { email_verified: user.email_verified }
     }
     if (sql.includes('email, tier, created_at FROM users WHERE id')) {
       // getAccountProfile user read.
@@ -482,9 +501,23 @@ export class MemoryStore {
           throw new Error('UNIQUE constraint failed: users.email')
         }
       }
-      // createUserWithPassword passes a 6th param (password_hash); createFreeUser
-      // passes 5 and leaves it null.
-      const passwordHash = params.length > 5 && params[5] !== null ? String(params[5]) : null
+      // Three INSERT shapes, distinguished by the named columns (not param count):
+      //   createUserWithPassword — names password_hash (param 5) AND email_verified
+      //     (param 6, the 1/0 flag the register route computes).
+      //   createFreeUser — names email_verified as a literal `1` (no bound param),
+      //     5 params, no password (the API-key signup path is verified at birth).
+      //   bare test inserts — name neither, 5 params: per migration 0008 the
+      //     email_verified column DEFAULTs to 0 (and password_hash to NULL).
+      const hasPassword = sql.includes('password_hash')
+      const passwordHash = hasPassword && params[5] !== null && params[5] !== undefined
+        ? String(params[5])
+        : null
+      // email_verified column default is 0 (migration 0008). createUserWithPassword
+      // binds it (param 6); createFreeUser hardcodes it to 1 in the SQL.
+      let emailVerified = 0
+      if (sql.includes('email_verified')) {
+        emailVerified = hasPassword ? (params[6] === 1 ? 1 : 0) : 1
+      }
       this.users.set(id, {
         id,
         email,
@@ -494,6 +527,7 @@ export class MemoryStore {
         stripe_customer_id: params[3] === null ? null : String(params[3]),
         created_at: String(params[4]),
         password_hash: passwordHash,
+        email_verified: emailVerified,
       })
       return { changes: 1 }
     }
@@ -615,6 +649,16 @@ export class MemoryStore {
         return { changes: 0 }
       }
       user.role = role
+      return { changes: 1 }
+    }
+    // markEmailVerified: flip the verification flag to 1 (idempotent; an unknown
+    // id changes zero rows). The value is a SQL literal, so the only bind is the id.
+    if (sql.startsWith('UPDATE users SET email_verified = 1 WHERE id')) {
+      const user = this.users.get(String(params[0]))
+      if (user === undefined) {
+        return { changes: 0 }
+      }
+      user.email_verified = 1
       return { changes: 1 }
     }
     if (sql.startsWith('UPDATE users SET stripe_customer_id = ? WHERE id')) {

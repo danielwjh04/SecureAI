@@ -108,7 +108,16 @@ export const defaultScanClient: ScanClient = { scanSkill }
  */
 const WITH_CREDENTIALS = { credentials: 'include' } as const
 
-/** Register a new account. Sets the session cookie. 409 if the email exists. */
+/**
+ * Register a new account. 409 if the email exists.
+ *
+ * The response is a union: when no email provider is configured server-side, it
+ * returns `{ user }` and the session cookie is already set. When email
+ * verification IS active, it returns `{ twoFactor: true, challengeId, email }`
+ * and NO cookie — the account is unusable until the caller collects the emailed
+ * 6-digit code and completes it via {@link loginVerify} (resend via
+ * {@link loginResend}). Discriminate on the `twoFactor` field.
+ */
 export async function register(
   credentials: AuthCredentials,
 ): Promise<AuthResponse> {

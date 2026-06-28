@@ -9,6 +9,8 @@ import {
   findUserByApiKey,
   findUserByEmail,
   getAccountProfile,
+  isEmailVerified,
+  markEmailVerified,
   rotateApiKey,
   setTierByStripeCustomer,
   setUserTier,
@@ -138,7 +140,7 @@ describe('tier mutation', () => {
 describe('createUserWithPassword', () => {
   it('provisions a free user with a stored password hash and a one-time key', async () => {
     const { db, store } = memoryDatabase()
-    const { user, apiKey } = await createUserWithPassword(db, 'pw@example.com', 'pbkdf2$1$a$b')
+    const { user, apiKey } = await createUserWithPassword(db, 'pw@example.com', 'pbkdf2$1$a$b', true)
 
     expect(user.tier).toBe('free')
     expect(user.email).toBe('pw@example.com')
@@ -150,17 +152,78 @@ describe('createUserWithPassword', () => {
 
   it('rejects a duplicate email as an AuthError', async () => {
     const { db } = memoryDatabase()
-    await createUserWithPassword(db, 'dup2@example.com', 'pbkdf2$1$a$b')
+    await createUserWithPassword(db, 'dup2@example.com', 'pbkdf2$1$a$b', true)
     await expect(
-      createUserWithPassword(db, 'dup2@example.com', 'pbkdf2$1$c$d'),
+      createUserWithPassword(db, 'dup2@example.com', 'pbkdf2$1$c$d', true),
     ).rejects.toBeInstanceOf(AuthError)
+  })
+
+  it('persists email_verified=0 when created unverified, and its key does NOT resolve', async () => {
+    const { db, store } = memoryDatabase()
+    const { user, apiKey } = await createUserWithPassword(db, 'unv@example.com', 'pbkdf2$1$a$b', false)
+    expect(store.users.get(user.id)?.email_verified).toBe(0)
+    // The account has an active key row, but the verified gate withholds it.
+    expect(await findUserByApiKey(db, apiKey)).toBeNull()
+  })
+
+  it('persists email_verified=1 when created verified, and its key resolves', async () => {
+    const { db, store } = memoryDatabase()
+    const { user, apiKey } = await createUserWithPassword(db, 'ver@example.com', 'pbkdf2$1$a$b', true)
+    expect(store.users.get(user.id)?.email_verified).toBe(1)
+    expect(await findUserByApiKey(db, apiKey)).toEqual({ userId: user.id, tier: 'free' })
+  })
+})
+
+describe('email verification (isEmailVerified / markEmailVerified)', () => {
+  it('createFreeUser provisions a VERIFIED account (no email step) whose key resolves', async () => {
+    const { db, store } = memoryDatabase()
+    const { user, apiKey } = await createFreeUser(db, 'apikeyacct@example.com')
+    // The API-key signup path has no verification step → verified at birth.
+    expect(store.users.get(user.id)?.email_verified).toBe(1)
+    expect(await isEmailVerified(db, user.id)).toBe(true)
+    expect(await findUserByApiKey(db, apiKey)).toEqual({ userId: user.id, tier: 'free' })
+  })
+
+  it('isEmailVerified is false for an unverified account and true after marking', async () => {
+    const { db } = memoryDatabase()
+    const { user, apiKey } = await createUserWithPassword(db, 'mark@example.com', 'pbkdf2$1$a$b', false)
+    expect(await isEmailVerified(db, user.id)).toBe(false)
+    // The key does not authenticate while unverified...
+    expect(await findUserByApiKey(db, apiKey)).toBeNull()
+
+    await markEmailVerified(db, user.id)
+    expect(await isEmailVerified(db, user.id)).toBe(true)
+    // ...and authenticates once verified.
+    expect(await findUserByApiKey(db, apiKey)).toEqual({ userId: user.id, tier: 'free' })
+  })
+
+  it('markEmailVerified is idempotent and a no-op for an unknown id', async () => {
+    const { db } = memoryDatabase()
+    const { user } = await createUserWithPassword(db, 'idem@example.com', 'pbkdf2$1$a$b', false)
+    await markEmailVerified(db, user.id)
+    // Replaying leaves it verified (idempotent), and an unknown id does not throw.
+    await expect(markEmailVerified(db, user.id)).resolves.toBeUndefined()
+    await expect(markEmailVerified(db, 'no-such-user')).resolves.toBeUndefined()
+    expect(await isEmailVerified(db, user.id)).toBe(true)
+  })
+
+  it('isEmailVerified is false for an unknown user id (fail closed)', async () => {
+    const { db } = memoryDatabase()
+    expect(await isEmailVerified(db, 'ghost')).toBe(false)
+  })
+
+  it('wraps a markEmailVerified persistence failure as an AuthError', async () => {
+    const { db, store } = memoryDatabase()
+    const { user } = await createUserWithPassword(db, 'markfail@example.com', 'pbkdf2$1$a$b', false)
+    store.failNext = true
+    await expect(markEmailVerified(db, user.id)).rejects.toBeInstanceOf(AuthError)
   })
 })
 
 describe('findUserByEmail', () => {
   it('resolves an account by email with its password hash', async () => {
     const { db } = memoryDatabase()
-    const { user } = await createUserWithPassword(db, 'find@example.com', 'pbkdf2$1$a$b')
+    const { user } = await createUserWithPassword(db, 'find@example.com', 'pbkdf2$1$a$b', true)
     const found = await findUserByEmail(db, 'find@example.com')
     expect(found).toEqual({
       id: user.id,
@@ -201,7 +264,7 @@ describe('findTierByUserId', () => {
 describe('getAccountProfile', () => {
   it('returns the profile with the brand prefix when an active key exists', async () => {
     const { db } = memoryDatabase()
-    const { user } = await createUserWithPassword(db, 'prof@example.com', 'pbkdf2$1$a$b')
+    const { user } = await createUserWithPassword(db, 'prof@example.com', 'pbkdf2$1$a$b', true)
     const profile = await getAccountProfile(db, user.id)
     expect(profile?.email).toBe('prof@example.com')
     expect(profile?.tier).toBe('free')

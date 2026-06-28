@@ -162,6 +162,11 @@ async function insertApiKey(db: Database, userId: string, createdAt: string): Pr
  * unrecoverable. The two inserts run as separate statements; the user is
  * inserted first so a key row can never reference a missing user.
  *
+ * The row is INSERTed `email_verified = 1`: this is the API-key signup path,
+ * which has NO email-verification step — the raw key is the credential and is
+ * returned directly — so the account is verified at creation and its key
+ * authenticates immediately (the column otherwise DEFAULTs to 0 / unverified).
+ *
  * Time complexity: O(1) (two single-row inserts). Space complexity: O(1).
  *
  * @param db - The persistence seam.
@@ -180,7 +185,8 @@ export async function createFreeUser(
   let apiKey: string
   try {
     await db.execute(
-      'INSERT INTO users (id, email, tier, stripe_customer_id, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO users (id, email, tier, stripe_customer_id, created_at, email_verified) ' +
+        'VALUES (?, ?, ?, ?, ?, 1)',
       [id, email, tier, null, createdAt],
     )
     apiKey = await insertApiKey(db, id, createdAt)
@@ -208,11 +214,20 @@ export async function createFreeUser(
  * account can later authenticate by email + password OR by Bearer key. The
  * plaintext password is never seen here — only its already-derived hash.
  *
+ * `emailVerified` sets the account's initial verification state. The register
+ * route passes `false` when an email provider is configured (the account is
+ * created UNVERIFIED and gets no working credential until a 2FA code is
+ * verified) and `true` when there is no provider (no code can be sent, so the
+ * account is verified at creation, exactly as before this feature existed). An
+ * UNVERIFIED account's API key does NOT resolve (see {@link findUserByApiKey}).
+ *
  * Time complexity: O(1) (two single-row inserts). Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param email - The account email (caller-validated; UNIQUE in the store).
  * @param passwordHash - The serialized PBKDF2 hash from `hashPassword`.
+ * @param emailVerified - Whether the account starts verified (`true`) or must
+ *   verify an emailed code before any credential works (`false`).
  * @returns The created {@link User} and its one-time raw API key.
  * @throws {AuthError} If persistence fails (e.g. a duplicate email).
  */
@@ -220,6 +235,7 @@ export async function createUserWithPassword(
   db: Database,
   email: string,
   passwordHash: string,
+  emailVerified: boolean,
 ): Promise<MintedAccount> {
   const id = crypto.randomUUID()
   const createdAt = new Date().toISOString()
@@ -228,9 +244,9 @@ export async function createUserWithPassword(
   let apiKey: string
   try {
     await db.execute(
-      'INSERT INTO users (id, email, tier, stripe_customer_id, created_at, password_hash) ' +
-        'VALUES (?, ?, ?, ?, ?, ?)',
-      [id, email, tier, null, createdAt, passwordHash],
+      'INSERT INTO users (id, email, tier, stripe_customer_id, created_at, password_hash, email_verified) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, email, tier, null, createdAt, passwordHash, emailVerified ? 1 : 0],
     )
     apiKey = await insertApiKey(db, id, createdAt)
   } catch (error: unknown) {
@@ -252,12 +268,18 @@ export async function createUserWithPassword(
  * `null` — this is an authentication MISS, not a fault, and is never thrown
  * (the auth middleware treats a miss as anonymous, CLAUDE.md auth spec).
  *
+ * The join also requires `u.email_verified = 1`, so an UNVERIFIED account's key
+ * resolves to `null` (an auth miss → anonymous): a newly registered account
+ * that has not yet verified its emailed code has NO working credential. This
+ * fails closed — the key path is gated here, the session path in the auth
+ * middleware — so neither credential authenticates an unverified account.
+ *
  * Time complexity: O(1) — primary-key lookup on `key_sha256` + PK join.
  * Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param rawKey - The presented bearer key (never persisted).
- * @returns The resolved credential, or `null` on a miss / inactive key.
+ * @returns The resolved credential, or `null` on a miss / inactive / unverified.
  * @throws {AuthError} Only if a matched record is structurally corrupt.
  */
 export async function findUserByApiKey(
@@ -268,7 +290,7 @@ export async function findUserByApiKey(
   const row = await db.queryOne(
     'SELECT u.id AS id, u.tier AS tier ' +
       'FROM api_keys k JOIN users u ON u.id = k.user_id ' +
-      "WHERE k.key_sha256 = ? AND k.status = 'active'",
+      "WHERE k.key_sha256 = ? AND k.status = 'active' AND u.email_verified = 1",
     [keyHash],
   )
   if (row === null) {
@@ -385,6 +407,49 @@ export async function findTierByUserId(
     return null
   }
   return parseTier(row['tier'])
+}
+
+/**
+ * Report whether the account `userId` has verified its email. Used by the
+ * session-cookie auth path to gate an UNVERIFIED account out of the
+ * authenticated context (the API-key path is gated in {@link findUserByApiKey}).
+ *
+ * Fails CLOSED on uncertainty: an unknown user id (the cookie no longer maps to
+ * a live account) and a missing / non-`1` `email_verified` column both read as
+ * `false`, so an account that cannot be proven verified is treated as
+ * unverified and downgraded to anonymous.
+ *
+ * Time complexity: O(1) — primary-key lookup. Space complexity: O(1).
+ */
+export async function isEmailVerified(db: Database, userId: string): Promise<boolean> {
+  const row = await db.queryOne('SELECT email_verified FROM users WHERE id = ?', [userId])
+  if (row === null) {
+    return false
+  }
+  return row['email_verified'] === 1
+}
+
+/**
+ * Mark the account `userId` as email-verified, flipping `email_verified` to 1.
+ *
+ * Idempotent: verifying an already-verified account re-sets the same value (a
+ * no-op in effect), and an unknown user id updates zero rows without error. This
+ * is the single write that completes a signup verification — it runs the moment
+ * a correct emailed code is accepted (proving email control), after which the
+ * account's API key and session both authenticate.
+ *
+ * Time complexity: O(1) — primary-key update. Space complexity: O(1).
+ *
+ * @throws {AuthError} On a database failure.
+ */
+export async function markEmailVerified(db: Database, userId: string): Promise<void> {
+  try {
+    await db.execute('UPDATE users SET email_verified = 1 WHERE id = ?', [userId])
+  } catch (error: unknown) {
+    const name = error instanceof Error ? error.name : typeof error
+    console.error(`[accounts] markEmailVerified failed: ${name}`)
+    throw new AuthError('failed to mark email verified', { cause: error })
+  }
 }
 
 /**
