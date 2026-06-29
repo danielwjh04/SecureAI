@@ -34,3 +34,4 @@ iv.log
 # Graphify knowledge-graph output (lives in Obsidian; never pushed to GitHub)
 graphify-out/
 graphify/
+.graphify_detect.json
