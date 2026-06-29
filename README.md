@@ -154,7 +154,7 @@ Built entirely on Cloudflare's serverless platform, no OpenAI and no Exa.
 
 **Scanner:** TypeScript on Cloudflare Workers (one Worker serves the SPA via Static Assets plus the API on one origin), Workers AI for the Pro-gated injection model (no per-request key), D1 (edge SQLite) for accounts, roles, API keys, usage and verdict metering, billing, scan history, and the proof rows, KV for the indicator and verdict cache, Stripe for Checkout, idempotent webhooks, and the portal (Pro at S$9.90/mo), Resend for the one-time 6-digit login codes, Web Crypto (`crypto.subtle`) for the SHA-256 proof re-verified client-side plus PBKDF2 password hashing, HMAC-signed session cookies, and SHA-256-hashed API keys, and a React 19 + Vite + Tailwind v4 + recharts front end.
 
-**Guard:** a zero-dependency Claude Code PreToolUse hook that routes each tool call through the same `/api/scan` engine and proof chain, returning a real inline `deny` and failing closed. A Python 3.12 / FastAPI runtime is parked in the repo as an enterprise and self-host option only.
+**Guard:** a zero-dependency Claude Code PreToolUse hook that routes each tool call through the same `/api/scan` engine and proof chain, returning a real inline `deny` and failing closed.
 
 ---
 
