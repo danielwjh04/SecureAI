@@ -33,6 +33,7 @@ import { breakerFor, type BreakerStore } from '../resilience/circuitBreaker'
 import { DenylistReputationClient, type IndicatorKv } from '../pipeline/indicators'
 import { preToolUseSchema } from '../schemas/validate'
 import { d1Database, type Database } from '../db/database'
+import { d1FeedStore } from '../db/feed'
 import { authenticate } from '../middleware/auth'
 import { aiAllowedForTier, enforceDailyCap } from '../middleware/gate'
 import { recordVerdict } from '../db/usage'
@@ -164,7 +165,10 @@ export async function handleGuard(
     // empty denylist simply flags nothing statically) so the reputation stage
     // is wired in for every caller.
     const kv = env.KV !== undefined && env.KV !== null ? (env.KV as IndicatorKv) : null
-    const reputation = new DenylistReputationClient(config.badHosts, kv)
+    // Threat-feed layer (D1-backed), consulted after the static set + KV. Wired
+    // only when enabled AND a DB is bound; otherwise null (the feed is skipped).
+    const feedStore = config.feedEnabled && db !== null ? d1FeedStore(db) : null
+    const reputation = new DenylistReputationClient(config.badHosts, kv, feedStore)
 
     // Decision cache: a repeated identical tool call (the common Guard case) is
     // served from KV, skipping the redirect trace + AI compute. Auth, the daily

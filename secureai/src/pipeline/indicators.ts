@@ -1,8 +1,9 @@
 /**
- * Known-bad host indicator lookup — a license-clean {@link ReputationClient}
- * that matches a scan's final destination URLs against a curated host/domain
- * denylist (our own data) plus, optionally, a Cloudflare KV namespace for
- * dynamic entries.
+ * Known-bad indicator lookup — a {@link ReputationClient} that matches a scan's
+ * final destination URLs against a curated host/domain denylist (our own data),
+ * an optional Cloudflare KV namespace for dynamic per-host entries, and an
+ * optional threat-feed store (the D1-backed, commercially-cleared abuse.ch feed)
+ * consulted last.
  *
  * Why a host denylist rather than IP-netblock data (e.g. Spamhaus DROP): a
  * Cloudflare Worker cannot resolve a URL hostname to an IP, so IP-range feeds
@@ -32,6 +33,7 @@
 
 import type { ReputationClient, ReputationReport } from '../schemas/contract'
 import { ReputationError } from '../errors'
+import { normalizeIndicatorUrl } from './normalizeUrl'
 
 /**
  * The minimal Cloudflare KV surface this client reads. Declared structurally
@@ -44,6 +46,18 @@ export interface IndicatorKv {
   get(key: string): Promise<string | null>
 }
 
+/**
+ * The bulk threat-feed lookup this client consults AFTER the static set and KV.
+ * Declared structurally (like {@link IndicatorKv}) so this module stays decoupled
+ * from the D1-backed store (`db/feed.d1FeedStore`) that implements it. `match` is
+ * given the host's parent-domain suffixes (the host plus each parent domain) and
+ * the scanned URL's normalized match key (or `null` when it has none), and
+ * returns the matching feed's source label, or `null` for no match.
+ */
+export interface FeedIndicatorStore {
+  match(hostSuffixes: readonly string[], normalizedUrl: string | null): Promise<string | null>
+}
+
 /** KV key prefix under which a single dynamic host denylist entry is stored. */
 const KV_HOST_PREFIX = 'host:'
 
@@ -52,6 +66,24 @@ const SCORE_FLAGGED = '1.00'
 
 /** The stringified reputation score for a clean host. */
 const SCORE_CLEAN = '0.00'
+
+/**
+ * The host plus each of its parent domains, longest first (`a.b.evil.com` →
+ * `a.b.evil.com`, `b.evil.com`, `evil.com`, `com`). Shared by the static denylist
+ * check and the feed lookup so both match a subdomain against a parent entry by a
+ * single membership test per suffix.
+ *
+ * Time complexity: O(d) in the label count. Space complexity: O(d).
+ */
+function hostSuffixes(hostname: string): string[] {
+  const suffixes = [hostname]
+  let dotIndex = hostname.indexOf('.')
+  while (dotIndex !== -1) {
+    suffixes.push(hostname.slice(dotIndex + 1))
+    dotIndex = hostname.indexOf('.', dotIndex + 1)
+  }
+  return suffixes
+}
 
 /**
  * A {@link ReputationClient} that assesses each final URL against a curated
@@ -68,10 +100,14 @@ export class DenylistReputationClient implements ReputationClient {
    * @param kv - Optional KV namespace of dynamic per-host entries, checked when
    *   the static set does not already flag a host. Omit it (or pass `null`) to
    *   run on the static denylist alone.
+   * @param feed - Optional threat-feed store, checked only after the static set
+   *   AND KV miss (so the cheapest, certain layers run first). Omit (or `null`)
+   *   to skip the feed layer entirely.
    */
   public constructor(
     private readonly denylist: ReadonlySet<string>,
     private readonly kv: IndicatorKv | null = null,
+    private readonly feed: FeedIndicatorStore | null = null,
   ) {}
 
   /**
@@ -144,6 +180,18 @@ export class DenylistReputationClient implements ReputationClient {
       }
     }
 
+    const feedSource = await this.assessFeed(hostname, url)
+    if (feedSource !== null) {
+      return {
+        url,
+        score: SCORE_FLAGGED,
+        summary: `host or URL on known-bad feed (${feedSource})`,
+        title: hostname,
+        flagged: true,
+        status: 'denylisted',
+      }
+    }
+
     return {
       url,
       score: SCORE_CLEAN,
@@ -168,21 +216,9 @@ export class DenylistReputationClient implements ReputationClient {
    * @returns `true` if the host or any parent domain is on the static denylist.
    */
   private isStaticallyDenylisted(hostname: string): boolean {
-    if (this.denylist.has(hostname)) {
-      return true
-    }
-    // Walk parent domains by advancing past each leading label's dot. Each
-    // suffix (e.g. "evil.com") is tested against the O(1) set; a hit means the
-    // host is a subdomain of a denylisted parent.
-    let dotIndex = hostname.indexOf('.')
-    while (dotIndex !== -1) {
-      const parent = hostname.slice(dotIndex + 1)
-      if (this.denylist.has(parent)) {
-        return true
-      }
-      dotIndex = hostname.indexOf('.', dotIndex + 1)
-    }
-    return false
+    // The host or any parent domain on the set is a hit; the suffix walk is what
+    // makes a denylist entry `evil.com` also flag `a.b.evil.com`.
+    return hostSuffixes(hostname).some((suffix) => this.denylist.has(suffix))
   }
 
   /**
@@ -206,6 +242,36 @@ export class DenylistReputationClient implements ReputationClient {
       const className = error instanceof Error ? error.constructor.name : typeof error
       throw new ReputationError(
         `KV denylist read failed for host '${hostname}' (${className})`,
+        { cause: error },
+      )
+    }
+  }
+
+  /**
+   * Report the source label of a known-bad threat-feed match for
+   * `hostname`/`url`, or `null`. Consulted ONLY after the static set and KV miss,
+   * so the cheapest, certain layers run first. The host's parent-domain suffixes
+   * and the URL's normalized match key are tested in one store call. A feed read
+   * error is raised as {@link ReputationError} (fail-closed; never swallowed),
+   * mirroring {@link isKvDenylisted}.
+   *
+   * Time complexity: O(d) suffixes for one store lookup. Space complexity: O(d).
+   *
+   * @param hostname - A lowercased hostname.
+   * @param url - The original destination URL (normalized for the URL match).
+   * @returns The matching feed's source label, or `null` for no match / no feed.
+   * @throws {ReputationError} If the feed lookup fails.
+   */
+  private async assessFeed(hostname: string, url: string): Promise<string | null> {
+    if (this.feed === null) {
+      return null
+    }
+    try {
+      return await this.feed.match(hostSuffixes(hostname), normalizeIndicatorUrl(url))
+    } catch (error: unknown) {
+      const className = error instanceof Error ? error.constructor.name : typeof error
+      throw new ReputationError(
+        `feed denylist read failed for host '${hostname}' (${className})`,
         { cause: error },
       )
     }

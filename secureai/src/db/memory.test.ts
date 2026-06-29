@@ -125,6 +125,11 @@ export class MemoryStore {
   public readonly scanHistory = new Map<string, ScanHistoryRecord>()
   /** Keyed by `scan_id` (= scan_history.id); the caught-scan detail store. */
   public readonly scanDetails = new Map<string, ScanDetailRecord>()
+  /** Bulk threat-feed indicators (migration 0011); models the versioned table. */
+  public readonly feedIndicators: { version: number; kind: string; value: string; source: string }[] =
+    []
+  /** The live feed pointer (`feed_meta.current_version`); null until first load. */
+  public feedMetaVersion: number | null = null
 
   /** Per-statement failure injection: when armed, the next call throws once. */
   public failNext = false
@@ -346,6 +351,20 @@ export class MemoryStore {
         content: detail.content,
         result_json: detail.result_json,
       }
+    }
+    // Threat-feed lookup: any current-version indicator whose value is among the
+    // bound candidates (host suffixes + the normalized URL) is a hit.
+    if (sql.includes('FROM feed_indicators fi')) {
+      if (this.feedMetaVersion === null) {
+        return null
+      }
+      const candidates = new Set(params.map((value) => String(value)))
+      for (const record of this.feedIndicators) {
+        if (record.version === this.feedMetaVersion && candidates.has(record.value)) {
+          return { source: record.source }
+        }
+      }
+      return null
     }
     throw new Error(`MemoryStore: unrecognized queryOne SQL: ${sql}`)
   }
@@ -837,6 +856,31 @@ export class MemoryStore {
     }
     if (sql.startsWith('DELETE FROM users WHERE id')) {
       return { changes: this.users.delete(String(params[0])) ? 1 : 0 }
+    }
+    // Threat-feed writes (migration 0011 / db/feed.replaceFeed).
+    if (sql.startsWith('INSERT INTO feed_indicators')) {
+      // Multi-row insert: params are flat groups of (version, kind, value, source).
+      for (let i = 0; i + 3 < params.length; i += 4) {
+        this.feedIndicators.push({
+          version: Number(params[i]),
+          kind: String(params[i + 1]),
+          value: String(params[i + 2]),
+          source: String(params[i + 3]),
+        })
+      }
+      return { changes: Math.floor(params.length / 4) }
+    }
+    if (sql.startsWith('UPDATE feed_meta SET current_version')) {
+      this.feedMetaVersion = Number(params[0])
+      return { changes: 1 }
+    }
+    if (sql.startsWith('DELETE FROM feed_indicators WHERE version <>')) {
+      const keep = Number(params[0])
+      const remaining = this.feedIndicators.filter((record) => record.version === keep)
+      const removed = this.feedIndicators.length - remaining.length
+      this.feedIndicators.length = 0
+      this.feedIndicators.push(...remaining)
+      return { changes: removed }
     }
     throw new Error(`MemoryStore: unrecognized execute SQL: ${sql}`)
   }

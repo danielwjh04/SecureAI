@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ReputationError } from '../errors'
 import type { ReputationReport } from '../schemas/contract'
-import { DenylistReputationClient, type IndicatorKv } from './indicators'
+import { DenylistReputationClient, type FeedIndicatorStore, type IndicatorKv } from './indicators'
 
 /** A small denylist used across the static-match cases. */
 const denylist: ReadonlySet<string> = new Set(['evil.com', 'malware.example'])
@@ -21,6 +21,18 @@ async function assessOne(
 function fakeKv(entries: Record<string, string> = {}): IndicatorKv {
   return {
     get: async (key: string) => (key in entries ? entries[key]! : null),
+  }
+}
+
+/** A tiny feed fake: `match` flags when any candidate value is seeded as bad. */
+function fakeFeed(badValues: readonly string[] = []): FeedIndicatorStore {
+  const bad = new Set(badValues)
+  return {
+    match: async (hostSuffixes: readonly string[], normalizedUrl: string | null) => {
+      const candidates =
+        normalizedUrl !== null ? [...hostSuffixes, normalizedUrl] : [...hostSuffixes]
+      return candidates.some((value) => bad.has(value)) ? 'urlhaus' : null
+    },
   }
 }
 
@@ -134,5 +146,57 @@ describe('DenylistReputationClient — KV dynamic entries', () => {
     await expect(client.assessFinalUrls(['https://safe.test/'])).rejects.toBeInstanceOf(
       ReputationError,
     )
+  })
+})
+
+describe('DenylistReputationClient — threat-feed (D1) entries', () => {
+  it('flags a host present in the feed (via parent-domain suffixes), attributing the source', async () => {
+    const client = new DenylistReputationClient(new Set(), null, fakeFeed(['feedbad.test']))
+    const report = await assessOne(client, 'https://sub.feedbad.test/page')
+    expect(report.flagged).toBe(true)
+    expect(report.status).toBe('denylisted')
+    expect(report.summary).toContain('urlhaus')
+  })
+
+  it('flags an exact malicious URL without flagging the rest of the host', async () => {
+    const client = new DenylistReputationClient(new Set(), null, fakeFeed(['evil.test/mal.exe']))
+    const hit = await assessOne(client, 'https://evil.test/mal.exe')
+    expect(hit.flagged).toBe(true)
+    const miss = await assessOne(client, 'https://evil.test/other')
+    expect(miss.flagged).toBe(false)
+  })
+
+  it('does NOT consult the feed when the static set already flags the host', async () => {
+    const match = vi.fn(async () => null)
+    const client = new DenylistReputationClient(denylist, null, { match })
+    await assessOne(client, 'https://evil.com/')
+    expect(match).not.toHaveBeenCalled()
+  })
+
+  it('does NOT consult the feed when KV already flags the host', async () => {
+    const match = vi.fn(async () => null)
+    const kv = fakeKv({ 'host:kvbad.test': '1' })
+    const client = new DenylistReputationClient(new Set(), kv, { match })
+    await assessOne(client, 'https://kvbad.test/')
+    expect(match).not.toHaveBeenCalled()
+  })
+
+  it('raises ReputationError when the feed lookup throws (fail-closed)', async () => {
+    const feed: FeedIndicatorStore = {
+      match: async () => {
+        throw new Error('d1 unavailable')
+      },
+    }
+    const client = new DenylistReputationClient(new Set(), null, feed)
+    await expect(client.assessFinalUrls(['https://safe.test/'])).rejects.toBeInstanceOf(
+      ReputationError,
+    )
+  })
+
+  it('leaves a host clean when the feed misses too', async () => {
+    const client = new DenylistReputationClient(new Set(), null, fakeFeed(['other.test']))
+    const report = await assessOne(client, 'https://safe.test/')
+    expect(report.flagged).toBe(false)
+    expect(report.status).toBe('clean')
   })
 })

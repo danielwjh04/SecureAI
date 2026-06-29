@@ -30,6 +30,7 @@ import { metrics } from '../observability/metrics'
 import { DenylistReputationClient, type IndicatorKv } from '../pipeline/indicators'
 import { scanRequestSchema } from '../schemas/validate'
 import { d1Database } from '../db/database'
+import { d1FeedStore } from '../db/feed'
 import { authenticate } from '../middleware/auth'
 import { aiAllowedForTier, enforceDailyCap } from '../middleware/gate'
 import { recordVerdict, verdictStatement } from '../db/usage'
@@ -399,7 +400,10 @@ export async function handleScan(
     // empty denylist simply flags nothing statically) so the reputation stage
     // is wired in for every caller.
     const kv = env.KV !== undefined && env.KV !== null ? (env.KV as IndicatorKv) : null
-    const reputation = new DenylistReputationClient(config.badHosts, kv)
+    // Threat-feed layer (D1-backed), consulted after the static set + KV. Wired
+    // only when enabled AND a DB is bound; otherwise null (the feed is skipped).
+    const feedStore = config.feedEnabled && db !== null ? d1FeedStore(db) : null
+    const reputation = new DenylistReputationClient(config.badHosts, kv, feedStore)
 
     // The edge timestamp lives OUTSIDE the hashed proof, so it is stamped here
     // and is the same value whether the result is freshly computed or served

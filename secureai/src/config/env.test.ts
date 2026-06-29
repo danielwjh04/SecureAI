@@ -41,6 +41,32 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ SCANNER_DETAIL_MAX_BYTES: '262145' })).toThrow(ConfigError)
   })
 
+  it('defaults the threat feed disabled with abuse.ch source URLs and a row cap', () => {
+    const config = loadConfig({})
+    expect(config.feedEnabled).toBe(false)
+    expect(config.feedMaxRows).toBe(200000)
+    expect(config.feedFetchTimeoutMs).toBe(20000)
+    expect(config.feedUrlhausUrlList).toContain('urlhaus.abuse.ch')
+    expect(config.feedUrlhausHostfile).toContain('urlhaus.abuse.ch')
+    expect(config.feedThreatfoxCsv).toContain('threatfox.abuse.ch')
+  })
+
+  it('enables the feed and parses source/limit overrides', () => {
+    const config = loadConfig({
+      SCANNER_FEED_ENABLED: 'true',
+      SCANNER_FEED_MAX_ROWS: '50',
+      SCANNER_FEED_THREATFOX: 'https://example.test/tfx.csv',
+    })
+    expect(config.feedEnabled).toBe(true)
+    expect(config.feedMaxRows).toBe(50)
+    expect(config.feedThreatfoxCsv).toBe('https://example.test/tfx.csv')
+  })
+
+  it('rejects an out-of-range feed row cap or fetch timeout', () => {
+    expect(() => loadConfig({ SCANNER_FEED_MAX_ROWS: '0' })).toThrow(ConfigError)
+    expect(() => loadConfig({ SCANNER_FEED_FETCH_TIMEOUT_MS: '999' })).toThrow(ConfigError)
+  })
+
   it('rejects review >= block thresholds', () => {
     expect(() =>
       loadConfig({ SCANNER_REVIEW_THRESHOLD: '0.8', SCANNER_BLOCK_THRESHOLD: '0.5' }),

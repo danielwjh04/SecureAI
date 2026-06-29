@@ -5,8 +5,9 @@
 ## Goal
 
 Feed abuse.ch known-bad indicators into the scanner's reputation stage so a scan
-of a skill/link pointing at a known-malicious **host/domain or URL** returns
-`BLOCK`. Internal-lookup-only: we never redistribute raw feed rows or place them
+of a skill/link pointing at a known-malicious **host/domain or URL** is flagged
+and escalated to `HUMAN_APPROVAL_REQUIRED` (REVIEW), exactly like the existing
+curated denylist. Internal-lookup-only: we never redistribute raw feed rows or place them
 in a proof — a hit records only that a known-bad feed matched, with a source
 label, in the report (the proof keeps its existing `denylisted` REPUTATION shape).
 
@@ -20,8 +21,12 @@ label, in the report (the proof keeps its existing `denylisted` REPUTATION shape
 - **Coverage / cadence (config defaults):** URLhaus *online* + ThreatFox *recent*
   endpoints (recency is encoded by the endpoint, tunable via the source-URL vars);
   refresh **hourly** via a Cron Trigger. Not full historical dumps (a v2).
-- **Verdict:** a feed hit reuses `{flagged:true, score:'1.00', status:'denylisted'}`,
-  so it BLOCKs exactly like the curated denylist and the **proof contract is unchanged**.
+- **Verdict:** a feed hit reuses `{flagged:true, score:'1.00', status:'denylisted'}` —
+  identical to the curated denylist — so the orchestrator escalates it to
+  `HUMAN_APPROVAL_REQUIRED` (REVIEW), exactly like an existing denylist hit, and the
+  **proof contract is unchanged**. (Promoting denylist + feed hits to a hard `BLOCK`
+  is a separate one-line change to the reputation escalation floor — it would affect
+  the existing denylist too, so it is deliberately NOT done here.)
 
 ## Data model — migration `0011_feed_indicators.sql`
 
@@ -104,7 +109,8 @@ never source — mirrors `RESEND_API_KEY`).
   toward `HUMAN_APPROVAL_REQUIRED` (never clears a host on a DB blip).
 - Refresh: atomic via insert-new-version → flip pointer → delete-old. A crash
   before the flip leaves the prior version live. Zero-row refresh never flips.
-- A feed hit is high-confidence → `BLOCK` (score `1.00`, status `denylisted`).
+- A feed hit flags the report (score `1.00`, status `denylisted`) → the orchestrator
+  escalates to `HUMAN_APPROVAL_REQUIRED` (REVIEW), as with the existing denylist.
 
 ## Observability
 
@@ -122,7 +128,8 @@ Metrics: `feed.refresh` (labels: source, ok/fail), `feed.rows` per source,
   precedence (static/KV before feed).
 - `feedIngest`: injected fetch with canned bodies → expected indicators written;
   one failing source skipped; all-fail → no pointer flip (last good version kept).
-- E2E: feed contains `evil.com` → scanning content linking to it → `BLOCK`.
+- E2E: feed contains `evil.com` → scanning content linking to it → `HUMAN_APPROVAL_REQUIRED`
+  (REVIEW); a clean link stays `ALLOW`; the feed is not consulted when disabled.
 
 ## Out of scope (v2)
 

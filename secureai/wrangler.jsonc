@@ -32,6 +32,14 @@
 		"enabled": true,
 		"head_sampling_rate": 1
 	},
+	// Hourly threat-feed refresh, handled by the Worker's `scheduled` export. A
+	// no-op unless SCANNER_FEED_ENABLED is "true" and the DB is bound, so it is
+	// safe to leave configured.
+	"triggers": {
+		"crons": [
+			"0 * * * *"
+		]
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",
@@ -172,6 +180,20 @@
 		// binding below (uncomment `r2_buckets`), then set this to "true". When the
 		// bucket is unbound the offload is a no-op and D1 keeps the truncated preview.
 		"SCANNER_R2_ENABLED": "false",
+		// Threat-feed integration (abuse.ch URLhaus + ThreatFox). OFF by default;
+		// flip SCANNER_FEED_ENABLED to "true" AFTER the 0011 migration is applied
+		// (--remote) and the URLHAUS_AUTH_KEY secret is set (wrangler secret put
+		// URLHAUS_AUTH_KEY). The hourly cron (triggers.crons below) refreshes the
+		// feed_indicators table; the reputation stage then matches the scanned
+		// host/URL against it. Source URLs default to the abuse.ch online/recent
+		// exports (recency is the endpoint choice). SCANNER_FEED_MAX_ROWS caps the
+		// retained rows per refresh; SCANNER_FEED_FETCH_TIMEOUT_MS bounds each fetch.
+		"SCANNER_FEED_ENABLED": "false",
+		"SCANNER_FEED_URLHAUS_URLS": "https://urlhaus.abuse.ch/downloads/text_online/",
+		"SCANNER_FEED_URLHAUS_HOSTS": "https://urlhaus.abuse.ch/downloads/hostfile/",
+		"SCANNER_FEED_THREATFOX": "https://threatfox.abuse.ch/export/csv/recent/",
+		"SCANNER_FEED_MAX_ROWS": "200000",
+		"SCANNER_FEED_FETCH_TIMEOUT_MS": "20000",
 		// Minimum structured-log level (debug | info | warn | error). Logs are emitted
 		// as JSON lines to Workers Logs (enabled by the `observability` block below).
 		"SCANNER_LOG_LEVEL": "info"

@@ -203,6 +203,22 @@ export interface ScannerConfig {
    * keeps the truncated preview and R2 holds the full payload for admin review.
    */
   readonly r2Enabled: boolean
+  /**
+   * Threat-feed integration (abuse.ch URLhaus + ThreatFox). OFF by default for
+   * safe rollout; when on (and DB bound) the hourly cron refreshes the
+   * `feed_indicators` table and the reputation stage consults it. The source URLs
+   * default to the abuse.ch online/recent exports (recency is the endpoint
+   * choice, retunable here). The Auth-Key is a SECRET (`URLHAUS_AUTH_KEY`), read
+   * from env in the cron — never config, never source.
+   */
+  readonly feedEnabled: boolean
+  readonly feedUrlhausUrlList: string
+  readonly feedUrlhausHostfile: string
+  readonly feedThreatfoxCsv: string
+  /** Hard upper bound on retained feed indicators per refresh (cost/perf cap). */
+  readonly feedMaxRows: number
+  /** Hard timeout (ms) for each feed-source fetch. */
+  readonly feedFetchTimeoutMs: number
   /** Minimum structured-log level emitted (`debug` | `info` | `warn` | `error`). */
   readonly logLevel: LogLevel
 }
@@ -319,6 +335,28 @@ export function loadConfig(env: Env): ScannerConfig {
   const dbBookmarkTtlSeconds = readIntInRange(env, 'SCANNER_DB_BOOKMARK_TTL_S', 60, 1, 600)
   // R2 full-content offload (gated; no-op when the bucket is unbound).
   const r2Enabled = readBool(env, 'SCANNER_R2_ENABLED', false)
+  // Threat-feed integration (abuse.ch). OFF by default; the source URLs default
+  // to the online/recent exports (recency is the endpoint choice, tunable here).
+  // The Auth-Key is a SECRET read from env in the cron, never a var.
+  const feedEnabled = readBool(env, 'SCANNER_FEED_ENABLED', false)
+  const feedUrlhausUrlList = readString(
+    env,
+    'SCANNER_FEED_URLHAUS_URLS',
+    'https://urlhaus.abuse.ch/downloads/text_online/',
+  )
+  const feedUrlhausHostfile = readString(
+    env,
+    'SCANNER_FEED_URLHAUS_HOSTS',
+    'https://urlhaus.abuse.ch/downloads/hostfile/',
+  )
+  const feedThreatfoxCsv = readString(
+    env,
+    'SCANNER_FEED_THREATFOX',
+    'https://threatfox.abuse.ch/export/csv/recent/',
+  )
+  const feedMaxRows = readIntInRange(env, 'SCANNER_FEED_MAX_ROWS', 200000, 1, 2000000)
+  const feedFetchTimeoutMs = readIntInRange(env, 'SCANNER_FEED_FETCH_TIMEOUT_MS', 20000, 1000, 120000)
+
   // Structured-log minimum level.
   const logLevel = readEnum<LogLevel>(
     env,
@@ -394,6 +432,12 @@ export function loadConfig(env: Env): ScannerConfig {
     dbSessionsEnabled,
     dbBookmarkTtlSeconds,
     r2Enabled,
+    feedEnabled,
+    feedUrlhausUrlList,
+    feedUrlhausHostfile,
+    feedThreatfoxCsv,
+    feedMaxRows,
+    feedFetchTimeoutMs,
     logLevel,
   }
 }

@@ -45,6 +45,7 @@ import {
   handleAdminThreats,
 } from './routes/admin'
 import { d1Database, d1Session, type SessionDatabase } from './db/database'
+import { ingestFeeds } from './scanner/feedIngest'
 import { readBookmark, withBookmark } from './db/bookmark'
 import type { ObjectStore } from './storage/r2'
 import { log, errorClassOf, setLogLevel } from './observability/logger'
@@ -322,6 +323,53 @@ export default {
     }
 
     return jsonError('not found', 404)
+  },
+
+  /**
+   * Cron entry: refresh the threat-feed indicators. Gated on `feedEnabled` and a
+   * bound DB; the `URLHAUS_AUTH_KEY` secret authenticates the abuse.ch fetches.
+   * The cron's `scheduledTime` is the monotonic feed version. Fail-safe: a
+   * refresh fault is logged, never thrown, so the schedule keeps running.
+   */
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    let config: ScannerConfig
+    try {
+      config = loadConfig(env)
+    } catch (error) {
+      log.error('index', 'scheduled config load failed', { errorClass: errorClassOf(error) })
+      return
+    }
+    setLogLevel(config.logLevel)
+    setMetricsDataset((env.METRICS as MetricsDataset | undefined) ?? null)
+
+    if (!config.feedEnabled) {
+      log.info('index', 'feed refresh skipped: disabled')
+      return
+    }
+    if (env.DB === undefined || env.DB === null) {
+      log.warn('index', 'feed refresh skipped: no DB binding')
+      return
+    }
+
+    try {
+      const summary = await ingestFeeds({
+        db: d1Database(env.DB),
+        fetchImpl: fetch,
+        authKey: typeof env.URLHAUS_AUTH_KEY === 'string' ? env.URLHAUS_AUTH_KEY : undefined,
+        version: controller.scheduledTime,
+        updatedAt: new Date(controller.scheduledTime).toISOString(),
+        sources: {
+          urlhausUrlList: config.feedUrlhausUrlList,
+          urlhausHostfile: config.feedUrlhausHostfile,
+          threatfoxCsv: config.feedThreatfoxCsv,
+        },
+        maxRows: config.feedMaxRows,
+        fetchTimeoutMs: config.feedFetchTimeoutMs,
+      })
+      log.info('index', 'feed refresh complete', { total: summary.total, flipped: summary.flipped })
+    } catch (error) {
+      log.error('index', 'feed refresh failed', { errorClass: errorClassOf(error) })
+    }
   },
 } satisfies ExportedHandler<Env>
 
