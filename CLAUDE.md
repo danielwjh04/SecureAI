@@ -120,13 +120,13 @@ The test: every changed line traces to the request.
 
 **Typed errors.** Define error classes in `errors.ts`. Never throw a bare `Error`. Examples: `RedirectGuardError`, `ChainIntegrityError`, `InferenceError`.
 
-**Observability — logs, metrics, traces.** Never `console.*` in `src/**` (enforced by the `no-console` lint rule; the only exception is the logger's own sink). Use the structured logger in `observability/logger.ts`: `import { log } from '.../observability/logger'`, then `log.error('<module>', '<static message>', { errorClass: errorClassOf(error), ...scalarFields })`. Every log is one JSON line (`{ts, level, module, msg, ...fields}`) so Workers Logs indexes the fields. Two hard rules:
-- **No PII / content in logs.** The `LogFields` type is scalar-only by design (objects/arrays are a compile error); keep `msg` static and log errors by CLASS (`errorClassOf`), never by message — a message can carry user input.
+**Observability: logs, metrics, traces.** Never `console.*` in `src/**` (enforced by the `no-console` lint rule; the only exception is the logger's own sink). Use the structured logger in `observability/logger.ts`: `import { log } from '.../observability/logger'`, then `log.error('<module>', '<static message>', { errorClass: errorClassOf(error), ...scalarFields })`. Every log is one JSON line (`{ts, level, module, msg, ...fields}`) so Workers Logs indexes the fields. Two hard rules:
+- **No PII / content in logs.** The `LogFields` type is scalar-only by design (objects/arrays are a compile error); keep `msg` static and log errors by CLASS (`errorClassOf`), never by message, because a message can carry user input.
 - **Level from config.** `setLogLevel(config.logLevel)` is called once per request in `index.ts`; modules just call `log.<level>`.
 
 - **README style** there are to be no em-dashes being used anywhere in the README and the README should prioritise simplicity for people to read over long winded style of explanation, and should be updated after every change especially major ones.
 
-Metrics go through `observability/metrics.ts` (`import { metrics }`): `metrics.count('<name>', { labels: [...] })` for low-cardinality counters (verdicts, breaker trips, cap rejections) — never PII in a blob/index. It no-ops when the `METRICS` Analytics Engine binding is absent. Request correlation is the per-invocation `cf-ray`, echoed as the `x-request-id` response header; enable Workers Logs with the `observability` block in `wrangler.jsonc`.
+Metrics go through `observability/metrics.ts` (`import { metrics }`): `metrics.count('<name>', { labels: [...] })` for low-cardinality counters (verdicts, breaker trips, cap rejections), never PII in a blob/index. It no-ops when the `METRICS` Analytics Engine binding is absent. Request correlation is the per-invocation `cf-ray`, echoed as the `x-request-id` response header; enable Workers Logs with the `observability` block in `wrangler.jsonc`.
 
 ## 5. Security-Specific Rules
 
@@ -225,3 +225,5 @@ Set Stripe and feed API keys with `wrangler secret put`. With no AI binding avai
 ## These Guidelines Are Working If
 
 Diffs carry fewer unnecessary changes, fewer rewrites happen from overcomplication, and clarifying questions arrive before implementation rather than after mistakes.
+
+EMDASHES SHOULD NOT BE USED ANYWHERE IN THE CODEBASE BE IT FRONT END OR BACKEND AND REPLACED WITH NORMAL HUMAN LANGUAGE OR PUNCTUATION WHERE RELEVANT AND LOGICAL.
