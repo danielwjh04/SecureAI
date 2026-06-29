@@ -124,6 +124,8 @@ The test: every changed line traces to the request.
 - **No PII / content in logs.** The `LogFields` type is scalar-only by design (objects/arrays are a compile error); keep `msg` static and log errors by CLASS (`errorClassOf`), never by message — a message can carry user input.
 - **Level from config.** `setLogLevel(config.logLevel)` is called once per request in `index.ts`; modules just call `log.<level>`.
 
+- **README style** there are to be no em-dashes being used anywhere in the README and the README should prioritise simplicity for people to read over long winded style of explanation, and should be updated after every change especially major ones.
+
 Metrics go through `observability/metrics.ts` (`import { metrics }`): `metrics.count('<name>', { labels: [...] })` for low-cardinality counters (verdicts, breaker trips, cap rejections) — never PII in a blob/index. It no-ops when the `METRICS` Analytics Engine binding is absent. Request correlation is the per-invocation `cf-ray`, echoed as the `x-request-id` response header; enable Workers Logs with the `observability` block in `wrangler.jsonc`.
 
 ## 5. Security-Specific Rules
@@ -142,7 +144,7 @@ This is a security product. These rules are stricter than ordinary practice.
 5. AI injection detection, only when earlier layers are ambiguous and only for paid usage.
 6. Seal every step into the proof chain and return the verdict.
 
-**AI inference (Workers AI).** Call the model through the `env.AI` binding, never a hardcoded endpoint. On any inference error, raise `InferenceError` so the scan fails closed. Strip identifying fields before inference. Model output is a probability of unsafe content; the ALLOW / REVIEW / BLOCK thresholds live in config, not in the inference function.
+**AI inference (Workers AI).** Call the model through the `env.AI` binding, never a hardcoded endpoint. On any inference error, raise `InferenceError` so the scan fails closed. Strip identifying fields before inference. Model output is a probability of unsafe content; the ALLOW / REVIEW / BLOCK thresholds live in config, not in the inference function. Ensure there are NO leaked API keys anywhere in the pushed code... and if there are resolve immediately 
 
 **Fail-closed default.** If any required check cannot run, the verdict is BLOCK. High-impact agent actions (shell execution, secret reads, outbound network) default to BLOCK on uncertainty; read-only low-impact actions may default to ALLOW.
 
