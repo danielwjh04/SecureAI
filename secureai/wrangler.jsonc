@@ -188,7 +188,7 @@
 		// host/URL against it. Source URLs default to the abuse.ch online/recent
 		// exports (recency is the endpoint choice). SCANNER_FEED_MAX_ROWS caps the
 		// retained rows per refresh; SCANNER_FEED_FETCH_TIMEOUT_MS bounds each fetch.
-		"SCANNER_FEED_ENABLED": "false",
+		"SCANNER_FEED_ENABLED": "true",
 		"SCANNER_FEED_URLHAUS_URLS": "https://urlhaus.abuse.ch/downloads/text_online/",
 		"SCANNER_FEED_URLHAUS_HOSTS": "https://urlhaus.abuse.ch/downloads/hostfile/",
 		"SCANNER_FEED_THREATFOX": "https://threatfox.abuse.ch/export/csv/recent/",
