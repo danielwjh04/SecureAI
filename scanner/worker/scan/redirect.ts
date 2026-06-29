@@ -2,7 +2,7 @@
  * Manual redirect-cascade tracer.
  *
  * A skill's links are followed hop-by-hop with `redirect: 'manual'` so the
- * scanner sees every intermediate destination — the exact surface a redirect
+ * scanner sees every intermediate destination, the exact surface a redirect
  * laundering attack hides behind. Every hop URL is run through the SSRF guard
  * *before* it is fetched, the cascade is bounded by a configured depth cap, and
  * a normalized-URL set catches loops. Nothing here trusts the network to
@@ -11,7 +11,7 @@
  * Fail-closed posture: a hop that the SSRF guard rejects is recorded as a
  * dangerous hop and the cascade stops (we never fetch it). A genuine transport
  * failure (network error / timeout) cannot be resolved into a verdict here, so
- * it is raised as `RedirectResolutionError` for the orchestrator to escalate —
+ * it is raised as `RedirectResolutionError` for the orchestrator to escalate
  * it is never swallowed into a "clean" chain.
  *
  * Cloudflare note: Workers cannot inspect the resolved IP of a hostname, so the
@@ -72,7 +72,7 @@ type LocationResolution =
  * that produced the response (relative redirects are legal and common).
  *
  * A malformed `Location` is reported as `malformed` (never thrown) so the
- * caller can record it as a dangerous, terminal hop — fail-closed, not a raw
+ * caller can record it as a dangerous, terminal hop, fail-closed, not a raw
  * `TypeError` escaping the tracer.
  *
  * Time complexity: O(m) in the resolved URL length. Space complexity: O(m).
@@ -108,10 +108,10 @@ function resolveLocation(
  *      hop carrying the guard's reason and stop (the URL is never fetched).
  *   2. If the current URL was already visited, set `loopDetected` and stop.
  *   3. Fetch with `redirect: 'manual'` and a per-hop abort timeout. A transport
- *      failure raises `RedirectResolutionError` (fail-closed — never resolves to
+ *      failure raises `RedirectResolutionError` (fail-closed, never resolves to
  *      a clean chain).
  *   4. If the status is not a 3xx with a usable `Location`, the current URL is
- *      final — stop.
+ *      final, stop.
  *   5. Otherwise record the hop, advance to the resolved Location, and repeat.
  *      Exceeding `maxRedirectHops` sets `depthExceeded` and stops.
  *
@@ -196,7 +196,7 @@ export async function traceRedirects(
     }
 
     // 5. Non-redirect status (or a 3xx with no Location) means the current URL
-    //    is the final destination — terminate.
+    //    is the final destination, terminate.
     const isRedirect =
       response.status >= REDIRECT_STATUS_MIN &&
       response.status <= REDIRECT_STATUS_MAX
@@ -208,7 +208,7 @@ export async function traceRedirects(
       break
     }
     if (resolution.kind === 'malformed') {
-      // A redirect we cannot parse cannot be followed safely — record it as a
+      // A redirect we cannot parse cannot be followed safely, record it as a
       // dangerous, terminal hop (fail-closed) rather than guessing.
       dangerousHopIndex = hops.length
       hops.push({

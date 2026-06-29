@@ -11,7 +11,7 @@ import {
 // network or GitHub API is touched. They assert the two responsibilities the
 // resolver owns: (1) parsing a GitHub *web* URL into a structured target (or
 // `null` for shapes we must not rewrite), and (2) turning that target into the
-// raw SKILL.md URL — via a deterministic blob rewrite (no API), or via the
+// raw SKILL.md URL, via a deterministic blob rewrite (no API), or via the
 // repo/tree discovery API with a reproducible shallowest-path choice.
 
 const TIMEOUT_MS = 5000
@@ -130,7 +130,7 @@ describe('parseGithubWebUrl', () => {
   })
 })
 
-describe('resolveGithubSkillUrl — blob (no API call)', () => {
+describe('resolveGithubSkillUrl, blob (no API call)', () => {
   it('rewrites a blob URL straight to the raw host', async () => {
     const target: GithubTarget = {
       kind: 'blob',
@@ -144,7 +144,7 @@ describe('resolveGithubSkillUrl — blob (no API call)', () => {
   })
 })
 
-describe('resolveGithubSkillUrl — repo root (default branch + tree)', () => {
+describe('resolveGithubSkillUrl, repo root (default branch + tree)', () => {
   it('finds the SKILL.md via the default branch and tree API', async () => {
     const { fetch, calls } = mockFetch({
       [API]: { json: { default_branch: 'main' } },
@@ -234,7 +234,7 @@ describe('resolveGithubSkillUrl — repo root (default branch + tree)', () => {
   })
 })
 
-describe('resolveGithubSkillUrl — tree (scoped to a subdir)', () => {
+describe('resolveGithubSkillUrl, tree (scoped to a subdir)', () => {
   it('only considers SKILL.md under the requested subdir', async () => {
     const { fetch, calls } = mockFetch({
       [TREE_MAIN]: {

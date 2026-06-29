@@ -26,7 +26,7 @@ export class PersistenceError extends ScannerError {}
 
 /**
  * Raised INTERNALLY by a circuit breaker when it short-circuits a call because
- * the breaker is open. It is never surfaced to a route directly — the breaker's
+ * the breaker is open. It is never surfaced to a route directly, the breaker's
  * `onOpen` maps it to the wrapped dependency's OWN typed error (e.g.
  * {@link InferenceError}, {@link EmailError}, {@link BillingError}), carrying this
  * as the `cause` so logs can tell "circuit open" apart from a real upstream fault.
@@ -57,7 +57,7 @@ export class InferenceError extends ScannerError {}
 /**
  * An account / persistence fault: a failed credential operation, a malformed
  * stored record, or a database error in the accounts layer. Never used to
- * signal a merely-invalid caller key — an unknown key is anonymous, not an
+ * signal a merely-invalid caller key, an unknown key is anonymous, not an
  * error (see {@link ../middleware/auth.authenticate}).
  */
 export class AuthError extends ScannerError {}
@@ -67,7 +67,7 @@ export class QuotaExceededError extends ScannerError {}
 
 /**
  * A billing-provider fault: a failed Stripe API call (checkout/portal session
- * creation), or a webhook the provider could not process. Mapped to HTTP 502 —
+ * creation), or a webhook the provider could not process. Mapped to HTTP 502
  * the upstream payment provider is unreachable or rejected the request. Never
  * used to signal an unverified webhook signature, which is a fail-closed 400.
  */
@@ -83,7 +83,7 @@ export class AdminError extends ScannerError {}
 /**
  * An email-provider fault: the transactional email API (Resend) rejected the
  * send or was unreachable. Mapped to HTTP 502 by the login route so a 2FA code
- * that could not be delivered fails closed — NO session is issued. Only the
+ * that could not be delivered fails closed, NO session is issued. Only the
  * upstream status / error class is ever logged, never the code.
  */
 export class EmailError extends ScannerError {}
@@ -93,6 +93,6 @@ export class EmailError extends ScannerError {}
  * while creating, reading, incrementing, or deleting an `otp_challenges` row.
  * Wraps the underlying store fault so the verify/resend routes fail closed
  * rather than leaking an internal error. A merely-missing or expired challenge
- * is NOT an error — it is a generic 401 the route returns directly.
+ * is NOT an error, it is a generic 401 the route returns directly.
  */
 export class OtpError extends ScannerError {}

@@ -35,7 +35,7 @@ export function BackgroundVideo() {
       })
     }
 
-    // Some states block autoplay outright even for muted video — notably Safari
+    // Some states block autoplay outright even for muted video, notably Safari
     // Low Power Mode, where no muted autoplay is permitted. A user gesture lifts
     // the block, so the first interaction anywhere on the page starts playback;
     // once it is actually playing we stop listening. The video wrapper is

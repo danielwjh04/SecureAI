@@ -11,14 +11,14 @@ const SAMPLE_GALLERY: GalleryData = {
       id: 'benign-1',
       title: 'A safe skill',
       tag: 'benign',
-      // @ts-expect-error — only the fields deriveStats reads are needed here.
+      // @ts-expect-error, only the fields deriveStats reads are needed here.
       result: { verdict: 'ALLOW', proof: { steps: [{}, {}, {}] } },
     },
     {
       id: 'attack-1',
       title: 'A malicious skill',
       tag: 'attack',
-      // @ts-expect-error — only the fields deriveStats reads are needed here.
+      // @ts-expect-error, only the fields deriveStats reads are needed here.
       result: { verdict: 'BLOCK', proof: { steps: [{}, {}] } },
     },
   ],

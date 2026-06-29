@@ -9,7 +9,7 @@
  * `verifyChain` walks from `proof.genesisHash` (carried in the proof) per
  * `shared/proof.ts`. We additionally derive the genesis hash from the
  * configured seed and reject any proof whose embedded genesis does not match it,
- * so a proof minted under a different (or forged) seed cannot pass as ours —
+ * so a proof minted under a different (or forged) seed cannot pass as ours
  * fail-closed against a swapped genesis.
  */
 

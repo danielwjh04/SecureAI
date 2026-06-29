@@ -22,7 +22,7 @@ describe('normalizeIndicatorUrl', () => {
     expect(normalizeIndicatorUrl('https://evil.com/')).toBe('evil.com/')
   })
 
-  it('keeps the path exact — a trailing slash is significant', () => {
+  it('keeps the path exact, a trailing slash is significant', () => {
     expect(normalizeIndicatorUrl('http://evil.com/a')).toBe('evil.com/a')
     expect(normalizeIndicatorUrl('http://evil.com/a/')).toBe('evil.com/a/')
   })

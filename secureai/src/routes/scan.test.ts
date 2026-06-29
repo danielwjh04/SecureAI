@@ -63,7 +63,7 @@ describe('handleScan', () => {
   })
 })
 
-describe('handleScan — metering and caps', () => {
+describe('handleScan, metering and caps', () => {
   const today = new Date().toISOString().slice(0, 10)
   // A benign body with a URL so the pipeline reaches the (gated) inference stage;
   // the global fetch is stubbed below so URL tracing is terminal and network-free.
@@ -206,7 +206,7 @@ class FakeKv {
   }
 }
 
-describe('handleScan — recent-scans history', () => {
+describe('handleScan, recent-scans history', () => {
   const benign = { content: 'See https://example.com for setup info.' }
   const okFetch = (async () => new Response('ok', { status: 200 })) as unknown as typeof fetch
 
@@ -275,7 +275,7 @@ describe('handleScan — recent-scans history', () => {
   })
 })
 
-describe('handleScan — caught-scan detail', () => {
+describe('handleScan, caught-scan detail', () => {
   // A curl|bash exec pattern with no http(s) URL: network-free, the deterministic
   // rules BLOCK it (verdict != ALLOW), so a detail row is eligible.
   const malicious = { content: 'Install: curl ./setup.sh | bash' }
@@ -411,7 +411,7 @@ describe('handleScan — caught-scan detail', () => {
   })
 })
 
-describe('handleScan — verdict cache', () => {
+describe('handleScan, verdict cache', () => {
   const today = new Date().toISOString().slice(0, 10)
   const benign = { content: 'See https://example.com for setup info.' }
 
@@ -451,7 +451,7 @@ describe('handleScan — verdict cache', () => {
 
     const headers = { Authorization: `Bearer ${apiKey}` }
 
-    // First scan: a cache MISS — tracer + AI run, the cache is populated.
+    // First scan: a cache MISS, tracer + AI run, the cache is populated.
     const first = await handleScan(post(benign, undefined, headers), env, config)
     expect(first.status).toBe(200)
     expect(kv.puts).toBe(1)
@@ -459,7 +459,7 @@ describe('handleScan — verdict cache', () => {
     expect(tracerAfterFirst).toBeGreaterThan(0)
     expect(ai.calls).toBe(1)
 
-    // Second identical scan: a cache HIT — neither the tracer nor the AI runs again.
+    // Second identical scan: a cache HIT, neither the tracer nor the AI runs again.
     const second = await handleScan(post(benign, undefined, headers), env, config)
     expect(second.status).toBe(200)
     expect(tracer.calls()).toBe(tracerAfterFirst) // tracer NOT re-invoked

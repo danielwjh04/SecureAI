@@ -11,7 +11,7 @@ import {
 // network or GitHub API is touched. They assert the two responsibilities the
 // resolver owns: (1) parsing a GitHub *web* URL into a structured target (or
 // `null` for shapes we must not rewrite), and (2) turning that target into the
-// raw SKILL.md URL — via a deterministic blob rewrite (no API), a raw-first HEAD
+// raw SKILL.md URL, via a deterministic blob rewrite (no API), a raw-first HEAD
 // probe that resolves a root SKILL.md with zero API calls, or the repo/tree
 // discovery API (only when the probe misses) with a reproducible shallowest-path choice.
 
@@ -30,7 +30,7 @@ interface TreeEntry {
  * rewrite that wrongly hit the API).
  *
  * NOTE: this mock keys ONLY on the URL and discards `init`, so it cannot assert
- * the probe's method/redirect/headers — the dedicated security test below uses a
+ * the probe's method/redirect/headers, the dedicated security test below uses a
  * hand-rolled impl for that.
  */
 function mockFetch(
@@ -141,7 +141,7 @@ describe('parseGithubWebUrl', () => {
   })
 })
 
-describe('resolveGithubSkillUrl — blob (no API call)', () => {
+describe('resolveGithubSkillUrl, blob (no API call)', () => {
   // The blob branch returns before the raw-first probe runs (it is already a raw
   // URL), so NEVER_FETCH must stay: zero fetches, no probe.
   it('rewrites a blob URL straight to the raw host', async () => {
@@ -157,7 +157,7 @@ describe('resolveGithubSkillUrl — blob (no API call)', () => {
   })
 })
 
-describe('resolveGithubSkillUrl — raw-first fast path (zero API)', () => {
+describe('resolveGithubSkillUrl, raw-first fast path (zero API)', () => {
   it('resolves a repo-root SKILL.md from the raw CDN with no api.github.com call', async () => {
     // Only the raw HEAD probe is routed; any api.github.com call would throw
     // (unrouted), proving the fast path never touches the rate-limited API.
@@ -232,7 +232,7 @@ describe('resolveGithubSkillUrl — raw-first fast path (zero API)', () => {
   })
 
   it('fails closed onto the API path when the raw probe throws', async () => {
-    // A probe transport error/timeout must fall back to the API tree search — not
+    // A probe transport error/timeout must fall back to the API tree search, not
     // crash, not silently allow.
     const seen: string[] = []
     const impl = async (input: RequestInfo | URL): Promise<Response> => {
@@ -265,7 +265,7 @@ describe('resolveGithubSkillUrl — raw-first fast path (zero API)', () => {
   })
 })
 
-describe('resolveGithubSkillUrl — repo root (default branch + tree)', () => {
+describe('resolveGithubSkillUrl, repo root (default branch + tree)', () => {
   it('finds the SKILL.md via the default branch and tree API', async () => {
     const { fetch, calls } = mockFetch({
       [RAW_ROOT_PROBE]: { status: 404 },
@@ -302,7 +302,7 @@ describe('resolveGithubSkillUrl — repo root (default branch + tree)', () => {
     ): Promise<Response> => {
       const url = typeof input === 'string' ? input : input.toString()
       const headers = new Headers(init?.headers)
-      // Probe miss FIRST — before the catch-all tree branch below, which returns
+      // Probe miss FIRST, before the catch-all tree branch below, which returns
       // 200 for any non-API URL and would otherwise read the probe as a hit and
       // skip the Bearer assertion entirely.
       if (url === RAW_ROOT_PROBE) {
@@ -420,7 +420,7 @@ describe('resolveGithubSkillUrl — repo root (default branch + tree)', () => {
   })
 })
 
-describe('resolveGithubSkillUrl — tree (scoped to a subdir)', () => {
+describe('resolveGithubSkillUrl, tree (scoped to a subdir)', () => {
   it('only considers SKILL.md under the requested subdir', async () => {
     const { fetch, calls } = mockFetch({
       [RAW_SUBDIR_PROBE]: { status: 404 },

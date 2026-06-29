@@ -1,11 +1,11 @@
 /**
- * `POST /api/guard` handler — the server side of the Claude Code PreToolUse
+ * `POST /api/guard` handler, the server side of the Claude Code PreToolUse
  * guard. Validates the hook payload with Zod at the edge, builds the same
  * inference client `/api/scan` uses, runs {@link guardDecision}, and returns the
  * resulting {@link GuardDecision} as JSON.
  *
  * The decision IS the body: a clean allow / ask / deny is a 200 with the
- * decision in the payload — that is not a failure. Only a genuine fault (invalid
+ * decision in the payload, that is not a failure. Only a genuine fault (invalid
  * body, config error, transport failure surfaced as a typed error) maps to a
  * non-200 status. Never a silent 200 on internal failure; `guardDecision` itself
  * is fail-closed and only ever returns a decision, so an internal scan fault
@@ -71,7 +71,7 @@ async function parseGuardBody(request: Request): Promise<PreToolUsePayload> {
 }
 
 /**
- * Map a thrown error to its HTTP status — identical contract to `routes/scan.ts`
+ * Map a thrown error to its HTTP status, identical contract to `routes/scan.ts`
  * so the two routes behave uniformly: ParseError / SourceResolutionError → 422;
  * ConfigError → 500; ReputationError / RedirectResolutionError / InferenceError
  * → 502; any other ScannerError → 400; anything else → 500.
@@ -104,13 +104,13 @@ function statusForError(error: unknown): number {
 /**
  * Handle `POST /api/guard`. Authenticates the caller, enforces its per-tier
  * daily cap BEFORE the guard scan, gates the paid AI stage to eligible tiers,
- * runs `guardDecision`, then meters usage — mirroring `/api/scan` exactly so the
+ * runs `guardDecision`, then meters usage, mirroring `/api/scan` exactly so the
  * two metered routes behave uniformly. `scannedAt` is stamped here at the edge
  * so the time-varying value never enters the hashed proof.
  *
  * Accounts degrade gracefully: when `env.DB` is absent the route runs the guard
  * as an unmetered anonymous caller (no cap, no usage write). A successful call
- * returns the {@link GuardDecision} at 200 — the allow/ask/deny lives in the
+ * returns the {@link GuardDecision} at 200, the allow/ask/deny lives in the
  * body. A malformed body is 422; an exhausted daily cap is 429.
  *
  * Time complexity: dominated by `guardDecision` → `runScan` (O(U·H + R + F)).
@@ -127,7 +127,7 @@ export async function handleGuard(
 
     // Accounts seam (threaded from the worker entry, session-aware when read
     // replication is on; defaults to a plain binding when called directly): null
-    // when D1 is unbound — the caller is then an unmetered anonymous.
+    // when D1 is unbound, the caller is then an unmetered anonymous.
     const today = new Date().toISOString().slice(0, 10)
 
     const sessionSecret = typeof env.SESSION_SECRET === 'string' ? env.SESSION_SECRET : undefined
@@ -191,7 +191,7 @@ export async function handleGuard(
 
     if (db !== null) {
       // Meter the guarded call. A `null` decision verdict means "nothing
-      // scannable" — a benign ALLOW for stats purposes. The guard decision does
+      // scannable", a benign ALLOW for stats purposes. The guard decision does
       // not surface per-URL reputation, so flagged is 0 here.
       const meteredVerdict = decision.verdict ?? 'ALLOW'
       await recordVerdict(db, ctx.subject, today, meteredVerdict, 0, { ai: inference !== null })

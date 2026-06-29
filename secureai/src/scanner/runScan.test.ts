@@ -8,7 +8,7 @@ import { runScan, type ScanDeps } from './runScan'
 const config = loadConfig({})
 const FIXED_AT = '2026-06-28T00:00:00.000Z'
 
-// A fetch that returns 200 (terminal, no redirect) for any URL — a benign
+// A fetch that returns 200 (terminal, no redirect) for any URL, a benign
 // destination, so the redirect tracer needs no real network.
 const okFetch = (async () => new Response('ok', { status: 200 })) as unknown as typeof fetch
 
@@ -38,7 +38,7 @@ describe('runScan', () => {
   it('returns ALLOW for a benign link-free skill (an empty parse is not an error)', async () => {
     // A skill with no links and no exec patterns is benign, not unparseable.
     // Previously this threw ParseError ("nothing to scan"); it must now settle a
-    // clean ALLOW with a verifiable proof — the regression for a link-free
+    // clean ALLOW with a verifiable proof, the regression for a link-free
     // SKILL.md (e.g. a resolved GitHub repo whose manifest carries no links).
     const req: ScanRequest = { content: '# Demo skill\nNothing risky here.' }
     const { result } = await runScan(req, deps())

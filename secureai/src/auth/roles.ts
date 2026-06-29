@@ -25,7 +25,7 @@ export type AssignableRole = 'member' | 'admin'
 
 /**
  * The allowlist of assignable role values, as an O(1) membership set. `owner` is
- * deliberately ABSENT — it is conferred only by the email allowlist, never by a
+ * deliberately ABSENT, it is conferred only by the email allowlist, never by a
  * write, so the role-change endpoint can never mint an owner.
  */
 export const ASSIGNABLE_ROLES: ReadonlySet<string> = new Set<AssignableRole>([
@@ -36,7 +36,7 @@ export const ASSIGNABLE_ROLES: ReadonlySet<string> = new Set<AssignableRole>([
 /**
  * Coerce a stored `role` column into the validated {@link AssignableRole} union,
  * failing closed to the least-privileged `member` on anything unrecognized
- * (`null`, a non-string, or a value outside the allowlist — including a stored
+ * (`null`, a non-string, or a value outside the allowlist, including a stored
  * literal `'owner'`, which must never be honored from the column).
  *
  * Time complexity: O(1). Space complexity: O(1).
@@ -50,7 +50,7 @@ export function parseStoredRole(value: unknown): AssignableRole {
 /**
  * Validate a caller-supplied role value against the assignable allowlist, or
  * `null` when it is not one of {`admin`, `member`}. Used by the role-change
- * endpoint to reject (422) anything an owner is not allowed to assign — notably
+ * endpoint to reject (422) anything an owner is not allowed to assign, notably
  * `owner` itself, which is never assignable.
  *
  * Time complexity: O(1). Space complexity: O(1).
@@ -67,7 +67,7 @@ export function parseAssignableRole(value: unknown): AssignableRole | null {
  * otherwise the validated stored role (fail-closed to `member`). The allowlist
  * always wins, so an owner is an owner even if its column says `member`.
  *
- * Time complexity: O(1) — one set membership test. Space complexity: O(1).
+ * Time complexity: O(1), one set membership test. Space complexity: O(1).
  *
  * @param email - The account email (any case; lowercased internally).
  * @param roleColumn - The raw `users.role` value as read from the store.

@@ -3,11 +3,11 @@
  *
  * Two cost-discipline decisions live here so `/api/scan` and `/api/guard` apply
  * them identically:
- *   1. {@link capForTier} — the per-tier daily scan cap (enterprise is
+ *   1. {@link capForTier}, the per-tier daily scan cap (enterprise is
  *      unmetered, returning {@link UNLIMITED}).
- *   2. {@link enforceDailyCap} — fail-closed cap check BEFORE any scan runs,
+ *   2. {@link enforceDailyCap}, fail-closed cap check BEFORE any scan runs,
  *      throwing {@link QuotaExceededError} (→ 429) at or above the cap.
- *   3. {@link aiAllowedForTier} — whether the caller's tier may invoke the paid
+ *   3. {@link aiAllowedForTier}, whether the caller's tier may invoke the paid
  *      AI stage, gated by `config.aiTiers`.
  */
 
@@ -43,9 +43,9 @@ export function capForTier(tier: AuthTier, config: ScannerConfig): number {
 /**
  * Whether `tier` is granted the paid AI stage, per `config.aiTiers`. Anonymous
  * callers are never eligible regardless of config. Enterprise is included only
- * if `aiTiers` lists it — the gate is purely config-driven for paid tiers.
+ * if `aiTiers` lists it, the gate is purely config-driven for paid tiers.
  *
- * Time complexity: O(1) — set membership. Space complexity: O(1).
+ * Time complexity: O(1), set membership. Space complexity: O(1).
  */
 export function aiAllowedForTier(tier: AuthTier, config: ScannerConfig): boolean {
   if (tier === 'anonymous') {
@@ -60,7 +60,7 @@ export function aiAllowedForTier(tier: AuthTier, config: ScannerConfig): boolean
  * or above the tier cap. An unmetered tier ({@link UNLIMITED}) short-circuits
  * with no read.
  *
- * Time complexity: O(1) — at most one `(subject, day)` lookup.
+ * Time complexity: O(1), at most one `(subject, day)` lookup.
  * Space complexity: O(1).
  *
  * @param db - The persistence seam.

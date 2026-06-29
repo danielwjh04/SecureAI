@@ -4,9 +4,9 @@
  * Feed rows live in a VERSIONED table: every refresh writes a fresh `version`,
  * then atomically flips the `feed_meta.current_version` pointer and deletes the
  * superseded rows. Reads JOIN through the pointer, so a scan only ever sees a
- * COMPLETE version — a refresh (or a crashed refresh) never exposes a partial or
+ * COMPLETE version, a refresh (or a crashed refresh) never exposes a partial or
  * empty denylist. Matched `value` namespaces are disjoint (a host value has no
- * `/`; a URL value always does — see `pipeline/normalizeUrl`), so one equality
+ * `/`; a URL value always does, see `pipeline/normalizeUrl`), so one equality
  * test over `value` covers both kinds.
  */
 
@@ -61,13 +61,13 @@ export function d1FeedStore(db: Database): FeedIndicatorStore {
  * Replace the live feed with `indicators` under a new `version`, atomically.
  *
  * Order is load-bearing for the atomic swap: insert every new-version row
- * (chunked multi-row INSERTs) FIRST — invisible to readers because the pointer
- * still names the old version — then flip `current_version` in one statement,
+ * (chunked multi-row INSERTs) FIRST, invisible to readers because the pointer
+ * still names the old version, then flip `current_version` in one statement,
  * then delete all non-current rows. A crash before the flip leaves the prior
  * version live; a crash after it leaves only stale rows the NEXT refresh reclaims.
  *
  * An EMPTY `indicators` is a no-op (no flip): a refresh that gathered nothing
- * (every source failed) never empties the denylist — the last good version stays.
+ * (every source failed) never empties the denylist, the last good version stays.
  *
  * Time complexity: O(n) inserts in chunks of {@link FEED_CHUNK_ROWS}. Space: O(n).
  *

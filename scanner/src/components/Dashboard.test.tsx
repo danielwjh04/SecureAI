@@ -147,7 +147,7 @@ describe('Dashboard · recent scans', () => {
     render(<Dashboard user={USER} auth={authState()} />)
 
     await waitFor(() =>
-      expect(screen.getByText(/No scans yet — run one from the scanner/)).toBeInTheDocument(),
+      expect(screen.getByText(/No scans yet, run one from the scanner/)).toBeInTheDocument(),
     )
   })
 
@@ -156,7 +156,7 @@ describe('Dashboard · recent scans', () => {
     render(<Dashboard user={USER} auth={authState()} />)
 
     await waitFor(() =>
-      expect(screen.getByText(/No scans yet — run one from the scanner/)).toBeInTheDocument(),
+      expect(screen.getByText(/No scans yet, run one from the scanner/)).toBeInTheDocument(),
     )
   })
 })

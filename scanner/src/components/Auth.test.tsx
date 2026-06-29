@@ -43,7 +43,7 @@ afterEach(() => {
 
 /**
  * Fill the credentials form and submit it. `submitLabel` is the submit button's
- * text — "Log in" for the login surface (the default) or "Create account" for
+ * text, "Log in" for the login surface (the default) or "Create account" for
  * the register surface.
  */
 function submitCredentials(submitLabel = 'Log in'): void {
@@ -52,7 +52,7 @@ function submitCredentials(submitLabel = 'Log in'): void {
   fireEvent.click(screen.getByRole('button', { name: submitLabel }))
 }
 
-describe('Auth — login without 2FA', () => {
+describe('Auth, login without 2FA', () => {
   it('does not render the first/last name fields on the login surface', () => {
     render(<Auth mode="login" auth={authState()} />)
     expect(screen.queryByLabelText('First name')).toBeNull()
@@ -84,7 +84,7 @@ describe('Auth — login without 2FA', () => {
   })
 })
 
-describe('Auth — login with 2FA', () => {
+describe('Auth, login with 2FA', () => {
   it('renders the code-entry step (with masked email) on a twoFactor response', async () => {
     vi.spyOn(client, 'login').mockResolvedValue({
       twoFactor: true,
@@ -176,7 +176,7 @@ describe('Auth — login with 2FA', () => {
   })
 })
 
-describe('Auth — register without email verification', () => {
+describe('Auth, register without email verification', () => {
   it('registers and redirects straight to the dashboard when the server returns { user }', async () => {
     const { calls } = stubAssign()
     const refresh = vi.fn().mockResolvedValue(undefined)
@@ -225,7 +225,7 @@ describe('Auth — register without email verification', () => {
   })
 })
 
-describe('Auth — register with email verification (deferred to login)', () => {
+describe('Auth, register with email verification (deferred to login)', () => {
   it('auto-logs-in after register { registered } and shows the signup code step', async () => {
     // New contract: register returns { registered: true } (no session, no code);
     // the component immediately signs in, and that login returns the 2FA

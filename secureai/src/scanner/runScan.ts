@@ -1,13 +1,13 @@
 /**
- * Pure scan orchestrator — the single function that turns a {@link ScanRequest}
+ * Pure scan orchestrator, the single function that turns a {@link ScanRequest}
  * into a {@link ScanResult} with a self-contained, re-verifiable cryptographic
  * proof.
  *
  * `runScan` is a pure function over its injected dependencies ({@link ScanDeps}):
  * it reads no environment, no clock, and no randomness directly (only
- * `crypto.subtle` for hashing). Every external capability — config, the
+ * `crypto.subtle` for hashing). Every external capability, config, the
  * reputation client, the Workers AI inference client, the `fetch` used by the
- * tracer, and the response timestamp — arrives through `deps`, which keeps the
+ * tracer, and the response timestamp, arrives through `deps`, which keeps the
  * logic Node-runnable and every stage independently testable.
  *
  * Safety posture (CLAUDE.md §1, §5):
@@ -17,7 +17,7 @@
  *   - Fail-closed: a missing client never relaxes the baseline; a thrown
  *     ReputationError / InferenceError escalates toward HUMAN_APPROVAL_REQUIRED.
  *   - Cost discipline: inference (the only paid, AI stage) runs LAST and only
- *     when the verdict is still ambiguous — a BLOCK is already maximal and
+ *     when the verdict is still ambiguous, a BLOCK is already maximal and
  *     inference is tighten-only, so the model call is skipped.
  *   - Idempotent proof: nothing time-varying enters a hashed step; `scannedAt`
  *     is supplied by the caller and lives outside the chain.
@@ -59,7 +59,7 @@ export interface ScanDeps {
   inference: InferenceClient | null
   /** Injected `fetch` for the redirect tracer (and source-URL load). */
   fetchImpl?: typeof fetch
-  /** ISO timestamp for the response — set OUTSIDE the hashed proof. */
+  /** ISO timestamp for the response, set OUTSIDE the hashed proof. */
   scannedAt: string
   /** Optional GitHub token to authenticate source-resolution API calls. */
   githubToken?: string
@@ -70,7 +70,7 @@ const STAGE_FAILURE_FLOOR: Verdict = 'HUMAN_APPROVAL_REQUIRED'
 
 /**
  * The outcome of {@link runScan}: the {@link ScanResult} (the proof-bearing
- * value the API echoes) plus `scannedText` — the exact resolved skill text that
+ * value the API echoes) plus `scannedText`, the exact resolved skill text that
  * was scanned (`request.content` for a paste, the fetched body for a URL).
  *
  * `scannedText` is returned OUT-OF-BAND from the proof so the route can persist
@@ -202,7 +202,7 @@ async function runReputationStage(
  *
  * Cost discipline (CLAUDE.md §5): the model is the only paid stage, so it runs
  * LAST and only when the verdict is still ambiguous. A `null` client (free tier)
- * or a baseline that is already BLOCK skips the call — inference is tighten-only,
+ * or a baseline that is already BLOCK skips the call, inference is tighten-only,
  * so it could never change a BLOCK, and skipping spends zero Neurons.
  *
  * Time complexity: O(f) in the finding count. Space complexity: O(f).
@@ -257,7 +257,7 @@ function logErrorClass(stage: string, error: unknown): void {
  * identical. `scannedAt` is the sole time-varying field and is never hashed.
  *
  * Returns a {@link ScanOutcome}: the {@link ScanResult} plus the resolved
- * `scannedText` (out-of-band, for admin-review persistence only — never echoed
+ * `scannedText` (out-of-band, for admin-review persistence only, never echoed
  * by the public API, never hashed).
  *
  * Time complexity: O(U·H + R + F). Space complexity: O(U·H + R + F).

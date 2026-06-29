@@ -3,7 +3,7 @@
  *
  * A `subject` is a user id for authenticated callers, or `anon:<ip>` for
  * unauthenticated ones. A `day` is a UTC `YYYY-MM-DD` string supplied BY THE
- * CALLER — never computed in here — so metering is deterministic and the cap
+ * CALLER, never computed in here, so metering is deterministic and the cap
  * checks are testable without mocking the clock.
  *
  * `scans` counts every metered scan; `ai_scans` counts the subset that invoked
@@ -78,7 +78,7 @@ function readCount(row: Row, column: string): number {
  * day returns {@link ZERO_USAGE} rather than `null`, so cap checks need no
  * null-handling at the call site.
  *
- * Time complexity: O(1) — composite primary-key lookup on `(subject, day)`.
+ * Time complexity: O(1), composite primary-key lookup on `(subject, day)`.
  * Space complexity: O(1).
  *
  * @param db - The persistence seam.
@@ -110,7 +110,7 @@ export async function getUsage(
  * `scans` always rises by 1; `ai_scans` rises by 1 only when `options.ai` is
  * true.
  *
- * Time complexity: O(1) — single upsert on the composite primary key.
+ * Time complexity: O(1), single upsert on the composite primary key.
  * Space complexity: O(1).
  *
  * @param db - The persistence seam.
@@ -148,7 +148,7 @@ export async function incrementUsage(
  * The verdict column is chosen from a fixed allowlist ({@link columnForVerdict}),
  * never interpolated from caller input, so the SQL is not injection-prone.
  *
- * Time complexity: O(1) — single upsert on the composite primary key.
+ * Time complexity: O(1), single upsert on the composite primary key.
  * Space complexity: O(1).
  *
  * @param db - The persistence seam.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# SecureAI Guard — one-line installer.
+# SecureAI Guard, one-line installer.
 #
 #   curl -fsSL https://secureai.software/install.sh | bash
 #
@@ -82,7 +82,7 @@ ok "Saved config to ${CONFIG_PATH}"
 # --- 4. Merge the PreToolUse hook into ~/.claude/settings.json -----------------
 # Done in node so the existing JSON is parsed, not regex-mangled: read the file
 # (or {} when absent), ensure hooks.PreToolUse is an array, drop any prior
-# SecureAI entry (idempotent), append the fresh one, and write it back —
+# SecureAI entry (idempotent), append the fresh one, and write it back
 # preserving every other setting.
 mkdir -p "${CLAUDE_DIR}"
 HOOK_COMMAND="SECUREAI_API_KEY=${API_KEY} SECUREAI_API_URL=${API_URL} node ${GUARD_PATH}"
@@ -112,7 +112,7 @@ function readSettings() {
     const parsed = JSON.parse(raw)
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   } catch {
-    // Refuse to clobber a settings file we cannot parse — back it up and start
+    // Refuse to clobber a settings file we cannot parse, back it up and start
     // clean so the merge never silently destroys hand-edited config.
     const backup = `${settingsPath}.securesg-backup-${Date.now()}`
     fs.copyFileSync(settingsPath, backup)
@@ -138,7 +138,7 @@ if (!Array.isArray(settings.hooks.PreToolUse)) {
   settings.hooks.PreToolUse = []
 }
 
-// Drop any prior SecureAI hook group, then add the fresh one — idempotent.
+// Drop any prior SecureAI hook group, then add the fresh one, idempotent.
 settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter((group) => !isSecureAiGroup(group))
 settings.hooks.PreToolUse.push({
   matcher: '*',
@@ -154,6 +154,6 @@ printf '\n\033[1m\033[32mSecureAI Guard is installed.\033[0m\n\n'
 info "Every Claude Code tool call is now screened before it runs (fail-closed)."
 info "Verify it:"
 info "  1. Restart Claude Code (or start a new session) so it reloads settings."
-info "  2. Run a tool — the guard screens it via ${API_URL}."
+info "  2. Run a tool, the guard screens it via ${API_URL}."
 info "  3. Inspect the hook:  cat ${SETTINGS_PATH}"
 printf '\n'

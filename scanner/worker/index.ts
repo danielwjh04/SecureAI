@@ -8,7 +8,7 @@
  * guarantees the API paths reach this handler rather than the asset server.
  *
  * Fail-closed at the boundary: `loadConfig` runs once per request and any
- * `ConfigError` (or other load fault) is returned as a 500 — the Worker never
+ * `ConfigError` (or other load fault) is returned as a 500, the Worker never
  * proceeds into a request path with an invalid configuration.
  */
 
@@ -33,7 +33,7 @@ const STATUS_SERVER_ERROR = 500
  * method on a known route is a 405, an unknown `/api/*` path is a 404 (never
  * falls through to the SPA, which would mask a typo'd endpoint as a 200).
  *
- * Time complexity: O(1) — constant path/method comparisons.
+ * Time complexity: O(1), constant path/method comparisons.
  * Space complexity: O(1).
  *
  * @returns The handler's response, or a JSON 404/405 for unmatched API paths.

@@ -1,5 +1,5 @@
 /**
- * `POST /api/webhook` handler — the Stripe webhook sink.
+ * `POST /api/webhook` handler, the Stripe webhook sink.
  *
  * Security posture (CLAUDE.md §6):
  *   1. FAIL CLOSED ON SIGNATURE. The raw body and `stripe-signature` header are

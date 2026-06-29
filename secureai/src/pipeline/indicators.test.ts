@@ -36,7 +36,7 @@ function fakeFeed(badValues: readonly string[] = []): FeedIndicatorStore {
   }
 }
 
-describe('DenylistReputationClient — static matching', () => {
+describe('DenylistReputationClient, static matching', () => {
   it('flags an exact host hit with the denylisted report shape', async () => {
     const client = new DenylistReputationClient(denylist)
     const report = await assessOne(client, 'https://evil.com/path?q=1')
@@ -96,7 +96,7 @@ describe('DenylistReputationClient — static matching', () => {
   })
 })
 
-describe('DenylistReputationClient — fail-closed on unparseable url', () => {
+describe('DenylistReputationClient, fail-closed on unparseable url', () => {
   it('flags an unparseable url with status "unparseable"', async () => {
     const client = new DenylistReputationClient(denylist)
     const report = await assessOne(client, 'not a url')
@@ -111,7 +111,7 @@ describe('DenylistReputationClient — fail-closed on unparseable url', () => {
   })
 })
 
-describe('DenylistReputationClient — KV dynamic entries', () => {
+describe('DenylistReputationClient, KV dynamic entries', () => {
   it('flags a host present in KV under host:<hostname> even when not in the static set', async () => {
     const kv = fakeKv({ 'host:dynamic-bad.test': '1' })
     const client = new DenylistReputationClient(new Set(), kv)
@@ -149,7 +149,7 @@ describe('DenylistReputationClient — KV dynamic entries', () => {
   })
 })
 
-describe('DenylistReputationClient — threat-feed (D1) entries', () => {
+describe('DenylistReputationClient, threat-feed (D1) entries', () => {
   it('flags a host present in the feed (via parent-domain suffixes), attributing the source', async () => {
     const client = new DenylistReputationClient(new Set(), null, fakeFeed(['feedbad.test']))
     const report = await assessOne(client, 'https://sub.feedbad.test/page')

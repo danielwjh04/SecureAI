@@ -81,7 +81,7 @@ describe('handleCheckout', () => {
   it('rejects with 401 when the key resolves but the user row is gone', async () => {
     const { db, store } = memoryDatabase()
     const { user, apiKey } = await createFreeUser(db, 'ghost@example.com')
-    // Drop the user row while leaving the (now-dangling) key — auth resolves the
+    // Drop the user row while leaving the (now-dangling) key, auth resolves the
     // id from the join, but getUserById then misses.
     store.users.delete(user.id)
     const gw = new FakeBillingGateway()

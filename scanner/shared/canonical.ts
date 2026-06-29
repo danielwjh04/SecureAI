@@ -3,7 +3,7 @@
  *
  * The proof is built in the Worker and re-verified in the browser, so both must
  * hash byte-identical bytes. `JSON.stringify` does not sort object keys, so its
- * output depends on insertion order — unusable for a hash. This module emits the
+ * output depends on insertion order, unusable for a hash. This module emits the
  * canonical form that matches Python's
  * `json.dumps(value, sort_keys=True, separators=(",", ":"))`
  * (see `secureSG/audit/chain.py:canonical_payload`): keys sorted at every level,
@@ -12,7 +12,7 @@
  * Scope is deliberately restricted to JSON-safe primitives so the output can
  * never silently diverge (no `undefined`, no functions, no NaN/Infinity, no
  * `Date`). Floats are permitted by the type system but are intentionally not
- * produced by the proof layer — payloads serialize floats as strings upstream.
+ * produced by the proof layer, payloads serialize floats as strings upstream.
  */
 
 import { CanonicalizationError } from '../worker/errors'
@@ -63,7 +63,7 @@ function serialize(value: unknown): string {
         )
       }
       // JSON.stringify produces the canonical numeric form (no trailing zeros,
-      // exponent form for large/small magnitudes) — identical for a given
+      // exponent form for large/small magnitudes), identical for a given
       // double across V8 runtimes. Integers (the only numbers the proof layer
       // emits) render without a fractional part.
       return JSON.stringify(value)

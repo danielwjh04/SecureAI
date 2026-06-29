@@ -1,12 +1,12 @@
 /**
- * Edge cache for {@link GuardDecision}s — the guard-route analogue of the scan
+ * Edge cache for {@link GuardDecision}s, the guard-route analogue of the scan
  * {@link ../scanner/verdictCache}. The guard is the latency-critical inline path
  * (Claude Code blocks on it before every tool call), so caching a repeated
  * identical decision skips the redirect trace + AI compute and returns in O(1).
  *
  * It caches the DECISION only; the route still authenticates, enforces the daily
  * cap, and meters usage on a hit (those live in the route, not here). The key is
- * `guard:v1:` + sha256(canonical({tool_name, tool_input})) — only the
+ * `guard:v1:` + sha256(canonical({tool_name, tool_input})), only the
  * load-bearing scannable fields, so field ordering / unrelated context never
  * perturbs it. Unlike a scan result a {@link GuardDecision} carries no
  * time-varying field, so the cached value is returned verbatim.
@@ -66,7 +66,7 @@ function parseCached(value: string): GuardDecision | null {
 
 /**
  * Resolve a guard decision, serving from cache when available and recomputing
- * (then populating the cache) on a miss. Does NOT meter, cap, or authenticate —
+ * (then populating the cache) on a miss. Does NOT meter, cap, or authenticate
  * those run in the route on a hit just as on a miss; only `compute()` is skipped.
  *
  * Resolution:

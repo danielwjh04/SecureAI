@@ -2,7 +2,7 @@
  * GitHub-aware source resolution.
  *
  * The scanner's unit of input is a skill *manifest* (`SKILL.md`). A user,
- * however, naturally pastes a GitHub *web* URL — a repository root
+ * however, naturally pastes a GitHub *web* URL, a repository root
  * (`github.com/owner/repo`), a tree (`.../tree/branch/dir`), or a blob
  * (`.../blob/branch/path`). Fetching those web URLs returns a ~350 KB HTML page
  * (GitHub's UI chrome), not the manifest: it overflows the parser's byte cap
@@ -139,7 +139,7 @@ export function parseGithubWebUrl(url: URL): GithubTarget | null {
 /**
  * Resolve a {@link GithubTarget} to the raw `SKILL.md` URL to fetch and scan.
  *
- * - blob: a direct, deterministic rewrite to the raw host — no API call.
+ * - blob: a direct, deterministic rewrite to the raw host, no API call.
  * - tree/repo: discover the ref (repo → default branch) and list the file tree
  *   once, then choose the SKILL.md deterministically (shallowest path, then
  *   lexicographic) so the resulting proof is reproducible across runs.
@@ -239,7 +239,7 @@ async function fetchDefaultBranch(
  * Note: for a very large repository GitHub may mark the tree `truncated`; in
  * that rare case a deeply-nested SKILL.md beyond the truncation point is not
  * seen and resolution fails loudly (the caller raises a SourceResolutionError),
- * which is the fail-closed outcome — never a silent wrong pick.
+ * which is the fail-closed outcome, never a silent wrong pick.
  *
  * Time complexity: O(t) in the tree entry count. Space complexity: O(m) in the
  *   number of SKILL.md matches.
@@ -361,7 +361,7 @@ function isSkillManifestPath(path: string): boolean {
  * Choose one SKILL.md path from the candidates, scoped to `subdir` when given.
  *
  * Selection is fully deterministic so the produced proof is reproducible: the
- * shallowest path (fewest segments — the most top-level skill) wins, with ties
+ * shallowest path (fewest segments, the most top-level skill) wins, with ties
  * broken lexicographically. No clock and no randomness participate.
  *
  * Time complexity: O(m log m) in the candidate count. Space complexity: O(m).

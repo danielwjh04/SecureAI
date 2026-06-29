@@ -2,7 +2,7 @@
  * The admin malicious-skill/artifact detail viewer: a scrollable dark/glass modal
  * an admin opens from a row in the Threats blocked report. On open it fetches
  * `GET /api/admin/scans/<id>` and renders the full evidence the BLOCK verdict was
- * reached on — the scanned skill/artifact text, deterministic rule findings,
+ * reached on, the scanned skill/artifact text, deterministic rule findings,
  * AI injection findings, traced redirect cascades, reputation reports, and the
  * proof head hash that proves the sealed chain is re-verifiable.
  *
@@ -12,8 +12,8 @@
  * panels a user sees in a scan report. It renders through a portal into
  * `document.body` so the fixed full-viewport overlay escapes the Threats
  * section's transformed, clipping glass card rather than being constrained to it.
- * Closing is wired three ways — the close button, the backdrop, and the Escape
- * key — and the body scroll is locked while the modal is open so the page behind
+ * Closing is wired three ways, the close button, the backdrop, and the Escape
+ * key, and the body scroll is locked while the modal is open so the page behind
  * it cannot scroll under the overlay.
  */
 
@@ -334,7 +334,7 @@ function ProofHash({ headHash }: { headHash: string }): ReactNode {
           {truncateHash(headHash)}
         </code>
         <p className="text-white/50 text-[12px] leading-snug">
-          This proof chain is sealed and independently re-verifiable — re-hash it
+          This proof chain is sealed and independently re-verifiable, re-hash it
           in the scanner's proof inspector to confirm it has not been tampered
           with.
         </p>

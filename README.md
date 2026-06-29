@@ -45,9 +45,9 @@ Both run the same engine and the same thesis: a tamper-evident cryptographic cha
 
 No security team required: sign up, drop in one line, and every tool call your agent makes is screened from then on.
 
-1. **Create an account** at [secureai.software](https://secureai.software) — email + password. A one-time 6-digit code is emailed to you (2FA) to finish signing in.
+1. **Create an account** at [secureai.software](https://secureai.software), email + password. A one-time 6-digit code is emailed to you (2FA) to finish signing in.
 2. **Land on your dashboard**, where your API key, protection stats, recent scans, and the one-line Guard installer all live.
-3. **Scan a skill** — paste a `SKILL.md`, a link, or a GitHub repo in the web app, or call the API:
+3. **Scan a skill** paste a `SKILL.md`, a link, or a GitHub repo in the web app, or call the API:
 
    ```bash
    curl -X POST https://secureai.software/api/scan \
@@ -116,13 +116,13 @@ Each tier has a daily scan cap, and the AI injection judge is reserved for Pro:
 | Free | 100 / day | No |
 | Pro (S$9.90/mo) | 5,000 / day | Yes |
 
-> These caps and the Pro price mirror `secureai/wrangler.jsonc` — they're config, not code, so change them there and keep this table in sync.
+> These caps and the Pro price mirror `secureai/wrangler.jsonc`, they're config, not code, so change them there and keep this table in sync.
 
 Pro is sold through Stripe Checkout (idempotent webhooks + billing portal) at S$9.90/mo. Your dashboard shows protection stats, a 30-day trend, recent scans, your API key (with one-click rotation), and the one-line Guard installer.
 
 ## 👥 Team & admin
 
-Accounts carry one of three roles — **owner**, **admin**, or **member**. Admins and owners reach an analytics dashboard with a members directory (search, promote/demote between roles, switch a member's plan, and remove an account) plus org-wide protection analytics. The admin allowlist and every cap, threshold, and price above live in `secureai/wrangler.jsonc` vars, read through a typed `Env` — never hardcoded.
+Accounts carry one of three roles, **owner**, **admin**, or **member**. Admins and owners reach an analytics dashboard with a members directory (search, promote/demote between roles, switch a member's plan, and remove an account) plus org-wide protection analytics. The admin allowlist and every cap, threshold, and price above live in `secureai/wrangler.jsonc` vars, read through a typed `Env`, never hardcoded.
 
 ---
 

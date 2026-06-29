@@ -47,7 +47,7 @@ function findingFor(
   return result.findings.find((f) => f.ruleId === ruleId)
 }
 
-describe('evaluateRules — clean baseline', () => {
+describe('evaluateRules, clean baseline', () => {
   it('returns ALLOW with no findings for a clean public chain', () => {
     const result = evaluateRules({
       chains: [cleanChain('https://example.com/')],
@@ -69,7 +69,7 @@ describe('evaluateRules — clean baseline', () => {
   })
 })
 
-describe('evaluateRules — redirect structural rules', () => {
+describe('evaluateRules, redirect structural rules', () => {
   it('fires redirect.depth_exceeded (BLOCK) when the cap was hit', () => {
     const result = evaluateRules({
       chains: [
@@ -167,7 +167,7 @@ describe('evaluateRules — redirect structural rules', () => {
   })
 })
 
-describe('evaluateRules — host-level rules', () => {
+describe('evaluateRules, host-level rules', () => {
   it('fires host.raw_ip (BLOCK) for an IPv4 literal host in the chain', () => {
     const result = evaluateRules({
       chains: [cleanChain('https://93.184.216.34/')],
@@ -217,7 +217,7 @@ describe('evaluateRules — host-level rules', () => {
   })
 })
 
-describe('evaluateRules — exec patterns', () => {
+describe('evaluateRules, exec patterns', () => {
   it('fires skill.curl_bash_exec (BLOCK) when an exec pattern is present', () => {
     const result = evaluateRules({
       chains: [cleanChain('https://example.com/')],
@@ -239,7 +239,7 @@ describe('evaluateRules — exec patterns', () => {
   })
 })
 
-describe('evaluateRules — escalation and ordering', () => {
+describe('evaluateRules, escalation and ordering', () => {
   it('folds severities tighten-only: a BLOCK rule wins over a REVIEW rule', () => {
     // bit.ly fires REVIEW (shortener); the exec pattern fires BLOCK. The final
     // verdict must be the tighter BLOCK.

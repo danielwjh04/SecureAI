@@ -6,8 +6,8 @@
  * reads are guaranteed to observe at least its own prior writes (even if served by
  * a replica). We carry the bookmark to the browser SPA in an `HttpOnly` cookie
  * (`d1b`) and accept it back via that cookie or the `x-d1-bookmark` header (for
- * API/Bearer clients that prefer a header). It is NOT a credential — it leaks no
- * account data — but `HttpOnly` keeps it out of JS for tidiness.
+ * API/Bearer clients that prefer a header). It is NOT a credential, it leaks no
+ * account data, but `HttpOnly` keeps it out of JS for tidiness.
  */
 
 /** Header an API client may use to carry its bookmark (checked before the cookie). */

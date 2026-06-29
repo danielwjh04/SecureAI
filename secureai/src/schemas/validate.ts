@@ -48,7 +48,7 @@ export const scanRequestSchema = z
 
 /**
  * Body of `POST /api/guard`: a Claude Code PreToolUse hook payload. Only the
- * three load-bearing fields are validated strictly — the literal event name, a
+ * three load-bearing fields are validated strictly, the literal event name, a
  * non-empty tool name, and the tool-input record the scanner serializes. The
  * optional context fields Claude Code sends (`session_id`, `transcript_path`,
  * `cwd`) are accepted when present but not required, and any further fields the
@@ -117,7 +117,7 @@ const MAX_PASSWORD_LENGTH = 1024
  * Upper bound on a first/last name (characters), bounding the stored display
  * string. Mirrors {@link CONTACT_NAME_MAX}: a name is input shape, not a
  * behavioral tunable, so it is a validation-layer constant like the other bounds
- * here — not a runtime config var.
+ * here, not a runtime config var.
  */
 const NAME_MAX_LENGTH = 100
 
@@ -129,7 +129,7 @@ const NAME_MAX_LENGTH = 100
  * name step), while the sign-up FORM requires them so every human account has a
  * name. The email is trimmed/lowercased/validated so the stored value is
  * canonical (matching {@link signupSchema}); the password is length-bounded but
- * never transformed — it is hashed verbatim. `.strict()` rejects unexpected
+ * never transformed, it is hashed verbatim. `.strict()` rejects unexpected
  * fields so a malformed payload fails closed at the boundary.
  */
 export const registerSchema = z
@@ -148,7 +148,7 @@ export type RegisterPayload = z.infer<typeof registerSchema>
  * Body of `POST /api/login`: an account email plus a password. The email is
  * canonicalized to match how it was stored at registration; the password is only
  * length-checked (a too-short password cannot match any stored hash anyway). A
- * generic invalid-credentials response is returned by the route — never a hint
+ * generic invalid-credentials response is returned by the route, never a hint
  * about which field was wrong. `.strict()` rejects unexpected fields.
  */
 export const loginSchema = z
@@ -201,7 +201,7 @@ export type LoginResendPayload = z.infer<typeof loginResendSchema>
 /**
  * Body of `POST /api/admin/members/role`: the target account id plus the role to
  * grant it. `role` is allowlisted to exactly {`member`, `admin`} at the boundary
- * — `owner` (or any other value) is a 422 here, never reaching the handler, so
+ * `owner` (or any other value) is a 422 here, never reaching the handler, so
  * the endpoint can never be coaxed into minting an owner (owners are conferred by
  * the email allowlist alone). `.strict()` rejects unexpected fields so a
  * malformed payload fails closed.
@@ -219,7 +219,7 @@ export type MemberRolePayload = z.infer<typeof memberRoleSchema>
 /**
  * Body of `POST /api/admin/members/tier`: the target account id plus the tier to
  * set it to. `tier` is allowlisted to exactly {`free`, `pro`, `enterprise`} at
- * the boundary — any other value is a 422 here, never reaching the handler, so
+ * the boundary, any other value is a 422 here, never reaching the handler, so
  * the endpoint can never write an unrecognized tier (which would fail closed on
  * the next read). `.strict()` rejects unexpected fields so a malformed payload
  * fails closed.

@@ -9,7 +9,7 @@
  *
  * Privacy (CLAUDE.md §6): this stores MORE than the D1 preview, so it is gated
  * behind `SCANNER_R2_ENABLED` and applies only to already-flagged, authenticated
- * scans (never clean or anonymous ones). All operations are best-effort — a
+ * scans (never clean or anonymous ones). All operations are best-effort, a
  * failure is logged and swallowed so object storage never fails a scan or an
  * admin read; the caller falls back to the D1 preview.
  */
@@ -36,7 +36,7 @@ function contentKey(scanId: string): string {
 
 /**
  * Persist the full scan content for `scanId`, best-effort. A failure is logged
- * (class only — never the content) and swallowed: object storage must never fail
+ * (class only, never the content) and swallowed: object storage must never fail
  * the scan, and the D1 preview remains the durable record.
  *
  * Time complexity: O(n) in the content length (one PUT). Space complexity: O(n).

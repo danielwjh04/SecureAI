@@ -13,7 +13,7 @@
  * matcher run over the raw text; results are merged, deduped, and order-preserved
  * by first appearance. A single mega-regex would be unreadable, hard to reason
  * about for correctness, and prone to catastrophic backtracking on adversarial
- * input — unacceptable in a security path.
+ * input, unacceptable in a security path.
  *
  * Config is passed in by the caller; no cap, byte limit, or pattern is
  * hardcoded here. The module is typed against the structural {@link ParserConfig}
@@ -99,7 +99,7 @@ const TRAILING_PUNCTUATION = /[.,;:!?)\]}>'"]+$/
  *   1. Reject oversize input up front (fail-loud) before any scanning.
  *   2. Run each anchored URL matcher; record (url, firstSeenIndex) tokens.
  *   3. Dedupe by URL, preserving first-appearance order; cap at `maxUrls`
- *      (URLs beyond the cap are dropped entirely — nothing extra is recorded).
+ *      (URLs beyond the cap are dropped entirely, nothing extra is recorded).
  *   4. Run the curl/wget download-execute matchers; dedupe, preserve order.
  *   5. An empty extraction (no URLs AND no exec patterns) is a benign, link-free
  *      document: return an empty result so the deterministic pipeline yields a
@@ -117,7 +117,7 @@ const TRAILING_PUNCTUATION = /[.,;:!?)\]}>'"]+$/
  * @param config - The {@link ParserConfig} slice (cap + byte limit).
  * @returns The deduped, order-preserved {@link ParseResult}.
  * @throws {ParseError} If the text exceeds `skillMaxBytes`. An empty extraction
- *   is NOT an error — it returns an empty {@link ParseResult}.
+ *   is NOT an error, it returns an empty {@link ParseResult}.
  */
 export function parseSkill(text: string, config: ParserConfig): ParseResult {
   if (text.length > config.skillMaxBytes) {
@@ -136,7 +136,7 @@ export function parseSkill(text: string, config: ParserConfig): ParseResult {
   const execPatterns = collectExecPatterns(text)
 
   // An empty extraction (no URLs, no download-execute patterns) is a benign,
-  // link-free document — not an error. Returning it lets the deterministic
+  // link-free document, not an error. Returning it lets the deterministic
   // pipeline settle a clean ALLOW; only oversize input (guarded above) throws.
   return { urls, execPatterns }
 }
@@ -149,7 +149,7 @@ export function parseSkill(text: string, config: ParserConfig): ParseResult {
  * reference matches have trailing sentence punctuation stripped; bracket-wrapped
  * syntaxes do not need it because their delimiters already bound the URL.
  *
- * Time complexity: O(n) — one linear regex pass, no backtracking quantifiers.
+ * Time complexity: O(n), one linear regex pass, no backtracking quantifiers.
  * Space complexity: O(m) in the number of matches appended.
  */
 function collectUrlTokens(
@@ -199,7 +199,7 @@ function dedupeCappedUrls(tokens: UrlToken[], maxUrls: number): string[] {
     }
     seen.add(token.url)
     urls.push(token.url)
-    // Stop accumulating once the cap is hit — record nothing extra.
+    // Stop accumulating once the cap is hit, record nothing extra.
     if (urls.length >= maxUrls) {
       break
     }
@@ -210,7 +210,7 @@ function dedupeCappedUrls(tokens: UrlToken[], maxUrls: number): string[] {
 /**
  * Collect distinct curl/wget download-execute one-liners, order-preserved.
  *
- * Time complexity: O(n) — two linear regex passes, sorted merge of the matches.
+ * Time complexity: O(n), two linear regex passes, sorted merge of the matches.
  * Space complexity: O(e) in the number of distinct patterns.
  */
 function collectExecPatterns(text: string): string[] {
@@ -235,7 +235,7 @@ function collectExecPatterns(text: string): string[] {
 /**
  * Run one download-execute matcher and push (value, index) tokens.
  *
- * Time complexity: O(n) — single linear pass. Space complexity: O(m).
+ * Time complexity: O(n), single linear pass. Space complexity: O(m).
  */
 function collectExecTokens(
   text: string,

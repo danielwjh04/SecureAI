@@ -3,14 +3,14 @@
  *
  * Exa is the scanner's sandboxed fetcher: rather than the Worker pulling a
  * (possibly attacker-controlled) destination page into its own runtime, Exa
- * crawls each final URL and returns structured reputation evidence — page text,
+ * crawls each final URL and returns structured reputation evidence, page text,
  * a safety-focused summary, and a per-URL crawl status. This is the
  * compensating control for the hostname-only SSRF posture documented in
  * `./redirect` (Workers cannot inspect resolved IPs).
  *
  * Safety posture (CLAUDE.md §1, §6):
  *   - Fail-closed signal: a non-success crawl status for a URL is mapped to a
- *     `flagged` report. `runScan` reads `flagged` and escalates the verdict — a
+ *     `flagged` report. `runScan` reads `flagged` and escalates the verdict, a
  *     destination Exa could not vet is never silently treated as clean.
  *   - Float-free at the boundary: the contract's `ReputationReport.score` is a
  *     STRING so it can enter a hashed proof step without introducing float
@@ -80,7 +80,7 @@ interface ExaContentsResult {
   summary?: string
 }
 
-/** One entry of the `statuses` array — per-URL crawl outcome, keyed by `id`. */
+/** One entry of the `statuses` array, per-URL crawl outcome, keyed by `id`. */
 interface ExaContentsStatus {
   id: string
   status: string
@@ -168,7 +168,7 @@ export class ExaReputationClient implements ReputationClient {
    *
    * Mapping rules:
    *   - A URL whose status entry is missing or non-`OK` (a crawl failure) yields
-   *     `flagged: true` with the failure tag as `status` — the fail-closed
+   *     `flagged: true` with the failure tag as `status`, the fail-closed
    *     signal `runScan` escalates on. We never fetch its content ourselves.
    *   - A successfully crawled URL is `flagged: false` (clean); the OpenAI judge
    *     is the semantic backstop and reads the returned summary.
@@ -180,7 +180,7 @@ export class ExaReputationClient implements ReputationClient {
    * to vet). A thrown SDK error becomes `ReputationError`; `runScan` catches it
    * and fails closed.
    *
-   * Time complexity: O(n) over the URL count — one pass to index statuses by id
+   * Time complexity: O(n) over the URL count, one pass to index statuses by id
    *   plus one pass to build reports; the network call is a single batched
    *   request. Space complexity: O(n) for the status index and reports.
    *
@@ -210,7 +210,7 @@ export class ExaReputationClient implements ReputationClient {
     } catch (error: unknown) {
       // Fail-loud: log the exact underlying class (CLAUDE.md §1) and re-raise as
       // a typed reputation fault. `runScan` translates this into a fail-closed
-      // escalation — it is never swallowed into an empty (falsely clean) result.
+      // escalation, it is never swallowed into an empty (falsely clean) result.
       const className =
         error instanceof Error ? error.constructor.name : typeof error
       console.warn(
@@ -231,7 +231,7 @@ export class ExaReputationClient implements ReputationClient {
 /**
  * Index `results` by their URL (preferring `url`, falling back to `id`) for O(1)
  * lookup when building reports in input order. A duplicate URL keeps the first
- * occurrence — `getContents` returns one result per requested URL.
+ * occurrence, `getContents` returns one result per requested URL.
  *
  * Time complexity: O(n). Space complexity: O(n).
  */
@@ -302,7 +302,7 @@ function buildReport(
 
   // A successful crawl is recorded as clean. The OpenAI judge is the semantic
   // backstop: it reads this summary (see judge.ts buildInput) and raises caution
-  // on bad reputation. We deliberately do NOT lexically flag on the summary —
+  // on bad reputation. We deliberately do NOT lexically flag on the summary
   // the reputation query asks Exa about "phishing/malware", so those terms
   // appear in nearly every summary and a substring match would false-positive on
   // safe sites (e.g. a summary stating "no evidence of phishing or malware").

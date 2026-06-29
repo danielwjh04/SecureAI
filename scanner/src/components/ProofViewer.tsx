@@ -40,9 +40,9 @@ function cloneProof(proof: Proof): Proof {
 }
 
 /**
- * Seed each step's editable textarea with the *canonical* JSON of its payload —
+ * Seed each step's editable textarea with the *canonical* JSON of its payload
  * the exact serialization the proof hashes (`canonicalJson`, keys sorted,
- * compact separators) — so what the user sees and edits is byte-for-byte the
+ * compact separators), so what the user sees and edits is byte-for-byte the
  * hashed form, not a re-formatted view that would drift from the chain. Indexed
  * by step index so a row's draft survives unrelated edits.
  *
@@ -60,7 +60,7 @@ function seedDrafts(proof: Proof): Record<number, string> {
  * Resolve one row's live integrity status from the latest verification.
  *
  * Until the first re-hash completes (`verification` null) every row reads as
- * `ok` — the pristine proof verifies by construction. Once a break is found,
+ * `ok`, the pristine proof verifies by construction. Once a break is found,
  * the breaking row and everything after it read as `broken` (a tampered link
  * invalidates every downstream hash); earlier rows stay `ok`.
  *
@@ -110,7 +110,7 @@ export function ProofViewer({ proof }: ProofViewerProps): ReactNode {
 
   // Debounced client-side re-verification. The token guards against a stale
   // async result overwriting a newer one (last edit wins). Runs entirely in the
-  // browser via Web Crypto — there is no fetch here by design.
+  // browser via Web Crypto, there is no fetch here by design.
   useEffect(() => {
     if (debounceRef.current !== null) {
       clearTimeout(debounceRef.current)

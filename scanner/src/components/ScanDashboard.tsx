@@ -55,7 +55,7 @@ interface StatCard {
  * tint turns on only when that metric contributes a blocking/flagged signal.
  *
  * Time complexity: O(f + c + i + e) over findings, chains, injections and
- * reputation reports. Space complexity: O(1) — a fixed set of tiles.
+ * reputation reports. Space complexity: O(1), a fixed set of tiles.
  */
 function buildStatCards(result: ScanResult): StatCard[] {
   const blockingFindings = result.findings.filter(
@@ -107,7 +107,7 @@ function buildStatCards(result: ScanResult): StatCard[] {
 }
 
 /**
- * Tally every screened signal — rule findings plus injection findings — by
+ * Tally every screened signal, rule findings plus injection findings, by
  * verdict severity. Returns the per-verdict counts and their total so the caller
  * sizes the stacked bar without re-summing.
  *
@@ -204,7 +204,7 @@ export function ScanDashboard({ result }: { result: ScanResult }): ReactNode {
         <div className="severity-legend">
           {total === 0 ? (
             <span className="severity-legend__item severity-legend__item--clear">
-              No screened signals — content clear
+              No screened signals, content clear
             </span>
           ) : (
             VERDICTS_BY_SEVERITY.map((verdict) => (

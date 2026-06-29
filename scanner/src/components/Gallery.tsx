@@ -61,7 +61,7 @@ function tagLabel(tag: GalleryEntry['tag']): string {
  * The curated scan gallery: a grid of recorded benign/attack scans. Clicking a
  * card replays its `result` instantly via `onPick` (no scan request). While the
  * dataset loads it shows a loading line; when it is missing or empty it shows a
- * tasteful "coming soon" state — it never surfaces a fetch error or crashes.
+ * tasteful "coming soon" state, it never surfaces a fetch error or crashes.
  *
  * Time complexity: O(e) in the entry count. Space complexity: O(e).
  */

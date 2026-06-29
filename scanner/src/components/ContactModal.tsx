@@ -4,7 +4,7 @@
  * on submit the form POSTs to `/api/contact`; the recipient addresses live
  * server-side, so nothing here references them.
  *
- * It mirrors {@link ThreatDetailModal}'s overlay contract — portaled into
+ * It mirrors {@link ThreatDetailModal}'s overlay contract, portaled into
  * `document.body` so the fixed full-viewport overlay escapes any transformed,
  * clipping ancestor; closable three ways (the close button, the backdrop, and
  * Escape); and the page scroll is locked behind it while open. Fields are
@@ -34,7 +34,7 @@ type SubmitState =
 /**
  * A pragmatic email shape check: a non-empty local part, an `@`, and a dotted
  * domain with no spaces. It only gates an obviously malformed address client-side
- * — the worker is the authority and re-validates every field, so this never has
+ * the worker is the authority and re-validates every field, so this never has
  * to be RFC-exhaustive.
  */
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -65,7 +65,7 @@ const submitClass =
 /**
  * The enterprise contact form rendered as a modal overlay.
  *
- * Time complexity: O(1) — fixed field set, one request. Space complexity: O(1)
+ * Time complexity: O(1), fixed field set, one request. Space complexity: O(1)
  * beyond the React tree.
  */
 export function ContactModal({ onClose }: ContactModalProps): ReactNode {
@@ -290,7 +290,7 @@ function SentConfirmation(): ReactNode {
   return (
     <div className="flex flex-col items-center gap-3 py-8 text-center">
       <CheckCircle2 className="w-8 h-8 text-allow" />
-      <p className="text-[15px] font-medium text-white">Thanks — we'll be in touch.</p>
+      <p className="text-[15px] font-medium text-white">Thanks, we'll be in touch.</p>
     </div>
   )
 }

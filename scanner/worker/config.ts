@@ -6,10 +6,10 @@
  * logic). `loadConfig` is the single entry point: it reads each field from a
  * `SCANNER_*` env var, falls back to a documented default, validates ranges,
  * and throws `ConfigError` on any bad value. This mirrors the model-validator
- * discipline of `secureSG/config/settings.py` — fail-closed at startup rather
+ * discipline of `secureSG/config/settings.py`, fail-closed at startup rather
  * than carrying an invalid config into a request path.
  *
- * Security invariants that must never be weakened — the proof hash algorithm —
+ * Security invariants that must never be weakened, the proof hash algorithm
  * are pinned constants here, deliberately *not* exposed as env-overridable.
  */
 
@@ -37,7 +37,7 @@ export interface Env {
  * downstream code never re-validates or re-defaults.
  */
 export interface ScannerConfig {
-  /** Proof hash algorithm. Pinned to 'SHA-256' — never env-overridable. */
+  /** Proof hash algorithm. Pinned to 'SHA-256', never env-overridable. */
   readonly hashAlgorithm: 'SHA-256'
   /** Seed for the proof-chain genesis hash; changing it starts a new chain. */
   readonly genesisSeed: string
@@ -72,7 +72,7 @@ export interface ScannerConfig {
 }
 
 const HASH_ALGORITHM = 'SHA-256' as const
-/** Audit/proof hash algorithm. SHA-256 only — never weaken (CLAUDE.md §6). */
+/** Audit/proof hash algorithm. SHA-256 only, never weaken (CLAUDE.md §6). */
 
 const ENV_PREFIX = 'SCANNER_'
 
@@ -163,7 +163,7 @@ function parseString(env: Env, field: string, fallback: string): string {
 /**
  * Parse an integer env var and assert it lies in `[min, max]` inclusive.
  * Rejects non-integers (floats, NaN, blank, garbage) and out-of-range values
- * with a `ConfigError` naming the field — fail-closed at load time.
+ * with a `ConfigError` naming the field, fail-closed at load time.
  *
  * Time complexity: O(1). Space complexity: O(1).
  *

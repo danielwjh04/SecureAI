@@ -376,7 +376,7 @@ describe('AdminDashboard · remove member', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove safe@securesg.test' }))
 
     expect(removeSpy).not.toHaveBeenCalled()
-    // Only the initial load — no refetch, since nothing changed.
+    // Only the initial load, no refetch, since nothing changed.
     expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 })
@@ -518,7 +518,7 @@ describe('AdminDashboard · blocked threats', () => {
     expect(screen.getByText(/pipes a remote script into bash/)).toBeInTheDocument()
     expect(screen.getByText('download-execute')).toBeInTheDocument()
 
-    // The modal is a fixed, full-viewport overlay portaled to <body> — so it is
+    // The modal is a fixed, full-viewport overlay portaled to <body>, so it is
     // NOT clipped by the Threats section's transformed, overflow-hidden glass
     // card. The dialog's backdrop carries `fixed inset-0` and sits directly under
     // document.body (the portal target), not inside the admin section tree.
@@ -592,7 +592,7 @@ describe('AdminDashboard · blocked threats', () => {
   it('reveals a Load more control when the total exceeds the rows shown', async () => {
     stubOverview()
     vi.spyOn(client, 'fetchMembers').mockResolvedValue(membersPage([]))
-    // Two rows shown, but the server reports a larger total — Load more appears.
+    // Two rows shown, but the server reports a larger total, Load more appears.
     vi.spyOn(client, 'fetchThreats').mockResolvedValue(
       threatsPage(
         [

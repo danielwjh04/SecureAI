@@ -1,11 +1,11 @@
--- SecureAI accounts layer — initial D1 schema.
+-- SecureAI accounts layer, initial D1 schema.
 --
 -- Three tables back API-key auth, tier resolution, and per-subject daily usage
 -- metering:
---   users     — one row per account; `tier` gates the paid AI stage.
---   api_keys  — credentials, keyed by sha256(rawKey). The raw key is NEVER
+--   users, one row per account; `tier` gates the paid AI stage.
+--   api_keys, credentials, keyed by sha256(rawKey). The raw key is NEVER
 --               stored; only its hex SHA-256 digest is persisted.
---   usage     — per (subject, UTC day) counters for caps and AI metering.
+--   usage, per (subject, UTC day) counters for caps and AI metering.
 --
 -- All timestamps are ISO-8601 UTC strings. `subject` in `usage` is either a
 -- user id or `anon:<ip>` for unauthenticated callers. Lookups on the auth and

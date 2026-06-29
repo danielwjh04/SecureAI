@@ -1,5 +1,5 @@
 /**
- * Per-client fixed-window rate limiting over Cloudflare KV — the shared abuse
+ * Per-client fixed-window rate limiting over Cloudflare KV, the shared abuse
  * bound behind the public auth and contact endpoints. Extracted from the contact
  * route's original limiter so a single, tested implementation backs every
  * caller (CLAUDE.md §1, DRY).
@@ -8,12 +8,12 @@
  * identity gets `limit` requests per hour against a given key prefix; the KV
  * entry carries a one-hour TTL so a stale bucket self-expires (no cleanup pass).
  * Read-check-write means a benign race under concurrency can only UNDER-count by
- * a hair (two reads seeing the same value) — acceptable for an anti-abuse bound,
+ * a hair (two reads seeing the same value), acceptable for an anti-abuse bound,
  * and it never over-counts a legitimate caller. A corrupt/non-numeric counter
  * fails CLOSED (treated as the cap) so a poisoned entry cannot lift the limit.
  */
 
-/** Seconds in one hour — the window length and the KV entry TTL. */
+/** Seconds in one hour, the window length and the KV entry TTL. */
 const SECONDS_PER_HOUR = 3600
 
 /** Cloudflare's true-client-IP header, used to key per-IP limits. */
@@ -53,7 +53,7 @@ export function clientIp(request: Request): string {
  * 3600)`. `keyPrefix` should be a namespaced, versioned literal (e.g.
  * `auth:login:v1:`) so distinct endpoints never share a counter.
  *
- * Time complexity: O(1) — one KV read + one KV write. Space complexity: O(1).
+ * Time complexity: O(1), one KV read + one KV write. Space complexity: O(1).
  *
  * @param kv - The rate-limit store (non-null; the caller skips this on `null`).
  * @param keyPrefix - Namespaced, versioned key prefix identifying the endpoint.

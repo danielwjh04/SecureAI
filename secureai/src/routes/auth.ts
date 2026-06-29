@@ -1,6 +1,6 @@
 /**
  * Email + password authentication routes: register, login, logout, me, and
- * key rotation. These sit alongside the existing Bearer-API-key auth — a
+ * key rotation. These sit alongside the existing Bearer-API-key auth, a
  * registered, email-verified account gets BOTH a session cookie (for the
  * browser) and an API key (for programmatic callers). When email verification
  * is active (a provider is configured), register creates the account UNVERIFIED
@@ -91,7 +91,7 @@ const RATE_PREFIX_RESEND = 'auth:resend:v1:'
  * immediately, and a new account is created already-verified, exactly as before;
  * a non-`null` sender activates the emailed-code challenge so (a) login mints a
  * session only after the code is verified and (b) a new account is created
- * UNVERIFIED — unusable until its emailed code is verified via
+ * UNVERIFIED, unusable until its emailed code is verified via
  * `POST /api/login/verify`.
  */
 export interface AuthDeps {
@@ -138,7 +138,7 @@ function invalidChallenge(): Response {
 /**
  * Enforce the per-IP hourly auth rate limit for `keyPrefix`, returning a 429
  * {@link Response} when the caller is over budget or `null` when within it (or
- * when no KV store is configured — the limit is then skipped, matching the
+ * when no KV store is configured, the limit is then skipped, matching the
  * contact route's degradation). Counts every attempt, so it throttles brute force
  * before any password/DB/email work runs.
  *
@@ -321,7 +321,7 @@ async function sessionResponse(
  *     (its API key does not resolve and no session is issued). Register sends NO
  *     code and issues NO session; it returns `201 { registered: true }` with NO
  *     Set-Cookie. Verification is DEFERRED to the user's first login: login (which
- *     2FAs on every attempt) opens the emailed-code challenge — the single code —
+ *     2FAs on every attempt) opens the emailed-code challenge, the single code
  *     and `POST /api/login/verify` flips the account to verified and mints the
  *     session. This yields one code total, at login, instead of one at signup and
  *     one at first login.
@@ -396,7 +396,7 @@ export async function handleRegister(request: Request, deps: AuthDeps): Promise<
     )
 
     // Verification active: the account exists but is UNVERIFIED and not usable
-    // yet. Register sends NO code and issues NO session — verification is deferred
+    // yet. Register sends NO code and issues NO session, verification is deferred
     // to the user's first login, which opens the single emailed-code challenge and
     // (via verify) marks the account verified. Return 201 { registered: true } with
     // no Set-Cookie.
@@ -426,8 +426,8 @@ export async function handleRegister(request: Request, deps: AuthDeps): Promise<
 /**
  * Handle `POST /api/login`. Validates `{ email, password }`, resolves the account
  * by email, and verifies the password against the stored PBKDF2 hash. Any
- * failure — unknown email, account with no password (API-key-only), or wrong
- * password — returns the SAME generic 401, never revealing which.
+ * failure, unknown email, account with no password (API-key-only), or wrong
+ * password, returns the SAME generic 401, never revealing which.
  *
  * On a correct password the outcome GATES on whether email two-factor is
  * configured (`deps.emailSender`):
@@ -511,8 +511,8 @@ export async function handleLogin(request: Request, deps: AuthDeps): Promise<Res
  * Handle `POST /api/login/verify`. Validates `{ challengeId, code }`, loads the
  * challenge, and on a correct, unexpired, non-exhausted code mints the session
  * cookie and returns `200 { user: { email, tier } }`. The challenge is deleted
- * on success (single-use). Every failure path — missing challenge, expired,
- * over the attempt cap, wrong code, or a vanished user — returns the SAME
+ * on success (single-use). Every failure path, missing challenge, expired,
+ * over the attempt cap, wrong code, or a vanished user, returns the SAME
  * generic 401, so the response cannot be used to probe challenge state. A wrong
  * code additionally increments the attempt counter (fail-closed brute-force cap).
  *
@@ -563,17 +563,17 @@ export async function handleLoginVerify(request: Request, deps: AuthDeps): Promi
     }
 
     // Correct code: the challenge is single-use, so delete it before minting the
-    // session — a replay of the same code then finds no challenge (generic 401).
+    // session, a replay of the same code then finds no challenge (generic 401).
     await deleteChallenge(db, challenge.id)
     // A correct emailed code proves control of the address, which completes a
     // signup verification: mark the account verified (idempotent) BEFORE the
-    // session is built so the new cookie — and the account's API key — begin to
+    // session is built so the new cookie, and the account's API key, begin to
     // authenticate. For an already-verified login account this is a no-op.
     await markEmailVerified(db, challenge.userId)
     const tier = await findTierByUserId(db, challenge.userId)
     const profile = await getAccountProfile(db, challenge.userId)
     if (tier === null || profile === null) {
-      // The account vanished between login and verify — treat as a bad challenge.
+      // The account vanished between login and verify, treat as a bad challenge.
       return invalidChallenge()
     }
     return await sessionResponse(
@@ -597,7 +597,7 @@ export async function handleLoginVerify(request: Request, deps: AuthDeps): Promi
 
 /**
  * Handle `POST /api/login/resend`. Validates `{ challengeId }`, looks up the
- * pending challenge, and — for the SAME user — rotates to a fresh code and
+ * pending challenge, and, for the SAME user, rotates to a fresh code and
  * expiry, re-sending the email. Returns `200 { challengeId }` (the id is stable
  * across a resend; only the code/expiry rotate). A missing/expired challenge
  * returns a generic 401 so resend cannot probe challenge state. The per-challenge
@@ -606,7 +606,7 @@ export async function handleLoginVerify(request: Request, deps: AuthDeps): Promi
  * still spends the code, so resends cannot be used to bypass the brute-force cap.
  *
  * Requires `env.DB` and `env.SESSION_SECRET` (503 otherwise). Email 2FA must be
- * configured (`deps.emailSender`), else 503 — a resend is meaningless without a
+ * configured (`deps.emailSender`), else 503, a resend is meaningless without a
  * provider.
  *
  * Time complexity: O(1) DB + one email round trip. Space complexity: O(1).
@@ -688,7 +688,7 @@ export function handleLogout(): Response {
  * ({@link canViewAdmin}, owner OR admin); `isOwner` is whether it may MANAGE roles
  * ({@link canManageRoles}, owner only). Requires `env.DB` (503 otherwise).
  *
- * Time complexity: O(1) — two indexed reads. Space complexity: O(1).
+ * Time complexity: O(1), two indexed reads. Space complexity: O(1).
  */
 export async function handleMe(request: Request, deps: AuthDeps): Promise<Response> {
   if (deps.db === null) {
@@ -705,7 +705,7 @@ export async function handleMe(request: Request, deps: AuthDeps): Promise<Respon
     }
     const profile = await getAccountProfile(db, ctx.subject)
     if (profile === null) {
-      // Resolved to a user id that no longer exists — treat as unauthenticated.
+      // Resolved to a user id that no longer exists, treat as unauthenticated.
       return Response.json(
         { error: 'unauthorized', message: 'authentication required' },
         { status: STATUS_UNAUTHORIZED },
@@ -737,7 +737,7 @@ export async function handleMe(request: Request, deps: AuthDeps): Promise<Respon
 /**
  * Handle `POST /api/key/rotate`. Authenticates via Bearer key OR session cookie
  * (401 if anonymous), revokes the caller's existing active key(s), mints a fresh
- * one, and returns `200 { apiKey }` — the only time the new key is shown.
+ * one, and returns `200 { apiKey }`, the only time the new key is shown.
  * Requires `env.DB` (503 otherwise).
  *
  * Time complexity: O(k) (revoke active keys) + O(1) mint. Space complexity: O(1).

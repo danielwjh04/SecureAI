@@ -2,7 +2,7 @@
  * The "how easy SecureAI is" explainer on the scanner landing (after How it
  * works): a three-step flow selling that protecting an agent is a sign-up and a
  * single line of setup, after which every risky tool call is screened and
- * blocked before it runs — fail-closed. Purely presentational, no state.
+ * blocked before it runs, fail-closed. Purely presentational, no state.
  *
  * The actual Guard download + key-embedded installer lives in the member
  * dashboard ("Set up the Guard"), reachable from step one's call to action;
@@ -28,12 +28,12 @@ const STEPS: Step[] = [
   {
     Icon: Terminal,
     title: 'Drop in the Guard',
-    body: 'One line wires the Guard into your agent as a PreToolUse hook. Re-run it anytime — it never duplicates.',
+    body: 'One line wires the Guard into your agent as a PreToolUse hook. Re-run it anytime, it never duplicates.',
   },
   {
     Icon: ShieldCheck,
     title: 'Risky calls get blocked',
-    body: "Every tool call is screened before it runs. If the Guard can't clear it, it's denied — fail-closed by default.",
+    body: "Every tool call is screened before it runs. If the Guard can't clear it, it's denied, fail-closed by default.",
   },
 ]
 
@@ -63,7 +63,7 @@ export function EaseOfUse() {
         </h2>
         <p className="text-white/65 text-sm md:text-[15px] max-w-2xl">
           You should not need a security team to ship safe agents. Sign up, paste
-          one line, and the Guard screens every tool call from then on — no
+          one line, and the Guard screens every tool call from then on, no
           rewrite, no glue code.
         </p>
       </motion.div>

@@ -75,7 +75,7 @@ export type ProofStepKind =
  *
  * Payload values are JSON-safe and FLOAT-FREE: only `string`, integer `number`,
  * or `boolean`. Floats (reputation scores, injection probabilities) are
- * serialized as strings so the canonical bytes — and therefore the hash — are
+ * serialized as strings so the canonical bytes, and therefore the hash, are
  * stable across the Worker and the browser. No timestamps or random values may
  * appear here; anything time-varying lives outside hashed steps
  * (see {@link ScanResult.scannedAt}).
@@ -109,7 +109,7 @@ export interface ScanResult {
   injections: InjectionFinding[]
   findings: RuleFinding[]
   proof: Proof
-  /** ISO string — set OUTSIDE hashed steps, passed in by the caller. */
+  /** ISO string, set OUTSIDE hashed steps, passed in by the caller. */
   scannedAt: string
   source: { kind: 'paste' | 'url'; ref: string }
 }

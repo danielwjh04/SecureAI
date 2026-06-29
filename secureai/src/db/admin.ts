@@ -94,7 +94,7 @@ function readCount(row: Row | null, column: string): number {
 /**
  * Count all registered accounts.
  *
- * Time complexity: O(1) — single `COUNT(*)` aggregate. Space complexity: O(1).
+ * Time complexity: O(1), single `COUNT(*)` aggregate. Space complexity: O(1).
  *
  * @throws {AdminError} On a database failure (fail-closed).
  */
@@ -109,7 +109,7 @@ export async function countUsers(db: Database): Promise<number> {
 
 /**
  * Count accounts grouped by tier, densified to the three known tiers so a tier
- * with no accounts reads as 0 (an unknown stored tier is simply ignored — the
+ * with no accounts reads as 0 (an unknown stored tier is simply ignored, the
  * breakdown only reports the allowlisted tiers).
  *
  * Time complexity: O(t) in the distinct tiers returned. Space complexity: O(1).
@@ -142,7 +142,7 @@ export async function usersByTier(db: Database): Promise<TierCounts> {
 /**
  * Daily signup counts from `sinceDay` (inclusive) onward, ascending by day. Days
  * with no signups are simply absent (the dashboard zero-fills gaps), so the
- * series is sparse. `day` is `date(created_at)` — the UTC calendar day of the
+ * series is sparse. `day` is `date(created_at)`, the UTC calendar day of the
  * `created_at` ISO timestamp.
  *
  * Time complexity: O(r) in the active days in the window. Space complexity: O(r).
@@ -178,7 +178,7 @@ export async function signupsByDay(
  * zero rows is `null`, which {@link readCount} coerces to 0, so an empty table
  * reports all-zero totals rather than nulls.
  *
- * Time complexity: O(1) — single multi-`SUM` aggregate. Space complexity: O(1).
+ * Time complexity: O(1), single multi-`SUM` aggregate. Space complexity: O(1).
  *
  * @throws {AdminError} On a database failure (fail-closed).
  */
@@ -202,10 +202,10 @@ export async function usageTotals(db: Database): Promise<UsageTotals> {
 }
 
 /**
- * Count subscriptions whose status is live (`active` or `trialing`) — the count
+ * Count subscriptions whose status is live (`active` or `trialing`), the count
  * of currently-paying (or trialing) Pro accounts.
  *
- * Time complexity: O(1) — single filtered `COUNT(*)`. Space complexity: O(1).
+ * Time complexity: O(1), single filtered `COUNT(*)`. Space complexity: O(1).
  *
  * @throws {AdminError} On a database failure (fail-closed).
  */
@@ -225,7 +225,7 @@ export async function activeSubscriptions(db: Database): Promise<number> {
  * Read a page of the members directory: `limit` accounts from `offset`, ordered
  * oldest-first (stable signup order), each with its summed lifetime scan count.
  * An optional `q` filters to accounts whose email OR tier contains `q`
- * (case-insensitive substring) — so searching `pro` / `free` / `enterprise`
+ * (case-insensitive substring), so searching `pro` / `free` / `enterprise`
  * filters by plan; absent/empty `q` returns every account (the directory's
  * default).
  *
@@ -234,7 +234,7 @@ export async function activeSubscriptions(db: Database): Promise<number> {
  * (an INNER join would silently drop zero-scan accounts). `GROUP BY` collapses
  * the per-day usage rows to one total per user. The `q` filter is a parameterized
  * `(lower(email) LIKE '%'||lower(?)||'%' OR lower(tier) LIKE '%'||lower(?)||'%')`
- * — `q` is bound TWICE, never interpolated. The role column is returned verbatim;
+ * `q` is bound TWICE, never interpolated. The role column is returned verbatim;
  * the route derives the effective role.
  *
  * Time complexity: O(p log p) for the ordered page of size p = `limit` (the
@@ -298,7 +298,7 @@ export async function listMembers(
  * TWICE), so the total reflects the filtered page; absent/empty `q` counts every
  * account.
  *
- * Time complexity: O(1) — single `COUNT(*)` aggregate. Space complexity: O(1).
+ * Time complexity: O(1), single `COUNT(*)` aggregate. Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param q - Optional case-insensitive email-OR-tier substring filter.
@@ -336,9 +336,9 @@ export interface ThreatQuery {
  * absent/empty `q` returns every blocked scan.
  *
  * One INNER JOIN `scan_history → users` on the user id (a blocked scan with no
- * surviving owner is excluded — it can no longer be attributed), filtered to
+ * surviving owner is excluded, it can no longer be attributed), filtered to
  * `verdict = 'BLOCK'`, ordered `scanned_at DESC`. The `q` filter is a
- * parameterized `(lower(source_ref) LIKE ... OR lower(email) LIKE ...)` — `q` is
+ * parameterized `(lower(source_ref) LIKE ... OR lower(email) LIKE ...)`, `q` is
  * bound twice, never interpolated.
  *
  * Time complexity: O(p log p) for the ordered page of size p = `limit`. Space
@@ -395,7 +395,7 @@ export async function listThreats(db: Database, query: ThreatQuery): Promise<Thr
  * (source ref OR owner email substring) as {@link listThreats}, so the total
  * matches the filtered page.
  *
- * Time complexity: O(1) — single joined `COUNT(*)` aggregate. Space complexity:
+ * Time complexity: O(1), single joined `COUNT(*)` aggregate. Space complexity:
  * O(1).
  *
  * @param db - The persistence seam.
@@ -424,14 +424,14 @@ export async function countThreats(db: Database, q?: string): Promise<number> {
 /**
  * Set an account's granted role by user id (used by the owner-only role-change
  * endpoint). The `role` is the already-validated {@link AssignableRole}
- * ({`member`, `admin`}); `owner` is never written here — it is conferred by the
+ * ({`member`, `admin`}); `owner` is never written here, it is conferred by the
  * email allowlist, not the column.
  *
  * Idempotent for the same `(userId, role)`. Returns the row-change count so the
  * route can distinguish a real update (1) from an unknown user id (0 → 404)
  * without a follow-up read.
  *
- * Time complexity: O(1) — primary-key update. Space complexity: O(1).
+ * Time complexity: O(1), primary-key update. Space complexity: O(1).
  *
  * @throws {AdminError} On a database failure (fail-closed).
  */
@@ -458,7 +458,7 @@ export async function setUserRole(
  * rows), `scan_history` (`user_id`), `subscriptions` (`user_id`),
  * `otp_challenges` (`user_id`), then `users` (`id`). `scan_details` is deleted
  * BEFORE `scan_history` and keyed via a `scan_id IN (SELECT id FROM scan_history
- * WHERE user_id = ?)` subquery — the detail table has no `user_id` column, so
+ * WHERE user_id = ?)` subquery, the detail table has no `user_id` column, so
  * once its parent `scan_history` rows are gone the details can no longer be
  * located and would orphan.
  *

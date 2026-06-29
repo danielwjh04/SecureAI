@@ -9,7 +9,7 @@
  * exact same code runs in the Worker and the browser, re-verification is
  * byte-identical and needs no network round-trip.
  *
- * The algorithm is pinned to SHA-256 — never weakened to MD5/SHA-1.
+ * The algorithm is pinned to SHA-256, never weakened to MD5/SHA-1.
  */
 
 import type { Proof, ProofStep, ProofStepKind } from '../schemas/contract'
@@ -131,7 +131,7 @@ interface CanonicalStepInput {
 
 /**
  * Serialize a step's hashable identity to canonical bytes. Fields are
- * enumerated explicitly — never spread from a wider object — so the linkage
+ * enumerated explicitly, never spread from a wider object, so the linkage
  * fields (`prevHash`, `currHash`) can never leak into the hashed payload.
  *
  * Time complexity: O(k log k) in payload key count. Space complexity: O(s).
@@ -195,7 +195,7 @@ export class ProofBuilder {
     return [...this._steps]
   }
 
-  /** The current chain tip — genesis when empty, else the last `currHash`. */
+  /** The current chain tip, genesis when empty, else the last `currHash`. */
   public get headHash(): string {
     return this._headHash
   }

@@ -36,7 +36,7 @@ interface UserRecord {
   /**
    * Display names (migration 0009): the account holder's first/last name,
    * collected at password registration. NULL for legacy and API-key accounts
-   * (no name step). Display-only — never a credential.
+   * (no name step). Display-only, never a credential.
    */
   first_name: string | null
   last_name: string | null
@@ -107,7 +107,7 @@ function usageKey(subject: string, day: string): string {
 
 /**
  * Backing store for the fake. Exposed so assertions can confirm what was (and
- * was NOT) persisted — notably that no raw API key is ever stored.
+ * was NOT) persisted, notably that no raw API key is ever stored.
  */
 export class MemoryStore {
   public readonly users = new Map<string, UserRecord>()
@@ -137,7 +137,7 @@ export class MemoryStore {
   /**
    * Monotonic write counter standing in for a D1 session bookmark: it advances on
    * every write, so a session opened after a write surfaces a changed bookmark.
-   * The fake does not model replica lag — read-your-writes always holds here.
+   * The fake does not model replica lag, read-your-writes always holds here.
    */
   public bookmark = 0
 
@@ -265,7 +265,7 @@ export class MemoryStore {
     }
     if (sql.includes('COUNT(*) AS total FROM users')) {
       // Members directory count, with an optional `(lower(email) LIKE q OR
-      // lower(tier) LIKE q)` filter — `q` is bound twice, so both binds equal it.
+      // lower(tier) LIKE q)` filter, `q` is bound twice, so both binds equal it.
       if (sql.includes('lower(email) LIKE')) {
         const needle = String(params[0]).toLowerCase()
         let total = 0
@@ -542,11 +542,11 @@ export class MemoryStore {
         }
       }
       // Three INSERT shapes, distinguished by the named columns (not param count):
-      //   createUserWithPassword — names password_hash (param 5) AND email_verified
+      //   createUserWithPassword, names password_hash (param 5) AND email_verified
       //     (param 6, the 1/0 flag the register route computes).
-      //   createFreeUser — names email_verified as a literal `1` (no bound param),
+      //   createFreeUser, names email_verified as a literal `1` (no bound param),
       //     5 params, no password (the API-key signup path is verified at birth).
-      //   bare test inserts — name neither, 5 params: per migration 0008 the
+      //   bare test inserts, name neither, 5 params: per migration 0008 the
       //     email_verified column DEFAULTs to 0 (and password_hash to NULL).
       const hasPassword = sql.includes('password_hash')
       const passwordHash = hasPassword && params[5] !== null && params[5] !== undefined
@@ -931,7 +931,7 @@ export class MemoryD1 {
   /**
    * Open a read-replication "session". The fake ignores the constraint (no replica
    * lag is modeled) and returns a runner delegating to this instance, exposing a
-   * `getBookmark()` that reflects the store's write counter — so a bookmark
+   * `getBookmark()` that reflects the store's write counter, so a bookmark
    * obtained after a write differs from one obtained before.
    */
   public withSession(_constraint?: string): {
@@ -948,7 +948,7 @@ export class MemoryD1 {
 
   /**
    * Run a list of prepared statements as a batch. The real D1 batch is atomic
-   * (all-or-nothing); the fake runs them sequentially without modeling rollback —
+   * (all-or-nothing); the fake runs them sequentially without modeling rollback
    * sufficient because the suites assert WHICH statements a batch issues, and the
    * underlying SQL is already covered by the execute() self-tests. Returns one
    * `{ meta: { changes } }` per statement, matching D1's result shape.

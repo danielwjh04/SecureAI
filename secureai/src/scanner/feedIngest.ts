@@ -6,7 +6,7 @@
  *
  * Fail-SAFE for availability: a source that fails to fetch/parse is skipped
  * (logged + metered) and the others still load. If EVERY source fails (zero
- * indicators gathered) the live version is NOT flipped — the last good feed
+ * indicators gathered) the live version is NOT flipped, the last good feed
  * stays, so a transient abuse.ch outage never empties the denylist.
  */
 
@@ -69,7 +69,7 @@ interface FeedSourceSpec {
 /**
  * Fetch and parse ONE source, isolating its failure: a transport fault, a non-OK
  * status, or a parse error is logged + metered and yields an empty result with
- * `ok: false`, never a throw — so one bad source cannot abort the whole refresh.
+ * `ok: false`, never a throw, so one bad source cannot abort the whole refresh.
  *
  * Time complexity: O(b) in the body length. Space complexity: O(b).
  */

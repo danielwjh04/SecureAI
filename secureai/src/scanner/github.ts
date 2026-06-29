@@ -2,7 +2,7 @@
  * GitHub-aware source resolution.
  *
  * The scanner's unit of input is a skill *manifest* (`SKILL.md`). A user,
- * however, naturally pastes a GitHub *web* URL — a repository root
+ * however, naturally pastes a GitHub *web* URL, a repository root
  * (`github.com/owner/repo`), a tree (`.../tree/branch/dir`), or a blob
  * (`.../blob/branch/path`). Fetching those web URLs returns a ~350 KB HTML page
  * (GitHub's UI chrome), not the manifest: it overflows the parser's byte cap
@@ -146,7 +146,7 @@ export function parseGithubWebUrl(url: URL): GithubTarget | null {
 /**
  * Resolve a {@link GithubTarget} to the raw `SKILL.md` URL to fetch and scan.
  *
- * - blob: a direct, deterministic rewrite to the raw host — no API call.
+ * - blob: a direct, deterministic rewrite to the raw host, no API call.
  * - repo/tree: a raw-first HEAD probe runs first (repo-root probes
  *   `raw/<owner>/<repo>/HEAD/SKILL.md`, a tree probes `…/<ref>/<subdir>/SKILL.md`).
  *   A 200 returns that raw URL with ZERO api.github.com calls, so the
@@ -170,7 +170,7 @@ export function parseGithubWebUrl(url: URL): GithubTarget | null {
  * @param fetchImpl - Injected fetch (kept injectable for tests and the gallery).
  * @param timeoutMs - Per-request timeout for the probe and the discovery API calls.
  * @param token - Optional GitHub token to raise the API rate limit (the raw probe
- *   is always header-free — a token is never exposed to the CDN).
+ *   is always header-free, a token is never exposed to the CDN).
  * @returns The absolute raw.githubusercontent.com URL of the chosen SKILL.md.
  * @throws {SourceResolutionError} If the API is unreachable/errors, or no
  *   SKILL.md exists under the requested scope.
@@ -187,7 +187,7 @@ export async function resolveGithubSkillUrl(
 
   // Raw-first fast path: probe the candidate SKILL.md on the CDN-fronted raw host
   // before any api.github.com call. A repo whose SKILL.md sits at the root (the
-  // common case) resolves here with zero API calls — so the unauthenticated
+  // common case) resolves here with zero API calls, so the unauthenticated
   // GitHub API rate limit (60/hr, shared per Cloudflare egress IP) is never hit.
   // Only a probe MISS (a nested SKILL.md, or no manifest) falls through to the
   // recursive trees API below.
@@ -283,7 +283,7 @@ async function fetchDefaultBranch(
  * Note: for a very large repository GitHub may mark the tree `truncated`; in
  * that rare case a deeply-nested SKILL.md beyond the truncation point is not
  * seen and resolution fails loudly (the caller raises a SourceResolutionError),
- * which is the fail-closed outcome — never a silent wrong pick.
+ * which is the fail-closed outcome, never a silent wrong pick.
  *
  * Time complexity: O(t) in the tree entry count. Space complexity: O(m) in the
  *   number of SKILL.md matches.
@@ -405,7 +405,7 @@ function isSkillManifestPath(path: string): boolean {
  * Choose one SKILL.md path from the candidates, scoped to `subdir` when given.
  *
  * Selection is fully deterministic so the produced proof is reproducible: the
- * shallowest path (fewest segments — the most top-level skill) wins, with ties
+ * shallowest path (fewest segments, the most top-level skill) wins, with ties
  * broken lexicographically. No clock and no randomness participate.
  *
  * Time complexity: O(m log m) in the candidate count. Space complexity: O(m).
@@ -440,8 +440,8 @@ function chooseSkillPath(paths: readonly string[], subdir: string): string | nul
  * is built by {@link buildRawUrl}, which percent-encodes every segment and pins
  * the host), uses `method: 'HEAD'` so no body is downloaded, and
  * `redirect: 'manual'` so any 3xx is treated as a MISS and is never followed to
- * another host (no SSRF). ONLY status 200 is a hit. The probe is header-free — no
- * Authorization, no User-Agent — because the raw CDN is unauthenticated and a
+ * another host (no SSRF). ONLY status 200 is a hit. The probe is header-free, no
+ * Authorization, no User-Agent, because the raw CDN is unauthenticated and a
  * token must never be exposed to it. A transport error or timeout is caught and
  * returns `false` (fail-closed onto the API path); this never throws.
  *

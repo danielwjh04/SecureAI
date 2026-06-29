@@ -29,7 +29,7 @@ describe('createFreeUser', () => {
     expect(apiKey).toMatch(/^sk_secureai_[0-9a-f]{64}$/)
   })
 
-  it('stores ONLY the SHA-256 of the key — the raw key is never persisted', async () => {
+  it('stores ONLY the SHA-256 of the key, the raw key is never persisted', async () => {
     const { db, store } = memoryDatabase()
     const { apiKey } = await createFreeUser(db, 'b@example.com')
 

@@ -1,9 +1,9 @@
--- SecureAI billing layer — Stripe subscriptions and webhook idempotency.
+-- SecureAI billing layer, Stripe subscriptions and webhook idempotency.
 --
 -- Two tables back the Pro-tier ($12/mo) billing flow:
---   subscriptions  — one row per user mirroring the Stripe subscription state,
+--   subscriptions, one row per user mirroring the Stripe subscription state,
 --                    so the tier the Worker grants is auditable against Stripe.
---   webhook_events — append-only dedupe ledger keyed by Stripe's `event.id`. A
+--   webhook_events, append-only dedupe ledger keyed by Stripe's `event.id`. A
 --                    webhook is recorded here BEFORE it is acted on, so a replay
 --                    (Stripe retries on any non-2xx) is a no-op (CLAUDE.md §2,
 --                    idempotency).

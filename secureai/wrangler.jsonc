@@ -1,6 +1,6 @@
 {
 	// SecureAI scanner Worker. All tunables live here as vars and are read through
-	// a typed Env in src/config/env.ts — never hardcoded in source.
+	// a typed Env in src/config/env.ts, never hardcoded in source.
 	//
 	// Infra IDs below (D1 database_id, KV id) are created during the Cloudflare
 	// setup step and must be filled before `wrangler deploy`:
@@ -9,7 +9,7 @@
 	//   wrangler d1 migrations apply secureai  (applies migrations/0001_init.sql)
 	// The Worker degrades gracefully when DB is absent (anonymous, unmetered), so
 	// local `vitest` (in-memory fake) needs none of this. The AI binding needs no
-	// key — it uses the account's Workers AI.
+	// key, it uses the account's Workers AI.
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "secureai-scanner",
 	"main": "src/index.ts",
@@ -91,7 +91,7 @@
 		"SCANNER_DETAIL_MAX_BYTES": "16384",
 		"SCANNER_SUBREQUEST_CAP": "50",
 		// NOTE: these per-tier daily caps, the AI-tier gate, and the Stripe Pro price
-		// below are mirrored in the README "Accounts, plans & dashboard" tier table —
+		// below are mirrored in the README "Accounts, plans & dashboard" tier table
 		// keep the README in sync when retuning them here.
 		"SCANNER_CAP_ANONYMOUS_PER_DAY": "10",
 		"SCANNER_CAP_FREE_PER_DAY": "100",
@@ -99,7 +99,7 @@
 		"SCANNER_AI_TIERS": "pro",
 		// Edge verdict cache (KV-backed). A repeated identical scan within the TTL
 		// returns the cached result without re-tracing redirects or re-running the
-		// AI stage — auth, caps, metering, and history still run for the caller. Kept
+		// AI stage, auth, caps, metering, and history still run for the caller. Kept
 		// short (default 300s = 5 min); 0 disables it; range 0..86400. Tradeoff: a
 		// changed indicator/feed can be briefly masked within the window.
 		"SCANNER_VERDICT_CACHE_TTL_S": "300",
@@ -109,7 +109,7 @@
 		"STRIPE_PRICE_PRO": "price_1TnNM9PZTz6qwIUp2lhMHLDL",
 		"SCANNER_APP_BASE_URL": "https://secureai.software",
 		// Email/password auth tunables (non-secret). The SESSION_SECRET that signs
-		// session cookies is a SECRET, not a var — set it with
+		// session cookies is a SECRET, not a var, set it with
 		// `wrangler secret put SESSION_SECRET`; without it the /api/register and
 		// /api/login routes return 503 and only Bearer API-key auth works.
 		// SCANNER_PBKDF2_ITERATIONS is the password-hash cost (raise as hardware

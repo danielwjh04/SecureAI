@@ -18,7 +18,7 @@ interface ProofStepRowProps {
  * `<textarea>` holding the canonical JSON of the step's payload, the truncated
  * current hash, and an integrity mark (`● INTACT` / `● BROKEN`).
  *
- * Pure presentation. Editing the textarea is the tamper input — its raw text
+ * Pure presentation. Editing the textarea is the tamper input, its raw text
  * bubbles up via `onEdit`; this row owns no verification logic. The parent
  * {@link ProofViewer} re-hashes the candidate chain client-side and feeds the
  * resulting `status` back down. Layout matches the `.proof__step` grid (index,

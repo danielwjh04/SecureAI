@@ -1,11 +1,11 @@
 /**
- * `POST /api/signup` handler — provisions a free-tier account and returns its
+ * `POST /api/signup` handler, provisions a free-tier account and returns its
  * API key exactly once.
  *
  * Validates the `{ email }` body with Zod at the edge, mints a user + key via
  * the accounts repository (which persists ONLY the key's SHA-256 digest), and
  * returns `{ apiKey, tier: 'free' }` at 201. The raw key is shown here and never
- * again — it cannot be recovered from the store.
+ * again, it cannot be recovered from the store.
  *
  * Signup requires persistence: with no `env.DB` binding there is nowhere to
  * provision the account, so the route returns 503 with a clear message rather
@@ -50,7 +50,7 @@ async function parseSignupBody(request: Request): Promise<SignupPayload> {
 
 /**
  * Handle `POST /api/signup`. Requires `env.DB`; without it, returns 503. On
- * success, returns `{ apiKey, tier: 'free' }` at 201 — the only time the raw key
+ * success, returns `{ apiKey, tier: 'free' }` at 201, the only time the raw key
  * is ever exposed.
  *
  * Time complexity: O(1) (validate + two single-row inserts).

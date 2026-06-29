@@ -6,7 +6,7 @@
  * the Cloudflare Worker and in the browser (and in Node 18+, for the gallery
  * build and tests). `globalThis.crypto.subtle` is available in all three.
  *
- * The algorithm is pinned to SHA-256 — never weakened to MD5/SHA-1.
+ * The algorithm is pinned to SHA-256, never weakened to MD5/SHA-1.
  */
 
 const HASH_ALGORITHM = 'SHA-256'

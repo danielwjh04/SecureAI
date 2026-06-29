@@ -64,7 +64,7 @@ describe('ContactModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
 
     await waitFor(() =>
-      expect(screen.getByText("Thanks — we'll be in touch.")).toBeInTheDocument(),
+      expect(screen.getByText("Thanks, we'll be in touch.")).toBeInTheDocument(),
     )
     expect(submit).toHaveBeenCalledWith({
       name: 'Ada',

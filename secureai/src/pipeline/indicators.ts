@@ -1,5 +1,5 @@
 /**
- * Known-bad indicator lookup — a {@link ReputationClient} that matches a scan's
+ * Known-bad indicator lookup, a {@link ReputationClient} that matches a scan's
  * final destination URLs against a curated host/domain denylist (our own data),
  * an optional Cloudflare KV namespace for dynamic per-host entries, and an
  * optional threat-feed store (the D1-backed, commercially-cleared abuse.ch feed)
@@ -7,7 +7,7 @@
  *
  * Why a host denylist rather than IP-netblock data (e.g. Spamhaus DROP): a
  * Cloudflare Worker cannot resolve a URL hostname to an IP, so IP-range feeds
- * add nothing here — and raw-IP URL hosts are already refused upstream by the
+ * add nothing here, and raw-IP URL hosts are already refused upstream by the
  * SSRF guard's `host.raw_ip` structural rule. A host/domain denylist is matched
  * O(1)/O(d) against the *final* URL of every traced redirect cascade, is
  * curated by us (no third-party license), and is pluggable: a paid
@@ -21,7 +21,7 @@
  *
  * Safety posture (CLAUDE.md §1, §6):
  *   - Fail-closed per URL: a URL whose hostname cannot be parsed is flagged
- *     (status `unparseable`) — an unverifiable destination is treated as bad,
+ *     (status `unparseable`), an unverifiable destination is treated as bad,
  *     never waved through.
  *   - Fail-closed on infrastructure fault: a KV read error is not swallowed;
  *     it is raised as {@link ReputationError} so the orchestrator escalates the
@@ -158,7 +158,7 @@ export class DenylistReputationClient implements ReputationClient {
     try {
       hostname = new URL(url).hostname.toLowerCase()
     } catch {
-      // An unparseable destination cannot be verified — flag it, never clear it.
+      // An unparseable destination cannot be verified, flag it, never clear it.
       return {
         url,
         score: SCORE_FLAGGED,
@@ -209,7 +209,7 @@ export class DenylistReputationClient implements ReputationClient {
    * tests each suffix against the O(1) set.
    *
    * Time complexity: O(d) in the label count (one set lookup per suffix).
-   * Space complexity: O(1) — index walk, no per-label allocation of the whole
+   * Space complexity: O(1), index walk, no per-label allocation of the whole
    *   suffix beyond the substring slice.
    *
    * @param hostname - A lowercased hostname.

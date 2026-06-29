@@ -19,7 +19,7 @@ async function dbWithFeedHost(host: string): Promise<D1Database> {
   return d1
 }
 
-describe('handleScan — threat feed wiring', () => {
+describe('handleScan, threat feed wiring', () => {
   // Stub fetch so the redirect tracer is terminal/network-free.
   beforeEach(() => {
     vi.stubGlobal('fetch', (async () => new Response('ok', { status: 200 })) as unknown as typeof fetch)

@@ -9,7 +9,7 @@
  * fixtures yields a byte-identical `gallery.json`.
  *
  * Why recorded clients (CLAUDE.md §1 "no mocked demos" vs. "hermetic build"):
- * the gallery is pre-scanned, frozen evidence — the scan LOGIC is the real
+ * the gallery is pre-scanned, frozen evidence, the scan LOGIC is the real
  * production code path, only the external I/O (redirect HTTP, reputation,
  * AI inference) is replaced with recordings captured per fixture. The proof is
  * computed by the same `ProofBuilder`/SHA-256 core, so the in-browser tamper
@@ -107,7 +107,7 @@ function recordedFetch(routes: Record<string, RecordedResponse>): typeof fetch {
  * the URLs deliberately marked `flagged` escalate the verdict).
  *
  * Implements {@link ReputationClient}; fields are declared then assigned in the
- * constructor (no parameter properties — `erasableSyntaxOnly`).
+ * constructor (no parameter properties, `erasableSyntaxOnly`).
  */
 class RecordedExaClient implements ReputationClient {
   private readonly reportByUrl: Record<string, ReputationReport>
@@ -135,7 +135,7 @@ class RecordedExaClient implements ReputationClient {
  * A recorded AI inference client: returns a fixed {@link InjectionResult} for the
  * fixture. Because `runScan` folds the inference tighten-only, a benign clean
  * result cannot lower a BLOCK baseline, and an injection result raises a clean
- * baseline to BLOCK — exactly the production semantics, replayed from a recording.
+ * baseline to BLOCK, exactly the production semantics, replayed from a recording.
  *
  * Implements {@link InferenceClient}; no parameter properties (`erasableSyntaxOnly`).
  */

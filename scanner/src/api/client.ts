@@ -86,7 +86,7 @@ export async function scanSkill(req: ScanRequest): Promise<ScanResult> {
 /**
  * Server-side re-verification of a proof chain. POSTs to {@link API.verify}.
  *
- * Note: the in-browser ProofViewer tamper feature does NOT use this — it calls
+ * Note: the in-browser ProofViewer tamper feature does NOT use this, it calls
  * the shared `verifyChain` directly so re-verification needs no network round
  * trip and is provably client-side.
  */
@@ -118,7 +118,7 @@ const WITH_CREDENTIALS = { credentials: 'include' } as const
  *
  * The response is a union: when no email verification is configured server-side,
  * it returns `{ user }` and the session cookie is already set. When verification
- * IS active, it returns `{ registered: true }` and NO cookie and NO code —
+ * IS active, it returns `{ registered: true }` and NO cookie and NO code
  * verification is deferred to login, so the caller must immediately {@link login}
  * with the same credentials and handle the {@link TwoFactorChallenge} that login
  * returns (collect the emailed code and complete via {@link loginVerify}).
@@ -141,7 +141,7 @@ export async function register(
  * The response is a union: when email 2FA is NOT configured server-side, it
  * returns `{ user }` and the session cookie is already set. When 2FA IS
  * configured, it returns `{ twoFactor: true, challengeId, email }` and NO cookie
- * — the caller must then collect the emailed code and call {@link loginVerify}.
+ * the caller must then collect the emailed code and call {@link loginVerify}.
  * Discriminate on the `twoFactor` field.
  */
 export async function login(

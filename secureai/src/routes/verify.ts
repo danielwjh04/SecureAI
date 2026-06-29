@@ -1,5 +1,5 @@
 /**
- * `POST /api/verify` — re-verify a submitted proof chain. Pure: zero
+ * `POST /api/verify`, re-verify a submitted proof chain. Pure: zero
  * subrequests, no bindings. This is the public half of "Don't trust us,
  * verify": anyone can re-check a proof we issued.
  */

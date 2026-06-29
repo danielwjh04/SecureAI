@@ -10,7 +10,7 @@ const BASE_CONFIG: ParserConfig = {
   skillMaxBytes: 100_000,
 }
 
-describe('parseSkill — markdown links', () => {
+describe('parseSkill, markdown links', () => {
   it('extracts the URL from an inline markdown link', () => {
     const result = parseSkill('See [docs](https://example.com/guide).', BASE_CONFIG)
     expect(result.urls).toEqual(['https://example.com/guide'])
@@ -25,7 +25,7 @@ describe('parseSkill — markdown links', () => {
   })
 })
 
-describe('parseSkill — bare URLs', () => {
+describe('parseSkill, bare URLs', () => {
   it('extracts a bare https URL', () => {
     const result = parseSkill('visit https://example.org/x for more', BASE_CONFIG)
     expect(result.urls).toEqual(['https://example.org/x'])
@@ -42,14 +42,14 @@ describe('parseSkill — bare URLs', () => {
   })
 })
 
-describe('parseSkill — autolinks', () => {
+describe('parseSkill, autolinks', () => {
   it('extracts an angle-bracketed autolink', () => {
     const result = parseSkill('mail <https://example.net/a>', BASE_CONFIG)
     expect(result.urls).toEqual(['https://example.net/a'])
   })
 })
 
-describe('parseSkill — reference-style links', () => {
+describe('parseSkill, reference-style links', () => {
   it('extracts a reference definition target', () => {
     const text = 'Use [the link][ref].\n\n[ref]: https://example.com/ref'
     const result = parseSkill(text, BASE_CONFIG)
@@ -57,7 +57,7 @@ describe('parseSkill — reference-style links', () => {
   })
 })
 
-describe('parseSkill — dedupe and ordering', () => {
+describe('parseSkill, dedupe and ordering', () => {
   it('dedupes identical URLs across syntaxes, preserving first appearance', () => {
     const text = [
       'first https://a.example/one',
@@ -83,7 +83,7 @@ describe('parseSkill — dedupe and ordering', () => {
   })
 })
 
-describe('parseSkill — cap at maxUrls', () => {
+describe('parseSkill, cap at maxUrls', () => {
   it('caps the URL list at config.maxUrls and records nothing extra', () => {
     const text = Array.from(
       { length: 10 },
@@ -99,7 +99,7 @@ describe('parseSkill — cap at maxUrls', () => {
   })
 })
 
-describe('parseSkill — oversize input', () => {
+describe('parseSkill, oversize input', () => {
   it('rejects text larger than skillMaxBytes with ParseError', () => {
     const oversize = `https://example.com/ ${'a'.repeat(50)}`
     expect(() =>
@@ -108,7 +108,7 @@ describe('parseSkill — oversize input', () => {
   })
 })
 
-describe('parseSkill — empty extraction is benign, not an error', () => {
+describe('parseSkill, empty extraction is benign, not an error', () => {
   it('returns an empty result when there are no URLs and no exec patterns', () => {
     expect(parseSkill('just some prose, no links here', BASE_CONFIG)).toEqual({
       urls: [],
@@ -121,7 +121,7 @@ describe('parseSkill — empty extraction is benign, not an error', () => {
   })
 })
 
-describe('parseSkill — download-execute patterns', () => {
+describe('parseSkill, download-execute patterns', () => {
   it('extracts a curl | bash one-liner', () => {
     const text = 'Install: curl https://get.example/install.sh | bash'
     const result = parseSkill(text, BASE_CONFIG)

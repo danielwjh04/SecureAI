@@ -2,7 +2,7 @@
  * Transactional email delivery for two-factor sign-in codes, behind a narrow
  * {@link EmailSender} seam.
  *
- * The route depends only on the interface — never the concrete provider — so the
+ * The route depends only on the interface, never the concrete provider, so the
  * login flow is testable with a fake that captures sent messages, and the
  * production provider (Resend) is swapped in at the worker entry from
  * `env.RESEND_API_KEY`. The whole 2FA feature GATES on this seam: when
@@ -12,7 +12,7 @@
  *
  * Credential discipline (CLAUDE.md §6): a send failure throws {@link EmailError}
  * so the login route fails closed (no session issued). Only the upstream HTTP
- * status / error class is logged — never the code or the recipient's full
+ * status / error class is logged, never the code or the recipient's full
  * address.
  */
 
@@ -37,7 +37,7 @@ export interface EmailMessage {
   readonly text: string
   /**
    * Optional `Reply-To` address. When set, a reply goes here rather than to the
-   * `From` address — used by the contact form so a reply reaches the visitor.
+   * `From` address, used by the contact form so a reply reaches the visitor.
    */
   readonly replyTo?: string
 }
@@ -111,7 +111,7 @@ export class ResendEmailSender implements EmailSender {
     // The fetch + status check run through the breaker: a bounded-timeout request,
     // and a non-2xx is raised so the breaker counts it as a failure. When the
     // breaker is open it throws EmailError (cause: CircuitOpenError) without
-    // calling Resend — the login route then fails closed, exactly as on a real
+    // calling Resend, the login route then fails closed, exactly as on a real
     // send failure.
     await this.breaker.run(async () => {
       let response: Response

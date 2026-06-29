@@ -1,13 +1,13 @@
 /**
- * Admin route handlers — gated, fail-closed reads/writes over the account store:
- *   - `GET  /api/admin/overview`     — sitewide analytics (view: owner OR admin).
- *   - `GET  /api/admin/members`      — the members directory (view: owner OR admin).
- *   - `POST /api/admin/members/role` — grant a role (manage: OWNER only).
+ * Admin route handlers, gated, fail-closed reads/writes over the account store:
+ *   - `GET  /api/admin/overview`, sitewide analytics (view: owner OR admin).
+ *   - `GET  /api/admin/members`, the members directory (view: owner OR admin).
+ *   - `POST /api/admin/members/role`, grant a role (manage: OWNER only).
  *
  * Gating is strict (CLAUDE.md §6, fail-closed). Every handler authenticates via
  * Bearer key OR session cookie; an anonymous caller is 401. The VIEW endpoints
- * require {@link canViewAdmin} (effective role owner or admin) — a member is 403.
- * The MANAGE endpoint requires {@link canManageRoles} (effective role owner) —
+ * require {@link canViewAdmin} (effective role owner or admin), a member is 403.
+ * The MANAGE endpoint requires {@link canManageRoles} (effective role owner)
  * an admin or member is 403. The effective role is derived from the resolved
  * account email + its stored `role` column via {@link effectiveRole}, so owners
  * (email allowlist) always pass and a corrupt stored role fails closed to member.
@@ -132,7 +132,7 @@ export interface AdminThreatsPage {
 }
 
 /**
- * The 200 body of `GET /api/admin/scans/:id` — the full caught-scan detail: the
+ * The 200 body of `GET /api/admin/scans/:id`, the full caught-scan detail: the
  * recorded scan's verdict/source/proof + owner email, plus the scanned `content`
  * (or `null` when unavailable, e.g. a verdict-cache hit) and the structured
  * evidence parsed back from the stored `result_json`.
@@ -216,7 +216,7 @@ function unprocessable(error: string): Response {
  * effective role from the email allowlist + stored role column, then require
  * `requirement(role)`.
  *
- * Time complexity: O(1) — two indexed reads + O(1) checks. Space complexity: O(1).
+ * Time complexity: O(1), two indexed reads + O(1) checks. Space complexity: O(1).
  */
 async function resolveViewer(
   request: Request,
@@ -230,7 +230,7 @@ async function resolveViewer(
   }
   const profile = await getAccountProfile(db, ctx.subject)
   if (profile === null) {
-    // Resolved to a user id that no longer exists — treat as unauthenticated.
+    // Resolved to a user id that no longer exists, treat as unauthenticated.
     return unauthorized()
   }
   const roleColumn = await findRoleByUserId(db, ctx.subject)
@@ -291,7 +291,7 @@ export async function handleAdminOverview(
 /**
  * Clamp a `limit` query param to `[1, MEMBERS_MAX_LIMIT]`, defaulting to
  * {@link MEMBERS_DEFAULT_LIMIT} when absent or unparseable. A non-integer or
- * out-of-range value is coerced rather than rejected — pagination params are
+ * out-of-range value is coerced rather than rejected, pagination params are
  * display-only, so a sane clamp is friendlier than a 4xx.
  *
  * Time complexity: O(1). Space complexity: O(1).
@@ -447,7 +447,7 @@ export async function handleAdminThreats(request: Request, deps: AdminDeps): Pro
 /**
  * Parse a stored `result_json` string into the structured evidence shape. A
  * corrupt / non-object payload yields empty arrays for every field rather than
- * throwing — a malformed evidence blob must not 500 the detail read; the rest of
+ * throwing, a malformed evidence blob must not 500 the detail read; the rest of
  * the row (verdict, source, proof, content) is still useful for review.
  *
  * Time complexity: O(n) in the JSON length. Space complexity: O(n).
@@ -499,7 +499,7 @@ function toAdminScanDetail(detail: ScanDetail): AdminScanDetail {
  * Handle `GET /api/admin/scans/:id`. Authenticates the caller and requires the
  * effective role to be owner OR admin ({@link canViewAdmin}; a member is 403, an
  * anonymous caller is 401), then returns the full {@link AdminScanDetail} for the
- * caught scan with id `scanId` — the recorded verdict/source/proof + owner email,
+ * caught scan with id `scanId`, the recorded verdict/source/proof + owner email,
  * the scanned content (or `null`), and the structured evidence parsed from the
  * stored `result_json`. A scan id with no detail row (a clean / anonymous scan
  * was never detail-persisted, or the id is unknown) is a 404. Requires `env.DB`
@@ -569,12 +569,12 @@ async function parseRoleBody(request: Request): Promise<{ userId: string; role: 
  * Handle `POST /api/admin/members/role`. Authenticates the caller and requires
  * the effective role to be OWNER ({@link canManageRoles}; an admin or member is
  * 403). Validates `{ userId, role }` where `role` is allowlisted to
- * {`member`, `admin`} (422 otherwise — `owner` is never assignable). Rejects
+ * {`member`, `admin`} (422 otherwise, `owner` is never assignable). Rejects
  * changing an OWNER (target email in the allowlist) with 403, and an unknown
  * `userId` with 404. On success sets the target's role and returns
  * `200 { id, role }`. Requires `env.DB` (503 otherwise).
  *
- * Time complexity: O(1) — a bounded set of indexed reads + one PK update.
+ * Time complexity: O(1), a bounded set of indexed reads + one PK update.
  * Space complexity: O(1).
  */
 export async function handleAdminMemberRole(request: Request, deps: AdminDeps): Promise<Response> {
@@ -597,7 +597,7 @@ export async function handleAdminMemberRole(request: Request, deps: AdminDeps): 
     }
 
     // The target must exist. Read its profile first so an unknown id is a 404 and
-    // an owner-by-email target is a 403 — BEFORE any write.
+    // an owner-by-email target is a 403, BEFORE any write.
     const target = await getAccountProfile(db, body.userId)
     if (target === null) {
       return Response.json({ error: 'not_found' }, { status: STATUS_NOT_FOUND })
@@ -649,7 +649,7 @@ async function parseTierBody(
  * the effective role to be OWNER ({@link canManageRoles}; an admin or member is
  * 403, an anonymous caller is 401). Validates `{ userId, tier }` where `tier` is
  * allowlisted to {`free`, `pro`, `enterprise`} (422 otherwise). Rejects an
- * unknown `userId` with 404 — read BEFORE any write. On success sets the
+ * unknown `userId` with 404, read BEFORE any write. On success sets the
  * target's tier and returns `200 { id, tier }`. Requires `env.DB` (503
  * otherwise).
  *
@@ -657,7 +657,7 @@ async function parseTierBody(
  * target is a legitimate subject (an owner may sit on any plan); the gate is
  * solely {@link canManageRoles}.
  *
- * Time complexity: O(1) — a bounded set of indexed reads + one PK update.
+ * Time complexity: O(1), a bounded set of indexed reads + one PK update.
  * Space complexity: O(1).
  */
 export async function handleAdminMemberTier(request: Request, deps: AdminDeps): Promise<Response> {
@@ -679,7 +679,7 @@ export async function handleAdminMemberTier(request: Request, deps: AdminDeps): 
       return Response.json({ error: 'invalid_tier' }, { status: STATUS_UNPROCESSABLE })
     }
 
-    // The target must exist. Read its profile first so an unknown id is a 404 —
+    // The target must exist. Read its profile first so an unknown id is a 404
     // BEFORE any write.
     const target = await getAccountProfile(db, body.userId)
     if (target === null) {
@@ -723,7 +723,7 @@ async function parseRemoveBody(request: Request): Promise<{ userId: string }> {
  * the effective role to be OWNER ({@link canManageRoles}; an admin or member is
  * 403, an anonymous caller is 401). Validates `{ userId }`. Refuses to remove the
  * caller's OWN account (403) and refuses to remove an OWNER-by-email target
- * (403), and an unknown `userId` is a 404 — all BEFORE any delete. On success
+ * (403), and an unknown `userId` is a 404, all BEFORE any delete. On success
  * hard-deletes the account and every row keyed by its user id (api_keys, usage,
  * scan_history, subscriptions, otp_challenges, then users), returning
  * `200 { removed: userId }`. Requires `env.DB` (503 otherwise).
@@ -747,14 +747,14 @@ export async function handleAdminMemberRemove(
 
     const body = await parseRemoveBody(request)
 
-    // An owner can never delete their own account via the API — guard the self
+    // An owner can never delete their own account via the API, guard the self
     // case first, before any read, so it is unambiguous regardless of the target.
     if (body.userId === viewer.userId) {
       return forbidden()
     }
 
     // The target must exist. Read its profile first so an unknown id is a 404 and
-    // an owner-by-email target is a 403 — BEFORE any delete.
+    // an owner-by-email target is a 403, BEFORE any delete.
     const target = await getAccountProfile(db, body.userId)
     if (target === null) {
       return Response.json({ error: 'not_found' }, { status: STATUS_NOT_FOUND })

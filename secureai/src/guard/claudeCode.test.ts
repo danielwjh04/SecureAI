@@ -93,7 +93,7 @@ describe('guardDecision', () => {
   it('fails closed to deny when a dependency throws (never allow)', async () => {
     // An inference client that throws a NON-InferenceError. runScan's stage
     // wrapper only catches to fail-closed-escalate; an unexpected throw here
-    // would surface — guardDecision must still deny, never allow.
+    // would surface, guardDecision must still deny, never allow.
     const inference: InferenceClient = {
       detect: async () => {
         throw new TypeError('boom: unexpected internal fault')
@@ -104,7 +104,7 @@ describe('guardDecision', () => {
       deps({ inference }),
     )
     // runScan catches inference faults and escalates to HUMAN_APPROVAL_REQUIRED,
-    // so this path yields `ask` — still never `allow`.
+    // so this path yields `ask`, still never `allow`.
     expect(result.decision).not.toBe('allow')
   })
 
@@ -131,7 +131,7 @@ describe('guardDecision', () => {
     expect(result.verdict).toBeNull()
   })
 
-  it('never throws — every fault is mapped to a decision', async () => {
+  it('never throws, every fault is mapped to a decision', async () => {
     const inference: InferenceClient = {
       detect: async () => {
         throw new ParseError('not a real scannable shape')

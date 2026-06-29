@@ -6,7 +6,7 @@ import { RedirectResolutionError } from '../errors'
 
 // These tests drive `traceRedirects` with a MOCK fetch so cascades are
 // deterministic and no real network is touched. The SSRF case exercises the
-// real `assertSafeUrl` (a loopback literal must be rejected) — that is the one
+// real `assertSafeUrl` (a loopback literal must be rejected), that is the one
 // integration point we deliberately keep live.
 
 /** A small, fixed config so cap behavior is exercised at low hop counts. */

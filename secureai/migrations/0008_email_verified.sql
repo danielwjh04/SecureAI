@@ -1,8 +1,8 @@
--- SecureAI email-verification-at-signup layer — gate an account on proven email
+-- SecureAI email-verification-at-signup layer, gate an account on proven email
 -- control before it becomes usable.
 --
 -- A single surgical schema addition:
---   users.email_verified — whether the account has proven control of its email.
+--   users.email_verified, whether the account has proven control of its email.
 --                          NOT NULL DEFAULT 0 so a freshly INSERTed account that
 --                          does NOT set the column is UNVERIFIED until a 2FA code
 --                          is verified (handleRegister opens that challenge when
@@ -16,7 +16,7 @@
 -- The backfill grandfathers every account that predates this feature: existing
 -- rows are set to 1 so no live key or session is invalidated by the rollout. The
 -- API-key signup path (createFreeUser) and password-register without a provider
--- both INSERT email_verified = 1 explicitly — they have no email step, so the
+-- both INSERT email_verified = 1 explicitly, they have no email step, so the
 -- account is verified at creation.
 
 ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;

@@ -4,7 +4,7 @@
  *
  * Credential discipline (CLAUDE.md §6): the row stores only the SHA-256 hash of
  * the 6-digit code (see `auth/otp.ts`), never the code. Every write is
- * fail-closed — a store fault throws {@link OtpError} so the verify/resend
+ * fail-closed, a store fault throws {@link OtpError} so the verify/resend
  * routes deny rather than silently passing. A missing challenge on read is NOT
  * an error (it resolves to `null`); the route maps that to a generic 401.
  */
@@ -81,10 +81,10 @@ export async function createChallenge(db: Database, challenge: NewOtpChallenge):
 
 /**
  * Resolve a challenge by id, or `null` when none exists (a miss is not an
- * error — the route maps it to a generic 401). A matched-but-corrupt record
+ * error, the route maps it to a generic 401). A matched-but-corrupt record
  * fails closed via {@link OtpError}.
  *
- * Time complexity: O(1) — primary-key lookup. Space complexity: O(1).
+ * Time complexity: O(1), primary-key lookup. Space complexity: O(1).
  *
  * @throws {OtpError} If a matched record is structurally corrupt, or on a store
  *   fault other than a miss.
@@ -117,11 +117,11 @@ export async function getChallenge(db: Database, id: string): Promise<OtpChallen
 
 /**
  * Atomically bump a challenge's attempt counter by one (a wrong-code attempt).
- * Idempotency is not required here — each verify attempt is a distinct event —
+ * Idempotency is not required here, each verify attempt is a distinct event
  * but the increment is a single statement so concurrent verifies cannot lose a
  * count.
  *
- * Time complexity: O(1) — primary-key update. Space complexity: O(1).
+ * Time complexity: O(1), primary-key update. Space complexity: O(1).
  *
  * @throws {OtpError} On a database failure.
  */
@@ -143,7 +143,7 @@ export async function incrementAttempt(db: Database, id: string): Promise<void> 
  * single-use) so a replay of the same code cannot mint a second session.
  * Idempotent: deleting an already-gone challenge changes zero rows.
  *
- * Time complexity: O(1) — primary-key delete. Space complexity: O(1).
+ * Time complexity: O(1), primary-key delete. Space complexity: O(1).
  *
  * @throws {OtpError} On a database failure.
  */
@@ -159,7 +159,7 @@ export async function deleteChallenge(db: Database, id: string): Promise<void> {
 
 /**
  * Delete EVERY challenge for a user. Called at the start of a fresh login so a
- * new code invalidates any prior, still-pending codes — there is only ever one
+ * new code invalidates any prior, still-pending codes, there is only ever one
  * live challenge per account. Idempotent: a user with no challenges changes zero
  * rows.
  *

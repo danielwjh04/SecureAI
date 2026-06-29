@@ -4,7 +4,7 @@ import { useEffect } from 'react'
  * Scroll the window back to the top whenever `key` changes (and on first mount).
  *
  * The result surface uses this so each freshly shown scan report opens at the
- * top — the verdict and the scan dashboard — instead of inheriting the caller's
+ * top, the verdict and the scan dashboard, instead of inheriting the caller's
  * scroll position. Picking an example from the gallery at the bottom of the
  * landing page does not change the route, so the App-level scroll effect (keyed
  * on route/target) never fires for it; without this reset the report would open

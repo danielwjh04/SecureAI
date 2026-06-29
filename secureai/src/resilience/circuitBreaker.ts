@@ -6,13 +6,13 @@
  * It is a COARSE load-shedder, not a precise global limiter: the failure counter's
  * read-modify-write races across concurrent isolates and KV propagates with some
  * lag, so the trip point is approximate. That is sufficient because every wrapped
- * dependency already fails closed per request (CLAUDE.md §5) — the breaker just
+ * dependency already fails closed per request (CLAUDE.md §5), the breaker just
  * stops hammering a dependency that is clearly down, shedding load fast.
  *
  * States: CLOSED (calls flow, failures counted) → OPEN (calls short-circuit for
  * `cooldownSeconds`) → HALF-OPEN (a single probe is allowed; success closes,
- * failure re-opens). A missing/corrupt/unreadable KV record fails SAFE — treated
- * as CLOSED — so a KV blip can never wedge every outbound call shut.
+ * failure re-opens). A missing/corrupt/unreadable KV record fails SAFE, treated
+ * as CLOSED, so a KV blip can never wedge every outbound call shut.
  *
  * State writes are awaited INLINE (not via `ctx.waitUntil`): a few ms on the
  * failure path in exchange for not threading `ExecutionContext` through every
@@ -88,7 +88,7 @@ function parseRecord(raw: string | null): BreakerRecord | null {
 
 /**
  * Build a circuit breaker. When disabled or given no `store`, returns a
- * PASS-THROUGH breaker that simply runs the operation (no state, no overhead) —
+ * PASS-THROUGH breaker that simply runs the operation (no state, no overhead)
  * so the absence of a KV binding degrades gracefully, exactly like the rate limit.
  *
  * @param store - The KV state store, or `null` (→ pass-through).

@@ -2,7 +2,7 @@
  * Manual redirect-cascade tracer with its co-located SSRF guard.
  *
  * A skill's links are followed hop-by-hop with `redirect: 'manual'` so the
- * scanner sees every intermediate destination — the exact surface a redirect
+ * scanner sees every intermediate destination, the exact surface a redirect
  * laundering attack hides behind. Every hop URL is run through the SSRF guard
  * *before* it is fetched, the cascade is bounded by a configured depth cap, and
  * a normalized-URL set catches loops. Nothing here trusts the network to
@@ -22,11 +22,11 @@
  *   - the host must not be a private (RFC1918), loopback, link-local, or
  *     internal-only name (`localhost`, `*.internal`, `*.local`).
  *
- * RESIDUAL LIMITATION — DNS rebinding: a *public* hostname can still resolve to
+ * RESIDUAL LIMITATION, DNS rebinding: a *public* hostname can still resolve to
  * a private IP at fetch time, and the Worker has no visibility into that
  * resolution, so these literal/name checks cannot catch it. This is inherent to
  * the Workers runtime. The compensating control is that the scanner never pulls
- * attacker page *content* itself — Exa (a sandboxed external fetcher) does — so
+ * attacker page *content* itself, Exa (a sandboxed external fetcher) does, so
  * the blast radius of a rebind is limited to a redirect HEAD/GET against an
  * internal address with no response body surfaced to the client. Document, do
  * not pretend to fully solve.
@@ -34,7 +34,7 @@
  * Fail-closed posture: a hop that the SSRF guard rejects is recorded as a
  * dangerous hop and the cascade stops (we never fetch it). A genuine transport
  * failure (network error / timeout) cannot be resolved into a verdict here, so
- * it is raised as `RedirectResolutionError` for the orchestrator to escalate —
+ * it is raised as `RedirectResolutionError` for the orchestrator to escalate
  * it is never swallowed into a "clean" chain.
  *
  * Config is passed in by the caller; the allowed-scheme set, hop cap, and
@@ -120,10 +120,10 @@ const REDIRECT_STATUS_MAX = 399
  *   3. private / loopback / link-local / internal-name rejection.
  *
  * The raw-IP-literal rejection in step 2 covers the cloud metadata address
- * `169.254.169.254` (a link-local literal) — it is refused before any name-based
+ * `169.254.169.254` (a link-local literal), it is refused before any name-based
  * check even runs.
  *
- * Time complexity: O(1) — a fixed number of set lookups, a bounded regex on the
+ * Time complexity: O(1), a fixed number of set lookups, a bounded regex on the
  *   host, and constant suffix comparisons. No scan over the URL length.
  * Space complexity: O(1).
  *
@@ -168,7 +168,7 @@ export function assertSafeUrl(url: URL, config: SsrfConfig): void {
  *   IPv6 address (it has already removed the surrounding brackets and the port),
  *   so a single colon test is sufficient and unambiguous for parsed URLs.
  *
- * Time complexity: O(1) — bounded regex + constant comparisons. Space: O(1).
+ * Time complexity: O(1), bounded regex + constant comparisons. Space: O(1).
  *
  * @param host - Lowercase hostname from a parsed URL.
  * @returns `true` if the host is a raw IP literal.
@@ -197,7 +197,7 @@ export function isRawIpLiteral(host: string): boolean {
  * IPv6 forms rejected: `::1` (loopback), `fe80::/10` link-local prefixes.
  * Names rejected: `localhost`, and any host ending in `.internal` / `.local`.
  *
- * Time complexity: O(1) — constant octet/prefix/suffix comparisons. Space: O(1).
+ * Time complexity: O(1), constant octet/prefix/suffix comparisons. Space: O(1).
  *
  * @param host - Lowercase hostname from a parsed URL.
  * @returns `true` if the host is private/loopback/link-local/internal.
@@ -229,7 +229,7 @@ export function isPrivateOrLoopbackHost(host: string): boolean {
  * well-formed dotted-quad. Each octet must be 0..255 with no leading-zero
  * ambiguity beyond what `Number` tolerates; out-of-range values yield `null`.
  *
- * Time complexity: O(1) — fixed-size match and four bounded conversions.
+ * Time complexity: O(1), fixed-size match and four bounded conversions.
  * Space complexity: O(1) (a 4-element tuple).
  */
 function parseIpv4Octets(
@@ -300,7 +300,7 @@ function isPrivateIpv4(
  *     `fe80`..`febf`. We test the documented `fe8`/`fe9`/`fea`/`feb` prefixes,
  *     which exactly cover that /10 for the leading hextet.
  *
- * Time complexity: O(1) — constant prefix/equality checks. Space: O(1).
+ * Time complexity: O(1), constant prefix/equality checks. Space: O(1).
  */
 function isPrivateIpv6(host: string): boolean {
   if (host === '::1' || host === '0:0:0:0:0:0:0:1') {
@@ -341,7 +341,7 @@ type LocationResolution =
  * that produced the response (relative redirects are legal and common).
  *
  * A malformed `Location` is reported as `malformed` (never thrown) so the
- * caller can record it as a dangerous, terminal hop — fail-closed, not a raw
+ * caller can record it as a dangerous, terminal hop, fail-closed, not a raw
  * `TypeError` escaping the tracer.
  *
  * Time complexity: O(m) in the resolved URL length. Space complexity: O(m).
@@ -377,10 +377,10 @@ function resolveLocation(
  *      hop carrying the guard's reason and stop (the URL is never fetched).
  *   2. If the current URL was already visited, set `loopDetected` and stop.
  *   3. Fetch with `redirect: 'manual'` and a per-hop abort timeout. A transport
- *      failure raises `RedirectResolutionError` (fail-closed — never resolves to
+ *      failure raises `RedirectResolutionError` (fail-closed, never resolves to
  *      a clean chain).
  *   4. If the status is not a 3xx with a usable `Location`, the current URL is
- *      final — stop.
+ *      final, stop.
  *   5. Otherwise record the hop, advance to the resolved Location, and repeat.
  *      Exceeding `maxRedirectHops` sets `depthExceeded` and stops.
  *
@@ -465,7 +465,7 @@ export async function traceRedirects(
     }
 
     // 5. Non-redirect status (or a 3xx with no Location) means the current URL
-    //    is the final destination — terminate.
+    //    is the final destination, terminate.
     const isRedirect =
       response.status >= REDIRECT_STATUS_MIN &&
       response.status <= REDIRECT_STATUS_MAX
@@ -477,7 +477,7 @@ export async function traceRedirects(
       break
     }
     if (resolution.kind === 'malformed') {
-      // A redirect we cannot parse cannot be followed safely — record it as a
+      // A redirect we cannot parse cannot be followed safely, record it as a
       // dangerous, terminal hop (fail-closed) rather than guessing.
       dangerousHopIndex = hops.length
       hops.push({

@@ -1,7 +1,7 @@
 /**
  * Minimal hash-based routing for the single-page scanner: no router dependency,
- * just the top-level surfaces. The hash selects the surface — `#enterprise`,
- * `#pricing`, `#login`, `#register`, `#dashboard`, `#admin` — and anything else
+ * just the top-level surfaces. The hash selects the surface, `#enterprise`,
+ * `#pricing`, `#login`, `#register`, `#dashboard`, `#admin`, and anything else
  * is the scanner. Hash routing keeps the URL shareable and the back button
  * working without a history library.
  */

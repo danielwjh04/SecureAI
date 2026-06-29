@@ -146,7 +146,7 @@ describe('createCircuitBreaker', () => {
       onOpen: () => new Error('open'),
       now: clock().now,
     })
-    // A corrupt record must not wedge the circuit — the op runs.
+    // A corrupt record must not wedge the circuit, the op runs.
     await expect(breaker.run(ok)).resolves.toBe('ok')
   })
 })

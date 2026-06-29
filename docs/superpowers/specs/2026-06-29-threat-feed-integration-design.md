@@ -1,4 +1,4 @@
-# Threat-feed integration (URLhaus + ThreatFox) — design
+# Threat-feed integration (URLhaus + ThreatFox), design
 
 **Status:** approved (brainstorm 2026-06-29). **Scope:** one implementation cycle.
 
@@ -8,27 +8,27 @@ Feed abuse.ch known-bad indicators into the scanner's reputation stage so a scan
 of a skill/link pointing at a known-malicious **host/domain or URL** is flagged
 and escalated to `HUMAN_APPROVAL_REQUIRED` (REVIEW), exactly like the existing
 curated denylist. Internal-lookup-only: we never redistribute raw feed rows or place them
-in a proof — a hit records only that a known-bad feed matched, with a source
+in a proof, a hit records only that a known-bad feed matched, with a source
 label, in the report (the proof keeps its existing `denylisted` REPUTATION shape).
 
 ## Decisions (settled in brainstorm)
 
 - **Commercial use** of abuse.ch is cleared by the operator (registered Auth-Key).
 - **Match scope:** host/domain **and** exact URL (a new lookup beside today's host engine).
-- **Architecture:** hybrid — a versioned **D1** `feed_indicators` table holds the
+- **Architecture:** hybrid, a versioned **D1** `feed_indicators` table holds the
   bulk feed; the existing static `SCANNER_BAD_HOSTS` set + KV `host:<hostname>`
   overrides are unchanged. KV is not used for the bulk feed (per-write cost).
 - **Coverage / cadence (config defaults):** URLhaus *online* + ThreatFox *recent*
   endpoints (recency is encoded by the endpoint, tunable via the source-URL vars);
   refresh **hourly** via a Cron Trigger. Not full historical dumps (a v2).
-- **Verdict:** a feed hit reuses `{flagged:true, score:'1.00', status:'denylisted'}` —
-  identical to the curated denylist — so the orchestrator escalates it to
+- **Verdict:** a feed hit reuses `{flagged:true, score:'1.00', status:'denylisted'}`
+  identical to the curated denylist, so the orchestrator escalates it to
   `HUMAN_APPROVAL_REQUIRED` (REVIEW), exactly like an existing denylist hit, and the
   **proof contract is unchanged**. (Promoting denylist + feed hits to a hard `BLOCK`
-  is a separate one-line change to the reputation escalation floor — it would affect
+  is a separate one-line change to the reputation escalation floor, it would affect
   the existing denylist too, so it is deliberately NOT done here.)
 
-## Data model — migration `0011_feed_indicators.sql`
+## Data model, migration `0011_feed_indicators.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS feed_indicators (
@@ -62,22 +62,22 @@ SELECT fi.source FROM feed_indicators fi
 
 - **`src/pipeline/normalizeUrl.ts`** (pure, shared by ingest + match): parse with
   `new URL()`, return `host + pathname + search` (host lowercased, default port
-  dropped — both by the URL API; scheme and fragment dropped by construction;
+  dropped, both by the URL API; scheme and fragment dropped by construction;
   path/query exact), or `null` if unparseable. Byte-identical on both sides, like
   the proof's canonical bytes.
 - **`src/pipeline/feedParse.ts`** (pure): map raw feed bodies to
   `{kind, value, source}[]`. URLhaus hostfile → `host` (skip `#` comments);
   URLhaus text_online → `url` (normalized); ThreatFox CSV → `domain`→`host`,
   `url`→`url` (normalized); skip ip/hash IOC types. Dedupe; bound to `feedMaxRows`
-  (drop-with-log past the cap — never silent truncation).
+  (drop-with-log past the cap, never silent truncation).
 - **`src/db/feed.ts`**: `d1FeedStore(db)` implementing `FeedIndicatorStore`
   (`match(hostSuffixes, normalizedUrl)` → source|null) and `replaceFeed(db,
   version, indicators)` (chunked batched inserts → flip pointer → delete
   non-current). Over the narrow `Database` seam (testable with the in-memory fake).
-- **`src/scanner/feedIngest.ts`**: `ingestFeeds(deps)` — fetch each configured
+- **`src/scanner/feedIngest.ts`**: `ingestFeeds(deps)`, fetch each configured
   source (`AbortSignal` timeout + `Auth-Key` header), parse, accumulate, then
   `replaceFeed`. Per-source failure is logged + metered + skipped; if **zero**
-  indicators were gathered (all sources failed) the pointer is **not** flipped —
+  indicators were gathered (all sources failed) the pointer is **not** flipped
   the last good version stays live, never an emptied denylist.
 - **`src/pipeline/indicators.ts`** (augment): `DenylistReputationClient` gains an
   optional `feed: FeedIndicatorStore | null` ctor param. `assessOne` checks
@@ -95,13 +95,13 @@ SELECT fi.source FROM feed_indicators fi
 ## Config & secrets (`config/env.ts` + `wrangler.jsonc`)
 
 New `ScannerConfig` fields (validated in `loadConfig`, defaults in `wrangler.jsonc`):
-`feedEnabled` (`SCANNER_FEED_ENABLED`, bool, **default false** — safe rollout),
+`feedEnabled` (`SCANNER_FEED_ENABLED`, bool, **default false** safe rollout),
 `feedUrlhausUrls` / `feedUrlhausHosts` / `feedThreatfox` (source URLs, string),
 `feedMaxRows` (`SCANNER_FEED_MAX_ROWS`, int 1..2_000_000, default 200_000),
 `feedFetchTimeoutMs` (`SCANNER_FEED_FETCH_TIMEOUT_MS`, int 1000..120000, default 20000).
 `wrangler.jsonc` gains `"triggers": { "crons": ["0 * * * *"] }`.
 `URLHAUS_AUTH_KEY` is a **secret** (read from `env` in `scheduled`, never config,
-never source — mirrors `RESEND_API_KEY`).
+never source, mirrors `RESEND_API_KEY`).
 
 ## Error handling / fail-closed
 

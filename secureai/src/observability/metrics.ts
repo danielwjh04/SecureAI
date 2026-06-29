@@ -4,7 +4,7 @@
  * is a no-op, so metrics are free to call unconditionally and degrade gracefully
  * when Analytics Engine is not configured.
  *
- * Use for low-cardinality counters worth trending — scan verdicts, breaker state
+ * Use for low-cardinality counters worth trending, scan verdicts, breaker state
  * transitions, dependency failures, cap rejections. Never put PII in a blob/index
  * (CLAUDE.md §6); use stable enum-like tokens only.
  */

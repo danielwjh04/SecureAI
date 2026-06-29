@@ -1,5 +1,5 @@
 /**
- * Edge verdict cache — a low-latency KV layer in front of the pure
+ * Edge verdict cache, a low-latency KV layer in front of the pure
  * {@link runScan} compute (CLAUDE.md lists a verdict cache as an O(1) runtime
  * target).
  *
@@ -7,7 +7,7 @@
  * identical scan (e.g. the Guard re-checking the same tool call) returns the
  * previously-computed {@link ScanResult} without re-tracing redirects or
  * re-running the AI stage. Auth, the daily-cap check, usage metering, and the
- * scan-history insert STILL run for the current caller on a cache HIT — those
+ * scan-history insert STILL run for the current caller on a cache HIT, those
  * decisions live in the route, not here; this module's sole job is to resolve
  * the cached-or-fresh result.
  *
@@ -92,7 +92,7 @@ export async function cacheKeyForRequest(request: ScanRequest): Promise<string> 
 /**
  * Parse a cached KV value back into a {@link ScanResult}. A value that is not
  * valid JSON (a truncated / corrupt entry) is treated as a MISS by returning
- * `null` — the route then recomputes — rather than throwing; a stale-cache
+ * `null`, the route then recomputes, rather than throwing; a stale-cache
  * corruption must never fail an otherwise-valid scan.
  *
  * Time complexity: O(n) in the value length. Space complexity: O(n).
@@ -116,19 +116,19 @@ function parseCached(value: string): ScanResult | null {
  *     KV access at all. `scannedText` is the freshly-scanned text.
  *   - HIT: return the cached result with a FRESH `scannedAt` stamped from
  *     `freshScannedAt` (the proof is unchanged because `scannedAt` is outside
- *     it). `cached` is `true` and `scannedText` is `null` — the cache stores ONLY
+ *     it). `cached` is `true` and `scannedText` is `null`, the cache stores ONLY
  *     the `ScanResult`, never the scanned content (CLAUDE.md §6 privacy), so a hit
  *     recomputes no text.
  *   - MISS: run `compute()`, write the serialized RESULT (never the text) to KV
  *     with `expirationTtl = ttlSeconds`, and return it with the fresh
  *     `scannedText`. `cached` is `false`.
  *
- * The function does NOT meter, record history, persist detail, or enforce caps —
+ * The function does NOT meter, record history, persist detail, or enforce caps
  * those are the caller's per-request responsibilities and must run on a HIT just
  * as on a MISS. Only the `compute()` (i.e. `runScan`) work is skipped on a HIT.
  *
  * Idempotency: the PUT is keyed by the content hash, so a concurrent miss simply
- * overwrites an identical value — never corrupting the entry.
+ * overwrites an identical value, never corrupting the entry.
  *
  * Time complexity: one KV read (+ one KV write on a miss) plus `compute()` on a
  *   miss. Space complexity: O(result size).

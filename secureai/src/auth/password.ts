@@ -1,12 +1,12 @@
 /**
  * Password hashing via PBKDF2-HMAC-SHA256 over the Web Crypto API
  * (`crypto.subtle`), which is present in both the Workers runtime and the Node
- * test runtime — so the same code path runs in production and under `vitest`.
+ * test runtime, so the same code path runs in production and under `vitest`.
  *
  * Credential discipline (CLAUDE.md §6): a plaintext password is NEVER persisted
  * and never logged. {@link hashPassword} derives a salted, high-iteration digest;
  * the salt and iteration count are serialized INTO the stored string so a future
- * cost increase (raising `iterations`) never invalidates already-stored hashes —
+ * cost increase (raising `iterations`) never invalidates already-stored hashes
  * each hash verifies against its own embedded parameters.
  *
  * Stored format (`$`-delimited, all components ASCII):
@@ -106,7 +106,7 @@ export async function hashPassword(plain: string, iterations: number): Promise<s
 /**
  * Constant-time equality over two byte arrays. Returns `false` immediately on a
  * length mismatch (the lengths are not secret), otherwise XOR-accumulates every
- * byte so the comparison time does not depend on WHERE the first difference is —
+ * byte so the comparison time does not depend on WHERE the first difference is
  * defeating timing side-channels on the stored digest.
  *
  * Time complexity: O(n). Space complexity: O(1).
@@ -130,7 +130,7 @@ function constantTimeEquals(a: Uint8Array, b: Uint8Array): boolean {
  * Re-derives the PBKDF2 bits using the salt and iteration count embedded in
  * `stored`, then compares in constant time. A malformed stored string (wrong
  * scheme tag, wrong field count, non-integer iterations, undecodable base64)
- * fails closed to `false` rather than throwing — an unverifiable credential is a
+ * fails closed to `false` rather than throwing, an unverifiable credential is a
  * rejected login, not a server fault.
  *
  * Time complexity: O(iterations). Space complexity: O(1).

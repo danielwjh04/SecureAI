@@ -1,13 +1,13 @@
 /**
  * Online leaked-password check via the Have I Been Pwned (HIBP) range API, using
- * k-anonymity so the password — and even its full hash — NEVER leaves the Worker.
+ * k-anonymity so the password, and even its full hash, NEVER leaves the Worker.
  *
  * Protocol: SHA-1 the candidate, send ONLY the first 5 hex characters of the
  * digest to `range/<prefix>`, and match the remaining 35-character suffix against
  * the returned list locally. HIBP never learns which suffix we were looking for.
  *
  * SHA-1 NOTE: this is the one place SHA-1 is used, and it is mandated by the HIBP
- * protocol for a k-anonymity range query — NOT for integrity. It has nothing to
+ * protocol for a k-anonymity range query, NOT for integrity. It has nothing to
  * do with the audit chain, which is SHA-256-only (CLAUDE.md §5); a breach lookup
  * is not a security primitive whose collision-resistance we rely on.
  *
@@ -55,7 +55,7 @@ export async function isPasswordBreached(password: string, timeoutMs: number): P
     const response = await fetch(`${HIBP_RANGE_URL}${prefix}`, {
       method: 'GET',
       // Add-Padding returns a constant-size response so the bucket size cannot be
-      // inferred from over-the-wire length — a small extra privacy hardening.
+      // inferred from over-the-wire length, a small extra privacy hardening.
       headers: { 'Add-Padding': 'true' },
       signal: AbortSignal.timeout(timeoutMs),
     })

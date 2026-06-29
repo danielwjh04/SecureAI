@@ -1,7 +1,7 @@
--- SecureAI role-based access control (RBAC) layer — a granted-role column.
+-- SecureAI role-based access control (RBAC) layer, a granted-role column.
 --
 -- A single surgical schema addition:
---   users.role — the granted role for an account: 'member' (default) or 'admin'.
+--   users.role, the granted role for an account: 'member' (default) or 'admin'.
 --                The OWNER role is NOT stored here: owners are the bootstrap
 --                superadmins defined by the SCANNER_ADMIN_EMAILS allowlist, so an
 --                owner is always effective-owner regardless of this column and can

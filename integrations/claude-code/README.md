@@ -9,9 +9,9 @@ dangerous ones inline, **fail-closed**.
 Before Claude Code runs any tool, it invokes this hook with the tool name and
 its inputs. The hook (`secureai-guard.mjs`) forwards that payload to the SecureAI
 scanner's `/api/guard` endpoint, which scans the call for supply-chain
-indicators — embedded URLs that resolve to dangerous destinations, `curl ... |
+indicators, embedded URLs that resolve to dangerous destinations, `curl ... |
 bash` style download-execute one-liners, and prompt-injection / exfiltration
-content — and returns a verdict. The hook maps that verdict to a Claude Code
+content, and returns a verdict. The hook maps that verdict to a Claude Code
 permission decision:
 
 | Scanner verdict           | Claude Code decision | Effect                                  |
@@ -67,10 +67,10 @@ property: absence of a confident "safe" is treated as "unsafe".
    The `"matcher": "*"` applies the guard to every tool. Settings live at one of
    three scopes (most specific wins):
 
-   - **User scope** — `~/.claude/settings.json`. Applies to all your projects.
-   - **Project scope** — `.claude/settings.json` in a repo. Applies to that
+   - **User scope** `~/.claude/settings.json`. Applies to all your projects.
+   - **Project scope** `.claude/settings.json` in a repo. Applies to that
      project, and can be committed so a team shares the guard.
-   - **Managed policy** — the enterprise-managed settings file (e.g.
+   - **Managed policy** the enterprise-managed settings file (e.g.
      `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS,
      `/etc/claude-code/managed-settings.json` on Linux). An administrator can
      deploy the guard org-wide where users cannot disable it.
@@ -79,7 +79,7 @@ property: absence of a confident "safe" is treated as "unsafe".
 
 ## Configuration (environment variables)
 
-Everything is configured via the environment — nothing is hardcoded in the hook.
+Everything is configured via the environment, nothing is hardcoded in the hook.
 
 | Variable             | Default                        | Purpose                                            |
 | -------------------- | ------------------------------ | -------------------------------------------------- |
@@ -106,12 +106,12 @@ echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command"
 
 This prints a `hookSpecificOutput` object with `"permissionDecision": "deny"`.
 Point `SECUREAI_API_URL` at an unreachable host and the same command still
-prints `deny` — the fail-closed path.
+prints `deny`, the fail-closed path.
 
 ## Cursor (documented fast-follow)
 
 The same model maps onto Cursor's agent hooks via `beforeShellExecution` and
 `beforeMCPExecution` with `failClosed: true`, which is the documented next
-integration. The server side (`/api/guard`) is provider-agnostic — only a thin
-Cursor-shaped client wrapper is needed — so a Cursor adapter is a planned
+integration. The server side (`/api/guard`) is provider-agnostic, only a thin
+Cursor-shaped client wrapper is needed, so a Cursor adapter is a planned
 fast-follow on top of this Claude Code guard.

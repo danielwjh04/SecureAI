@@ -80,7 +80,7 @@ export interface BillingGateway {
 const STRIPE_API_VERSION = '2026-06-24.dahlia' as const
 
 /**
- * The Stripe client options derived from config — extracted as a pure function so
+ * The Stripe client options derived from config, extracted as a pure function so
  * the timeout / retry plumbing is unit-testable without constructing a live SDK.
  *
  * Time complexity: O(1). Space complexity: O(1).
@@ -130,7 +130,7 @@ export class StripeBillingGateway implements BillingGateway {
    * @param stripe - A client from {@link buildStripe}.
    * @param webhookSecret - The `STRIPE_WEBHOOK_SECRET` used to verify events.
    * @param breaker - Circuit breaker guarding the Stripe network calls. The local
-   *   webhook signature check ({@link constructEvent}) is NOT wrapped — it makes no
+   *   webhook signature check ({@link constructEvent}) is NOT wrapped, it makes no
    *   network call.
    */
   public constructor(stripe: Stripe, webhookSecret: string, breaker: CircuitBreaker) {
@@ -145,7 +145,7 @@ export class StripeBillingGateway implements BillingGateway {
    * as the idempotency key so a retried checkout does not mint a duplicate
    * customer.
    *
-   * Time complexity: O(1) — one Stripe API round-trip. Space complexity: O(1).
+   * Time complexity: O(1), one Stripe API round-trip. Space complexity: O(1).
    *
    * @throws {BillingError} On any Stripe API failure.
    */
@@ -169,7 +169,7 @@ export class StripeBillingGateway implements BillingGateway {
   /**
    * Create a subscription-mode Checkout Session for a single recurring price.
    *
-   * Time complexity: O(1) — one Stripe API round-trip. Space complexity: O(1).
+   * Time complexity: O(1), one Stripe API round-trip. Space complexity: O(1).
    *
    * @throws {BillingError} On a Stripe failure, or if Stripe returns no URL.
    */
@@ -197,7 +197,7 @@ export class StripeBillingGateway implements BillingGateway {
   /**
    * Create a Billing Portal Session so the customer can manage their subscription.
    *
-   * Time complexity: O(1) — one Stripe API round-trip. Space complexity: O(1).
+   * Time complexity: O(1), one Stripe API round-trip. Space complexity: O(1).
    *
    * @throws {BillingError} On a Stripe failure.
    */
@@ -221,7 +221,7 @@ export class StripeBillingGateway implements BillingGateway {
    *
    * Time complexity: O(n) in the raw body length (HMAC). Space complexity: O(n).
    *
-   * @throws {BillingError} On a signature/parse failure — the route maps this to
+   * @throws {BillingError} On a signature/parse failure, the route maps this to
    *   a fail-closed 400 and never reads the unverified body.
    */
   public async constructEvent(rawBody: string, signature: string): Promise<Stripe.Event> {
@@ -234,7 +234,7 @@ export class StripeBillingGateway implements BillingGateway {
         Stripe.createSubtleCryptoProvider(),
       )
     } catch (error: unknown) {
-      // Do NOT log the body or signature — only the class. An invalid signature
+      // Do NOT log the body or signature, only the class. An invalid signature
       // is expected adversarial traffic, not an internal fault.
       throw billingFault('constructEvent', error)
     }

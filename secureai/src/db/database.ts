@@ -2,15 +2,15 @@
  * The narrow persistence seam the accounts layer is written against.
  *
  * The repositories in `db/accounts.ts` and `db/usage.ts` depend only on this
- * {@link Database} interface — never on the concrete `D1Database` binding — so
+ * {@link Database} interface, never on the concrete `D1Database` binding, so
  * the whole accounts layer is testable under the Node test runtime with an
  * in-memory fake, with no `@cloudflare/vitest-pool-workers` dependency.
  *
  * The surface is deliberately tiny: a parameterized `queryOne` (read a single
  * row), a parameterized `queryAll` (read many rows, for the stats range read),
  * and a parameterized `execute` (run a write). Everything the repos need
- * — `INSERT ... ON CONFLICT DO UPDATE` upserts, joined reads, range reads, tier
- * updates — composes from these primitives.
+ * `INSERT ... ON CONFLICT DO UPDATE` upserts, joined reads, range reads, tier
+ * updates, composes from these primitives.
  */
 
 import { PersistenceError } from '../errors'
@@ -20,7 +20,7 @@ export type Row = Record<string, unknown>
 
 /**
  * The outcome of a write. `changes` is the number of rows the statement
- * actually mutated — the load-bearing field for idempotency: an
+ * actually mutated, the load-bearing field for idempotency: an
  * `INSERT ... ON CONFLICT DO NOTHING` reports 0 on a conflict and 1 on a fresh
  * insert, so a duplicate can be detected without a follow-up read.
  */
@@ -91,7 +91,7 @@ export interface SessionDatabase extends Database {
 }
 
 /**
- * The D1 surface the adapter calls — `prepare` + `batch` over prepared
+ * The D1 surface the adapter calls, `prepare` + `batch` over prepared
  * statements. Declared structurally so the in-memory test fake (and a D1 session,
  * which has the same shape) both satisfy it.
  */
@@ -152,7 +152,7 @@ export function d1Session(db: D1Database, bookmark: string | null): SessionDatab
 }
 
 /**
- * Build the {@link Database} surface over any D1 {@link D1Runner} — the raw
+ * Build the {@link Database} surface over any D1 {@link D1Runner}, the raw
  * binding (plain reads/writes) or a session (read-replicated). Both expose the
  * same `prepare`/`batch`, so the five methods are identical; only how the runner
  * routes reads differs.

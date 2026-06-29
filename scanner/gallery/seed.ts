@@ -7,7 +7,7 @@
  * This file is data only: it declares *what* to scan and how to label it. The
  * build script owns the recorded sponsor clients and the canned redirect
  * cascades that make each fixture resolve to its intended verdict, so this seed
- * stays free of any scan logic — adding a fixture is a one-line edit here plus
+ * stays free of any scan logic, adding a fixture is a one-line edit here plus
  * the matching recorded route in the build script.
  */
 

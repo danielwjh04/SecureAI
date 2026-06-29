@@ -23,7 +23,7 @@ function settled<T>(data: T): ApiResource<T> {
 /**
  * The full scan report, identical for a live scan and a replayed gallery pick.
  *
- * Composes the evidence in fixed order — verdict banner, the at-a-glance scan
+ * Composes the evidence in fixed order, verdict banner, the at-a-glance scan
  * dashboard, one redirect cascade per traced origin, reputation, injection
  * findings, then the re-verifiable proof chain. It reads only the
  * {@link ScanResult} prop and owns no scan or network state, so the render path

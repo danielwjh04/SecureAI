@@ -403,7 +403,7 @@ function authDeps(env: Env, config: ScannerConfig, db: Database | null): AuthDep
  * Assemble the contact route's dependencies: the Resend sender (gated on
  * `RESEND_API_KEY`, `null` → 503), the KV rate-limit store (`null` → limit
  * skipped), and config (recipients, from address, rate cap). The recipients stay
- * here, server-side — they are never sent to the browser.
+ * here, server-side, they are never sent to the browser.
  */
 function contactDeps(env: Env, config: ScannerConfig): ContactDeps {
   const kv = env.KV !== undefined && env.KV !== null ? (env.KV as ContactRateLimitKv) : null

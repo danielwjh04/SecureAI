@@ -50,7 +50,7 @@ const STATUS_TOO_MANY_REQUESTS = 429
 const STATUS_SERVER_ERROR = 500
 const STATUS_BAD_GATEWAY = 502
 
-/** Subject prefix marking an anonymous (IP-keyed) caller — never given history. */
+/** Subject prefix marking an anonymous (IP-keyed) caller, never given history. */
 const ANON_SUBJECT_PREFIX = 'anon:'
 /** Max stored length of a scan-history `source_ref` label (privacy + bound). */
 const SOURCE_REF_MAX_CHARS = 200
@@ -119,13 +119,13 @@ function statusForError(error: unknown): number {
 /**
  * Append one recent-scans history row for an AUTHENTICATED caller, best-effort.
  *
- * Anonymous (`anon:`) subjects are skipped — recent scans are a per-account
+ * Anonymous (`anon:`) subjects are skipped, recent scans are a per-account
  * feature. The stored `source_ref` is the source LABEL only (a URL or `paste`),
  * truncated to {@link SOURCE_REF_MAX_CHARS}; the full scanned content NEVER
  * reaches this layer (CLAUDE.md §6 privacy). A history write must never fail the
  * scan, so any error is caught and logged here, not propagated.
  *
- * Time complexity: O(1) — single insert. Space complexity: O(1).
+ * Time complexity: O(1), single insert. Space complexity: O(1).
  *
  * @param db - The persistence seam (non-null; the caller gates on it).
  * @param subject - The caller's metering subject (user id, or `anon:<ip>`).
@@ -179,12 +179,12 @@ function truncateToBytes(text: string, maxBytes: number): string {
 /**
  * Persist one caught-scan DETAIL row for an AUTHENTICATED, non-clean scan,
  * best-effort. Records the scanned content (truncated to `config.detailMaxBytes`,
- * or `null` when unavailable — e.g. a verdict-cache hit recomputed no text) plus
+ * or `null` when unavailable, e.g. a verdict-cache hit recomputed no text) plus
  * the serialized `{ findings, chains, injections, reputation }` evidence, so an
  * admin can review what was caught.
  *
  * Privacy gate (CLAUDE.md §6): a clean (`ALLOW`) scan or an anonymous (`anon:`)
- * caller is NEVER detail-persisted — nothing was flagged, so there is nothing to
+ * caller is NEVER detail-persisted, nothing was flagged, so there is nothing to
  * review, and the per-account review surface excludes anonymous callers. The
  * `scanId` pairs the detail 1:1 with the just-written `scan_history` row.
  *
@@ -235,11 +235,11 @@ async function recordScanDetail(
 /**
  * Persist a scan's writes (metering + recent-scans history + caught-scan detail)
  * as ONE atomic {@link Database.batch}. Builds the statement set with the SAME
- * gates as the sequential path — metering always; history only for an
- * AUTHENTICATED caller; detail only for an authenticated NON-clean scan — then
+ * gates as the sequential path, metering always; history only for an
+ * AUTHENTICATED caller; detail only for an authenticated NON-clean scan, then
  * runs them in a single transaction.
  *
- * Posture: the batch is best-effort for the RESPONSE — a failure is logged and
+ * Posture: the batch is best-effort for the RESPONSE, a failure is logged and
  * the computed verdict is still returned (the daily cap was already enforced
  * before the scan, so a rarely-dropped metering increment risks at most one extra
  * scan on a DB blip). Atomicity means the three writes never half-apply
@@ -317,8 +317,8 @@ async function writeScanAtomic(
  * time-varying value never enters the hashed proof.
  *
  * Accounts degrade gracefully: when `env.DB` is absent (e.g. local dev with no
- * D1) the route runs the scan as an unmetered anonymous caller — no cap check,
- * no usage write — rather than crashing. With `env.DB` present, the cap is
+ * D1) the route runs the scan as an unmetered anonymous caller, no cap check,
+ * no usage write, rather than crashing. With `env.DB` present, the cap is
  * enforced and usage is incremented exactly once after a successful scan.
  *
  * The AI cost gate: the inference client is passed to `runScan` ONLY when the
@@ -327,7 +327,7 @@ async function writeScanAtomic(
  *
  * Verdict cache: when KV is bound and `config.verdictCacheTtlSeconds > 0`, a
  * repeated identical scan is served from KV WITHOUT re-tracing redirects or
- * re-running the AI stage. Only the `runScan` compute is skipped — auth, the
+ * re-running the AI stage. Only the `runScan` compute is skipped, auth, the
  * daily-cap check, metering (`recordVerdict`), and the scan-history insert ALL
  * still run for the current caller on a cache hit, so cost accounting and the
  * audit trail stay correct. A fresh `scannedAt` is stamped on a hit; since
@@ -359,7 +359,7 @@ export async function handleScan(
 
     // Accounts seam (threaded from the worker entry, session-aware when read
     // replication is on; defaults to a plain binding when called directly): null
-    // when D1 is unbound — the caller is then an unmetered anonymous (no cap, no
+    // when D1 is unbound, the caller is then an unmetered anonymous (no cap, no
     // usage write), but the scan still runs.
     const today = new Date().toISOString().slice(0, 10)
 
@@ -412,7 +412,7 @@ export async function handleScan(
 
     // Verdict cache: serve a repeated identical scan from KV (skipping the
     // redirect trace + AI compute), else run the real scan and populate the
-    // cache. The cache wraps ONLY the `runScan` compute — auth/caps already ran,
+    // cache. The cache wraps ONLY the `runScan` compute, auth/caps already ran,
     // and metering + history below STILL run for this caller on a hit.
     const cacheKv = env.KV !== undefined && env.KV !== null ? (env.KV as VerdictCacheKv) : null
     const { result, scannedText } = await resolveCachedScan(
@@ -436,8 +436,8 @@ export async function handleScan(
     if (db !== null) {
       // Persist metering + recent-scans history + caught-scan detail. The default
       // path writes all three as ONE atomic batch (and is non-fatal to the
-      // response on failure); the legacy path keeps the prior behavior — metering
-      // critical (a failure 500s), history/detail best-effort — behind a config
+      // response on failure); the legacy path keeps the prior behavior, metering
+      // critical (a failure 500s), history/detail best-effort, behind a config
       // flag. Both run on a cache hit too: the cache saves the compute, never the
       // per-caller accounting.
       if (config.scanWriteAtomic) {

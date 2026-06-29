@@ -1,10 +1,10 @@
 /**
  * Offline password-strength policy enforced at registration, BEFORE any network
  * call or PBKDF2 hashing. Two cheap, deterministic checks:
- *   1. Character-class diversity — the password must mix at least
+ *   1. Character-class diversity, the password must mix at least
  *      `minCharacterClasses` of {lowercase, uppercase, digit, symbol}, so a long
  *      single-class string (e.g. all-lowercase) is rejected.
- *   2. Common-password denylist — the candidate must not be one of the
+ *   2. Common-password denylist, the candidate must not be one of the
  *      ubiquitous choices in `rules/commonPasswords.ts` (compared
  *      case-insensitively).
  *

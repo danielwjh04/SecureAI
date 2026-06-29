@@ -72,7 +72,7 @@ export type LoginResponse = AuthUserResponse | TwoFactorChallenge
  * The verification-deferred shape of a register response: the account was
  * created but a session was NOT issued and NO code was sent. Verification now
  * happens at login, so the client must immediately sign in with the same
- * credentials — that login returns the {@link TwoFactorChallenge} that drives
+ * credentials, that login returns the {@link TwoFactorChallenge} that drives
  * the emailed-code step. Discriminated by the `registered` field.
  */
 export interface RegisteredResponse {
@@ -81,8 +81,8 @@ export interface RegisteredResponse {
 
 /**
  * Response body for `POST /api/register`: EITHER a completed signup (`{ user }`,
- * no email verification configured — the session cookie is already set) OR a
- * verification-deferred signup (`{ registered: true }`, verification active — NO
+ * no email verification configured, the session cookie is already set) OR a
+ * verification-deferred signup (`{ registered: true }`, verification active, NO
  * session and NO code yet; the account is created but verification happens at
  * login, so the caller signs in next). Discriminate on the `user`/`registered`
  * field.
@@ -304,9 +304,9 @@ export interface AdminThreatsPage {
 
 /**
  * The full per-scan detail an admin opens from a {@link AdminThreat} row, served
- * by `GET /api/admin/scans/<id>`. It mirrors a {@link ScanResult}'s evidence —
+ * by `GET /api/admin/scans/<id>`. It mirrors a {@link ScanResult}'s evidence
  * deterministic rule findings, traced redirect chains, reputation reports, and
- * injection findings — plus the owning member's `email`, the verdict, the scan
+ * injection findings, plus the owning member's `email`, the verdict, the scan
  * `source`, the `headHash` that proves the sealed (re-verifiable) proof chain,
  * and `flagged` (the indicator count). `content` is the scanned skill/artifact
  * text the verdict was reached on, or `null` when it was not retained server-side

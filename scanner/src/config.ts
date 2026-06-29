@@ -1,7 +1,7 @@
 /**
  * The single home for every configurable literal the SPA needs: API paths, the
  * gallery data location, the scan progress step labels, and the animation
- * pacing. No component hardcodes any of these — they import from here so the
+ * pacing. No component hardcodes any of these, they import from here so the
  * worker contract and the UI copy stay in lockstep.
  */
 
@@ -173,7 +173,7 @@ export const PROOF_REHASH_DEBOUNCE_MS = 180
  * The scanner's safety caps, surfaced in the UI so users see the bounded
  * guarantees of each pass. These mirror the worker's enforced limits (redirect
  * depth, reputation fan-out, analyzed content size); they are display copy, not
- * the authority — the Worker enforces the real bounds.
+ * the authority, the Worker enforces the real bounds.
  */
 export const CAPS = {
   redirectDepth: 'Redirect cascades traced up to a bounded depth',

@@ -88,7 +88,7 @@ describe('handleGuard', () => {
   })
 })
 
-describe('handleGuard — metering and caps', () => {
+describe('handleGuard, metering and caps', () => {
   const today = new Date().toISOString().slice(0, 10)
   // A benign tool call carrying a URL so the pipeline reaches the (gated)
   // inference stage; the global fetch is stubbed so tracing stays network-free.

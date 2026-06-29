@@ -1,5 +1,5 @@
 /**
- * Proof builder and verifier — the tamper-evident hash chain over scan evidence.
+ * Proof builder and verifier, the tamper-evident hash chain over scan evidence.
  *
  * Port of `secureSG/audit/chain.py` (append) and `secureSG/audit/verifier.py`
  * (single forward-pass verify) to TypeScript + Web Crypto. The builder lives in
@@ -30,7 +30,7 @@ interface CanonicalStepInput {
 /**
  * Serialize a step's hashable identity to canonical bytes.
  *
- * Fields are enumerated explicitly — never spread from a wider object — so the
+ * Fields are enumerated explicitly, never spread from a wider object, so the
  * chain-linkage fields (`prevHash`, `currHash`) can never leak into the hashed
  * payload. This mirrors `canonical_payload` in the Python reference.
  *
@@ -75,10 +75,10 @@ export class ProofBuilder {
    * Append a step and return its `currHash`.
    *
    * Idempotent in the sense that replaying the identical append sequence on a
-   * fresh builder yields an identical chain — there is no hidden time/random
+   * fresh builder yields an identical chain, there is no hidden time/random
    * input. The index is assigned monotonically from the current length.
    *
-   * Time complexity: O(k log k + p) — canonical key sort plus the digest over
+   * Time complexity: O(k log k + p), canonical key sort plus the digest over
    *   the payload bytes. Space complexity: O(p) for the hash buffer.
    *
    * @param kind - The provenance tag for this step.
@@ -108,7 +108,7 @@ export class ProofBuilder {
     return [...this._steps]
   }
 
-  /** The current chain tip — genesis when empty, else the last `currHash`. */
+  /** The current chain tip, genesis when empty, else the last `currHash`. */
   public get headHash(): string {
     return this._headHash
   }
@@ -121,7 +121,7 @@ export class ProofBuilder {
    *
    * @returns The proof: genesis hash, ordered steps, and head hash.
    * @throws {ProofError} If no steps have been appended (an empty proof has no
-   *   evidence and would silently "verify" — fail loud instead).
+   *   evidence and would silently "verify", fail loud instead).
    */
   public toProof(): Proof {
     if (this._steps.length === 0) {
@@ -158,7 +158,7 @@ interface ChainVerification {
  * known seed compares `proof.genesisHash` to `deriveGenesisHash(seed)`
  * separately.
  *
- * Time complexity: O(n) — one digest per step, no nested rescans.
+ * Time complexity: O(n), one digest per step, no nested rescans.
  * Space complexity: O(1) beyond the input (the expected-prev cursor).
  *
  * @param proof - The proof to verify.

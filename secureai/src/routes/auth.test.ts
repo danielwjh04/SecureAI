@@ -68,7 +68,7 @@ describe('handleRegister', () => {
     expect(sessionCookieValue(res)).not.toBeNull()
     expect(res.headers.get('Set-Cookie')).toContain('HttpOnly')
     // With no email provider, the account is verified at creation (no code can be
-    // sent), so its session/key are immediately usable — exactly as before.
+    // sent), so its session/key are immediately usable, exactly as before.
     const user = [...store.users.values()].find((u) => u.email === 'new@example.com')
     expect(user?.email_verified).toBe(1)
   })
@@ -587,7 +587,7 @@ describe('auth rate limiting', () => {
         jsonReq('/api/login', { email: 'nolimit@example.com', password: 'Sapphire92' }),
         d,
       )
-      // Never 429 — always the normal invalid-credentials path.
+      // Never 429, always the normal invalid-credentials path.
       expect(res.status).toBe(401)
     }
   })

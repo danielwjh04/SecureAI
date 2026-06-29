@@ -8,7 +8,7 @@
  *
  * Fail-closed at the transport edge too: a missing sponsor key yields a `null`
  * client (handled fail-closed inside `runScan`, never an ALLOW), and every
- * raised `ScannerError` subclass maps to a deliberate status — a parse fault is
+ * raised `ScannerError` subclass maps to a deliberate status, a parse fault is
  * a client error (422), a config fault is a server error (500), an upstream
  * sponsor/redirect fault is a bad-gateway (502), and anything else is a generic
  * bad request (400). Unknown internal failures surface as 500, never a silent
@@ -33,7 +33,7 @@ import { OpenAIJudge } from '../scan/judge'
  * Construct the Exa reputation client from the env key, or `null` when no key is
  * present. A `null` client is handled fail-closed inside `runScan` (it escalates
  * rather than treating missing reputation as a clean ALLOW), so the absence of a
- * key is a safe, explicit state — never a silent allow.
+ * key is a safe, explicit state, never a silent allow.
  *
  * Time complexity: O(1). Space complexity: O(1).
  */
@@ -137,7 +137,7 @@ function statusForError(error: unknown): number {
  * otherwise passes `null`, which `runScan` treats fail-closed. `scannedAt` is
  * set here, at the transport edge, so the time-varying value never enters the
  * hashed proof. On any error the class name is logged and a JSON error body with
- * the mapped status is returned — never a silent success.
+ * the mapped status is returned, never a silent success.
  *
  * Time complexity: dominated by `runScan` (O(U·H + R + F)).
  * Space complexity: O(result size).

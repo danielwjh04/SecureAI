@@ -1,4 +1,4 @@
-/* Scanner-only classes. Reference design tokens (var(--*)) only — never
+/* Scanner-only classes. Reference design tokens (var(--*)) only, never
    redefine them. These extend the shared design system in global.css for the
    Skill Safety Scanner SPA. This is the single home for scanner-specific CSS;
    later component agents only USE these classes, they never edit this file. */
@@ -878,7 +878,7 @@
   font-weight: 800;
 }
 
-/* Phone layout (~360–430px) ----------------------------------------------- */
+/* Phone layout (~360-430px) ----------------------------------------------- */
 /* Mobile-only overrides for the grid-driven result panels. They keep the
    desktop look untouched (everything above the breakpoint is unchanged) while
    ensuring nothing overflows the panel body horizontally on a narrow phone:
@@ -896,8 +896,8 @@
     width: 100%;
   }
 
-  /* Proof step: drop the fixed 4-column grid to a two-row reflow — index+kind
-     on top, the editor full width, the mark/hash trailing — so the editable
+  /* Proof step: drop the fixed 4-column grid to a two-row reflow, index+kind
+     on top, the editor full width, the mark/hash trailing, so the editable
      payload is usable and the truncated hash never forces horizontal scroll. */
   .proof__step {
     grid-template-columns: auto 1fr;

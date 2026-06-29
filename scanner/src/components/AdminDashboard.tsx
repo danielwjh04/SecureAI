@@ -5,8 +5,8 @@
  * shell: headline stat cards, a 30-day sign-ups trend (recharts, zero-filled
  * client-side), a tier-breakdown donut, and verdict-colored sitewide totals.
  *
- * Every chart is themed dark with the verdict palette — no default light recharts
- * theme leaks through — matching the protection Dashboard.
+ * Every chart is themed dark with the verdict palette, no default light recharts
+ * theme leaks through, matching the protection Dashboard.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -156,7 +156,7 @@ export function AdminDashboard({
 /**
  * Debounce a fast-changing value: returns the latest `value`, but only after it
  * has stopped changing for `delayMs`. Used to keep an admin search input off the
- * keystroke hot path — a refetch fires once typing pauses, not per character.
+ * keystroke hot path, a refetch fires once typing pauses, not per character.
  *
  * Time complexity: O(1) per update. Space complexity: O(1).
  */
@@ -598,7 +598,7 @@ function MembersSection({
         ariaLabel="Search members by email or plan"
       />
       <p className="-mt-2 text-white/35 font-mono text-[10px]">
-        Tip: type a plan to filter by tier — free / pro / enterprise.
+        Tip: type a plan to filter by tier, free / pro / enterprise.
       </p>
 
       {state.phase === 'loading' && (
@@ -636,7 +636,7 @@ interface SearchInputProps {
 
 /**
  * A glass search field with a leading magnifier, matching the dashboard's dark
- * styling. Purely controlled — the parent owns the value and debounces the
+ * styling. Purely controlled, the parent owns the value and debounces the
  * refetch, so this only renders the input and forwards keystrokes.
  */
 function SearchInput({ value, onChange, placeholder, ariaLabel }: SearchInputProps) {
@@ -666,8 +666,8 @@ interface MembersTableProps {
 }
 
 /**
- * The scrollable members table. Columns: Email, Tier, Role, Joined, Scans, and —
- * for an owner viewer only — an Actions column carrying the per-row Remove
+ * The scrollable members table. Columns: Email, Tier, Role, Joined, Scans, and
+ * for an owner viewer only, an Actions column carrying the per-row Remove
  * control. The Remove control is never shown for an owner row or for the viewer's
  * own row.
  */
@@ -788,7 +788,7 @@ interface TierCellProps {
  * The plan/tier cell. An owner viewer (`canManageRoles`) gets a free/pro/
  * enterprise select to switch any member's plan; everyone else sees the static
  * tier label. Mirrors {@link RoleCell}'s control exactly (styling, pending +
- * refetch), with no owner carve-out — an owner's own plan is switchable too,
+ * refetch), with no owner carve-out, an owner's own plan is switchable too,
  * since plan is not access control.
  */
 function TierCell({ member, canManageRoles, pending, onChangeTier }: TierCellProps) {
@@ -1006,7 +1006,7 @@ function ThreatsTable({
   )
 }
 
-/** A small red BLOCK pill — every threat row is a blocked verdict. */
+/** A small red BLOCK pill, every threat row is a blocked verdict. */
 function BlockPill() {
   return (
     <span className="inline-flex items-center justify-center rounded-full bg-block/10 px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-[0.1em] text-block">

@@ -13,7 +13,7 @@
  * matcher run over the raw text; results are merged, deduped, and order-preserved
  * by first appearance. A single mega-regex would be unreadable, hard to reason
  * about for correctness, and prone to catastrophic backtracking on adversarial
- * input — unacceptable in a security path.
+ * input, unacceptable in a security path.
  *
  * Config is read from the caller (`ScannerConfig`, see `worker/config.ts`); no
  * cap, byte limit, or pattern is hardcoded here. Until `config.ts` lands this
@@ -100,10 +100,10 @@ const TRAILING_PUNCTUATION = /[.,;:!?)\]}>'"]+$/
  *   1. Reject oversize input up front (fail-loud) before any scanning.
  *   2. Run each anchored URL matcher; record (url, firstSeenIndex) tokens.
  *   3. Dedupe by URL, preserving first-appearance order; cap at `maxUrls`
- *      (URLs beyond the cap are dropped entirely — nothing extra is recorded).
+ *      (URLs beyond the cap are dropped entirely, nothing extra is recorded).
  *   4. Run the curl/wget download-execute matchers; dedupe, preserve order.
  *   5. If nothing actionable was found (no URLs AND no exec patterns), raise
- *      `ParseError` — there is nothing to scan, and silently returning an empty
+ *      `ParseError`, there is nothing to scan, and silently returning an empty
  *      result would let an unparseable document masquerade as benign.
  *
  * Determinism: no randomness, no clock; identical text -> identical result,
@@ -138,7 +138,7 @@ export function parseSkill(text: string, config: ParserConfig): ParseResult {
 
   if (urls.length === 0 && execPatterns.length === 0) {
     throw new ParseError(
-      'no URLs and no download-execute patterns found — nothing to scan',
+      'no URLs and no download-execute patterns found, nothing to scan',
     )
   }
 
@@ -153,7 +153,7 @@ export function parseSkill(text: string, config: ParserConfig): ParseResult {
  * reference matches have trailing sentence punctuation stripped; bracket-wrapped
  * syntaxes do not need it because their delimiters already bound the URL.
  *
- * Time complexity: O(n) — one linear regex pass, no backtracking quantifiers.
+ * Time complexity: O(n), one linear regex pass, no backtracking quantifiers.
  * Space complexity: O(m) in the number of matches appended.
  */
 function collectUrlTokens(
@@ -203,7 +203,7 @@ function dedupeCappedUrls(tokens: UrlToken[], maxUrls: number): string[] {
     }
     seen.add(token.url)
     urls.push(token.url)
-    // Stop accumulating once the cap is hit — record nothing extra.
+    // Stop accumulating once the cap is hit, record nothing extra.
     if (urls.length >= maxUrls) {
       break
     }
@@ -214,7 +214,7 @@ function dedupeCappedUrls(tokens: UrlToken[], maxUrls: number): string[] {
 /**
  * Collect distinct curl/wget download-execute one-liners, order-preserved.
  *
- * Time complexity: O(n) — two linear regex passes, sorted merge of the matches.
+ * Time complexity: O(n), two linear regex passes, sorted merge of the matches.
  * Space complexity: O(e) in the number of distinct patterns.
  */
 function collectExecPatterns(text: string): string[] {
@@ -239,7 +239,7 @@ function collectExecPatterns(text: string): string[] {
 /**
  * Run one download-execute matcher and push (value, index) tokens.
  *
- * Time complexity: O(n) — single linear pass. Space complexity: O(m).
+ * Time complexity: O(n), single linear pass. Space complexity: O(m).
  */
 function collectExecTokens(
   text: string,

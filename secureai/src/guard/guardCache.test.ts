@@ -33,7 +33,7 @@ describe('resolveCachedDecision', () => {
 
     const second = await resolveCachedDecision(PAYLOAD, kv, 300, compute)
     expect(second).toEqual(DECISION)
-    // Served from cache — compute not called again.
+    // Served from cache, compute not called again.
     expect(compute).toHaveBeenCalledTimes(1)
   })
 

@@ -29,8 +29,8 @@
    ancestor) so the sticky navbar still sticks to the viewport. Anchor jumps are
    instant (not smooth): a smooth scroll to #how races the JS scroll and stalls
    partway, leaving the hero video showing above the section. The anchored
-   sections (#how, #verify) land flush at the viewport top — their black wrapper
-   then covers the fixed hero video — and carry their own top padding to clear
+   sections (#how, #verify) land flush at the viewport top, their black wrapper
+   then covers the fixed hero video, and carry their own top padding to clear
    the floating navbar, so no scroll-margin offset (which would expose a strip of
    video above the section) is needed. */
 html {

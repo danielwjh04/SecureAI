@@ -1,10 +1,10 @@
 /**
- * `POST /api/portal` handler — open the Stripe Billing Portal.
+ * `POST /api/portal` handler, open the Stripe Billing Portal.
  *
  * Authenticated (billing is never anonymous): the caller must present an API key
  * that resolves to a known account; an anonymous/unknown caller is a 401. The
  * account must already have a Stripe customer (i.e. have checked out at least
- * once); without one there is nothing to manage, which is a 422 — the client
+ * once); without one there is nothing to manage, which is a 422, the client
  * should run checkout first. On success returns `{ url }` to the hosted portal.
  *
  * Billing requires `env.DB` AND the Stripe seam; either absent → 503.
@@ -72,10 +72,10 @@ function statusForError(error: unknown): number {
 /**
  * Handle `POST /api/portal`. Requires `env.DB` AND a billing gateway (else 503).
  * Authenticates the caller (401 if anonymous), requires an existing Stripe
- * customer (422 if none — check out first), creates a Billing Portal Session,
+ * customer (422 if none, check out first), creates a Billing Portal Session,
  * and returns `{ url }`.
  *
- * Time complexity: O(1) — one user read, one portal-session create.
+ * Time complexity: O(1), one user read, one portal-session create.
  * Space complexity: O(1).
  */
 export async function handlePortal(

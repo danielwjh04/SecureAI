@@ -1,10 +1,10 @@
-# SecureSG Skill Safety Scanner — example local Worker dev variables.
+# SecureSG Skill Safety Scanner, example local Worker dev variables.
 #
 # Copy to `.dev.vars` for `wrangler dev` / `vite dev` (the Cloudflare plugin
 # loads `.dev.vars` into the Worker's env binding). `.dev.vars` is git-ignored.
-# Production uses `wrangler secret put <NAME>` instead — never commit real keys.
+# Production uses `wrangler secret put <NAME>` instead, never commit real keys.
 #
-# Required sponsor credentials (no defaults — fail-closed if absent).
+# Required sponsor credentials (no defaults, fail-closed if absent).
 EXA_API_KEY=
 OPENAI_API_KEY=
 

@@ -6,7 +6,7 @@
  * tier; failing that, a valid `secureai_session` cookie (when a session secret
  * is configured) resolves to its user; the ABSENCE of both, OR an unknown key /
  * invalid cookie, resolves to an anonymous context keyed by client IP. An
- * unknown credential is NOT an error — it is simply unauthenticated, so a typo,
+ * unknown credential is NOT an error, it is simply unauthenticated, so a typo,
  * a revoked key, or an expired cookie downgrades to the anonymous cap rather than
  * failing the request. `authenticate` therefore never throws on a bad credential;
  * it only propagates a fault if the underlying store is corrupt.
@@ -84,12 +84,12 @@ function nowSeconds(): number {
  * The email-verified gate fails closed: a session subject whose account is
  * UNVERIFIED (e.g. a registration that issued no session but whose cookie was
  * somehow presented, or an account un-verified after the fact) is rejected here
- * so the cookie downgrades to anonymous — mirroring the API-key gate in
+ * so the cookie downgrades to anonymous, mirroring the API-key gate in
  * {@link findUserByApiKey}, so NEITHER credential authenticates an unverified
  * account. The check runs before the tier lookup so an unverified account never
  * reaches an authenticated context.
  *
- * Time complexity: O(1) — one HMAC verify + two indexed lookups.
+ * Time complexity: O(1), one HMAC verify + two indexed lookups.
  * Space complexity: O(1).
  *
  * @throws {AuthError} Only if the resolved user's stored tier is corrupt.
@@ -125,10 +125,10 @@ async function resolveSession(
  * is supplied, the `secureai_session` cookie is verified and, if valid and still
  * mapping to a live account, yields that user's context. No credential, a
  * malformed header, an unknown key, an absent secret, or an invalid/expired
- * cookie all yield `{ subject: 'anon:' + clientIp, tier: 'anonymous' }` — a bad
+ * cookie all yield `{ subject: 'anon:' + clientIp, tier: 'anonymous' }`, a bad
  * credential is anonymous, never an error.
  *
- * Time complexity: O(1) — at most two indexed credential lookups.
+ * Time complexity: O(1), at most two indexed credential lookups.
  * Space complexity: O(1).
  *
  * @param request - The inbound request.

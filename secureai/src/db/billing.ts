@@ -48,7 +48,7 @@ function requireString(row: Row, column: string): string {
  * This is the first statement the webhook runs, BEFORE any tier mutation, so the
  * mutation can never be applied twice for one Stripe event.
  *
- * Time complexity: O(1) — single primary-key insert. Space complexity: O(1).
+ * Time complexity: O(1), single primary-key insert. Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param eventId - Stripe's `event.id` (globally unique per event).
@@ -83,9 +83,9 @@ export async function recordWebhookEvent(
  * Idempotent on `user_id`: replaying the same `(status, priceId, periodEnd)`
  * leaves the row identical, and a status change (e.g. `active` → `canceled`)
  * overwrites in place. The mirror is auditable against Stripe but is never the
- * authority for access — the granted tier on `users.tier` is.
+ * authority for access, the granted tier on `users.tier` is.
  *
- * Time complexity: O(1) — single primary-key upsert. Space complexity: O(1).
+ * Time complexity: O(1), single primary-key upsert. Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param userId - The account the subscription belongs to.
@@ -123,7 +123,7 @@ export async function upsertSubscription(
  * Idempotent for the same `(userId, customerId)`. Writing an unknown user id is
  * a zero-row no-op rather than an error.
  *
- * Time complexity: O(1) — primary-key update. Space complexity: O(1).
+ * Time complexity: O(1), primary-key update. Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param userId - The account to link.
@@ -151,7 +151,7 @@ export async function setStripeCustomerId(
  * Read a user by id, returning the fields the checkout flow needs (email and the
  * current Stripe customer link), or `null` when the id is unknown.
  *
- * Time complexity: O(1) — primary-key lookup. Space complexity: O(1).
+ * Time complexity: O(1), primary-key lookup. Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param userId - The account id.
@@ -180,10 +180,10 @@ export async function getUserById(
  * Resolve the user behind a Stripe customer id, or `null` when none matches.
  *
  * Used by the webhook to map a Stripe customer back to an account. A customer id
- * that matches no user resolves to `null` — an event for an unknown customer is
+ * that matches no user resolves to `null`, an event for an unknown customer is
  * acknowledged, not faulted.
  *
- * Time complexity: O(1) — indexed lookup on `stripe_customer_id`.
+ * Time complexity: O(1), indexed lookup on `stripe_customer_id`.
  * Space complexity: O(1).
  *
  * @param db - The persistence seam.

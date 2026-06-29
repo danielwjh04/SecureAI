@@ -1,8 +1,8 @@
--- SecureAI per-user recent-scans history — a privacy-conscious audit trail of
+-- SecureAI per-user recent-scans history, a privacy-conscious audit trail of
 -- the scans an AUTHENTICATED account ran, surfaced by GET /api/scans/recent.
 --
 -- One row per successful authenticated scan. Anonymous (anon:<ip>) callers are
--- NOT recorded here — recent scans are a per-account feature. Privacy: the row
+-- NOT recorded here, recent scans are a per-account feature. Privacy: the row
 -- stores ONLY the source label/URL (or the literal 'paste'), truncated to 200
 -- chars, NEVER the full scanned content, so the history can never re-leak the
 -- bytes that were scanned. `head_hash` ties each row back to the scan's

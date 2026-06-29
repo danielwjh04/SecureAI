@@ -7,7 +7,7 @@ on:
 
 jobs:
   secureai:
-    name: SecureAI Worker — lint, type-check, tests
+    name: SecureAI Worker, lint, type-check, tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,7 +29,7 @@ jobs:
         run: npm run test:run
 
   scanner:
-    name: Scanner SPA — lint, type-check, tests, build
+    name: Scanner SPA, lint, type-check, tests, build
     runs-on: ubuntu-latest
     defaults:
       run:

@@ -1,12 +1,12 @@
 /**
- * Pure scan orchestrator — the single function that turns a `ScanRequest` into a
+ * Pure scan orchestrator, the single function that turns a `ScanRequest` into a
  * `ScanResult` with a self-contained, re-verifiable cryptographic proof.
  *
  * `runScan` is deliberately a pure function over its injected dependencies
  * ({@link ScanDeps}): it reads no `globalThis`, no environment, no clock, and no
- * randomness directly. Every external capability — the config, the reputation
+ * randomness directly. Every external capability, the config, the reputation
  * client, the AI injection-inference client, the `fetch` used by the redirect
- * tracer, and the response timestamp — arrives through `deps`. This is what lets the
+ * tracer, and the response timestamp, arrives through `deps`. This is what lets the
  * exact same logic run inside the Cloudflare Worker (`/api/scan`) and inside a
  * plain Node process (the hermetic gallery build) with recorded sponsor clients,
  * and what makes every stage independently testable.
@@ -60,7 +60,7 @@ export interface ScanDeps {
   inference: InferenceClient | null
   /** Injected `fetch` for the redirect tracer (and source-URL load). */
   fetchImpl?: typeof fetch
-  /** ISO timestamp for the response — set OUTSIDE the hashed proof. */
+  /** ISO timestamp for the response, set OUTSIDE the hashed proof. */
   scannedAt: string
   /** Optional GitHub token to authenticate source-resolution API calls. */
   githubToken?: string
@@ -99,7 +99,7 @@ async function sha256Hex(text: string): Promise<string> {
  * redirect hop cannot.
  *
  * A GitHub *web* URL (repo root, tree, or blob) is first resolved to the raw
- * `SKILL.md` it points at — fetching the web page itself would scan GitHub's
+ * `SKILL.md` it points at, fetching the web page itself would scan GitHub's
  * ~350 KB HTML chrome, not the manifest. Non-GitHub URLs are fetched unchanged.
  * The resolved URL is re-checked by the SSRF guard before it is fetched.
  *
@@ -176,7 +176,7 @@ async function resolveSkillText(
  * On success the reports are returned and the candidate verdict is escalated by
  * any `flagged` report (a flagged destination is at least HUMAN_APPROVAL). On a
  * `ReputationError` (or any other failure) the verdict is escalated toward
- * HUMAN_APPROVAL_REQUIRED and the error class name is logged — a reputation
+ * HUMAN_APPROVAL_REQUIRED and the error class name is logged, a reputation
  * outage must never let a risky skill through as ALLOW.
  *
  * Time complexity: O(r) in the report count. Space complexity: O(r).
@@ -189,7 +189,7 @@ async function runReputationStage(
   baseline: Verdict,
 ): Promise<{ reports: ReputationReport[]; verdict: Verdict }> {
   // No client configured: do NOT treat missing reputation as evidence of
-  // safety. Keep the baseline exactly — never relax it.
+  // safety. Keep the baseline exactly, never relax it.
   if (reputation === null || finalUrls.length === 0) {
     return { reports: [], verdict: baseline }
   }
@@ -215,7 +215,7 @@ async function runReputationStage(
  * Run the OpenAI judge stage fail-closed and tighten-only.
  *
  * On success the candidate is `escalate(baseline, escalate(judge.verdict,
- * mapProbabilityToVerdict(pInjection, review, block)))` — the model can only
+ * mapProbabilityToVerdict(pInjection, review, block)))`, the model can only
  * raise severity. On a `JudgeError` (or any failure) the verdict escalates
  * toward HUMAN_APPROVAL_REQUIRED and the error class is logged.
  *
@@ -255,7 +255,7 @@ async function runInferenceStage(
 
 /**
  * Log the exact error class name of an I/O fault (CLAUDE.md §1: never swallow a
- * provider exception silently — log a warning naming the class).
+ * provider exception silently, log a warning naming the class).
  *
  * Time complexity: O(1). Space complexity: O(1).
  */
@@ -284,7 +284,7 @@ function logErrorClass(stage: string, error: unknown): void {
  * `scannedAt` is the sole time-varying field and is never hashed.
  *
  * Time complexity: O(U·H + R + F) where U = URLs, H = max hops, R = reputation
- *   reports, F = injection findings — a single pass per stage, no nested rescans.
+ *   reports, F = injection findings, a single pass per stage, no nested rescans.
  * Space complexity: O(U·H + R + F) for the chains, reports, findings, and proof.
  *
  * @param request - The scan request (exactly one of `content`/`sourceUrl`).

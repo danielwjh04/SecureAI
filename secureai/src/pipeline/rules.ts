@@ -1,11 +1,11 @@
 /**
- * Deterministic hard rules — the explainable baseline verdict.
+ * Deterministic hard rules, the explainable baseline verdict.
  *
  * Before any sponsor call (Exa reputation, OpenAI judge), the traced redirect
  * cascades and the parser's exec-pattern findings are run through a fixed set of
  * structural rules. Each rule that fires emits a `RuleFinding`; the baseline
  * verdict is the maximum severity across all findings. These rules are reliable,
- * cheap, and offline — they are why the scanner produces a safe BLOCK even with
+ * cheap, and offline, they are why the scanner produces a safe BLOCK even with
  * no API keys configured. The semantic stages can only *tighten* this baseline
  * (see `escalate` in `../verdict`).
  *
@@ -31,7 +31,7 @@ export interface RulesConfig {
   shortenerHosts: ReadonlySet<string>
 }
 
-/** Stable rule identifiers — the contract with the UI and the proof. */
+/** Stable rule identifiers, the contract with the UI and the proof. */
 const RULE_REDIRECT_DEPTH_EXCEEDED = 'redirect.depth_exceeded'
 const RULE_REDIRECT_LOOP_DETECTED = 'redirect.loop_detected'
 const RULE_HOST_RAW_IP = 'host.raw_ip'
@@ -133,7 +133,7 @@ function urlsInChain(chain: LinkChain): readonly string[] {
  * returned `verdict` is the maximum severity across all findings (folded through
  * `escalate`, so the result is monotonic and tie-stable starting from ALLOW).
  * The function is pure: same input → same `{ verdict, findings }`, with no
- * network, time, or randomness — a prerequisite for it sitting inside the hashed
+ * network, time, or randomness, a prerequisite for it sitting inside the hashed
  * proof pipeline and for the hermetic gallery build.
  *
  * Rule set (rule id → severity):
@@ -150,7 +150,7 @@ function urlsInChain(chain: LinkChain): readonly string[] {
  * order (and within a chain, the order rules are checked), then the single
  * exec-pattern rule last.
  *
- * Time complexity: O(C·H) where C = chains and H = max hops per chain — a single
+ * Time complexity: O(C·H) where C = chains and H = max hops per chain, a single
  *   pass over every URL in every cascade, with O(1) set/regex tests per URL.
  * Space complexity: O(F) in the number of findings emitted.
  *

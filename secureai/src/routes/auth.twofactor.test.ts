@@ -91,7 +91,7 @@ describe('handleLogin with an email sender (2FA active)', () => {
     expect(body.twoFactor).toBe(true)
     expect(typeof body.challengeId).toBe('string')
     expect(body.email).toBe('z***@gmail.com')
-    // No session cookie yet — the session is withheld until verify.
+    // No session cookie yet, the session is withheld until verify.
     expect(sessionCookieValue(res)).toBeNull()
     // The code was emailed to the real address.
     expect(sender.sent).toHaveLength(1)
@@ -323,7 +323,7 @@ describe('handleRegister with an email sender (verification deferred to login)',
     expect(res.status).toBe(201)
     const body = (await res.json()) as { registered: boolean }
     expect(body).toEqual({ registered: true })
-    // No session cookie — the account is not usable until the first login verifies.
+    // No session cookie, the account is not usable until the first login verifies.
     expect(sessionCookieValue(res)).toBeNull()
     // The user row exists but is UNVERIFIED.
     const user = [...store.users.values()].find((u) => u.email === 'zuriel@gmail.com')

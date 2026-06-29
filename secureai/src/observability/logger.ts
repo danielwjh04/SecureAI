@@ -10,7 +10,7 @@
  * for a scoped logger.
  *
  * PII discipline (CLAUDE.md §6): {@link LogFields} is SCALAR-ONLY, so it is a
- * COMPILE error to pass a result object, request body, or array — structurally
+ * COMPILE error to pass a result object, request body, or array, structurally
  * preventing content/PII from leaking into a log. Keep `msg` static; never
  * interpolate user content. Errors are logged by CLASS via {@link errorClassOf},
  * never by message (which can carry input).

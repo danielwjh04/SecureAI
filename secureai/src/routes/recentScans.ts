@@ -1,5 +1,5 @@
 /**
- * `GET /api/scans/recent` handler — the authenticated caller's most recent
+ * `GET /api/scans/recent` handler, the authenticated caller's most recent
  * scans, newest first, for the dashboard's recent-activity panel.
  *
  * Authenticated via Bearer key OR session cookie; an anonymous caller is 401
@@ -8,7 +8,7 @@
  * always bounded; a malformed limit is a 422 at the boundary.
  *
  * Privacy: each entry surfaces only the source LABEL (a URL or `paste`) the scan
- * route persisted — never the scanned content — plus the proof head hash that
+ * route persisted, never the scanned content, plus the proof head hash that
  * ties the entry back to its tamper-evident chain.
  */
 

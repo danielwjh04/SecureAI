@@ -3,7 +3,7 @@
  *
  * A code is generated with cryptographic randomness, hashed (SHA-256 hex,
  * matching the audit chain / api_keys digest-only discipline), and only the
- * hash is ever persisted — the code itself lives only in the email and the
+ * hash is ever persisted, the code itself lives only in the email and the
  * caller's memory, exactly like a raw API key. Verification re-hashes the
  * presented code and compares in constant time, so the stored value is useless
  * to anyone who reads the database.
@@ -68,7 +68,7 @@ export async function hashCode(code: string): Promise<string> {
  * Constant-time equality over two equal-length ASCII strings: returns `false`
  * immediately on a length mismatch (lengths are not secret), otherwise
  * XOR-accumulates every char code so the comparison time does not depend on
- * WHERE the first difference is — defeating timing side-channels on the stored
+ * WHERE the first difference is, defeating timing side-channels on the stored
  * hash. Mirrors the constant-time compares in `auth/password` and `auth/session`.
  *
  * Time complexity: O(n). Space complexity: O(1).

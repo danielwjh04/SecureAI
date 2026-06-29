@@ -86,7 +86,7 @@ describe('signupsByDay', () => {
     await seedUser(db, store, 'd1@example.com', 'free', '2026-06-10')
     await seedUser(db, store, 'd2@example.com', 'free', '2026-06-10')
     await seedUser(db, store, 'd3@example.com', 'pro', '2026-06-12')
-    // Before the window — excluded.
+    // Before the window, excluded.
     await seedUser(db, store, 'old@example.com', 'free', '2026-05-01')
 
     const series = await signupsByDay(db, '2026-06-01')
@@ -417,7 +417,7 @@ describe('deleteMember', () => {
 
     expect(await deleteMember(db, target)).toBe(1)
 
-    // The target's detail row is gone — no longer an orphan.
+    // The target's detail row is gone, no longer an orphan.
     expect(await getScanDetail(db, 'tgt-block')).toBeNull()
     expect(store.scanDetails.has('tgt-block')).toBe(false)
     // Its scan_history row and the account itself are removed too.

@@ -21,7 +21,7 @@ export interface AuthState {
   user: MeResponse | null
   /** Whether the account may VIEW the admin surface (false while loading / logged out). */
   isAdmin: boolean
-  /** Whether the account may MANAGE roles — owner only (false while loading / logged out). */
+  /** Whether the account may MANAGE roles, owner only (false while loading / logged out). */
   isOwner: boolean
   /** Re-read `GET /api/me`; call after a login, register, or logout. */
   refresh: () => Promise<void>

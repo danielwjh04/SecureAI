@@ -1,8 +1,8 @@
--- SecureAI user names layer — give an account a human name so the app can greet
+-- SecureAI user names layer, give an account a human name so the app can greet
 -- the person ("Hi Ada!") instead of echoing their email.
 --
 -- Two nullable columns on `users`:
---   first_name / last_name — the account holder's name, collected at password
+--   first_name / last_name, the account holder's name, collected at password
 --                            registration. NULLable (no DEFAULT, no backfill) so
 --                            every pre-existing account, and every API-key signup
 --                            (createFreeUser, which has no name step), simply

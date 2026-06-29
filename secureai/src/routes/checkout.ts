@@ -1,9 +1,9 @@
 /**
- * `POST /api/checkout` handler — start a Pro-tier subscription.
+ * `POST /api/checkout` handler, start a Pro-tier subscription.
  *
  * Authenticated: the caller must present an `Authorization: Bearer <key>` that
  * resolves to a known account. An anonymous or unknown-key caller is a 401
- * {@link AuthError} (unlike the metering routes, billing is never anonymous —
+ * {@link AuthError} (unlike the metering routes, billing is never anonymous
  * there is no account to bill). The handler ensures the account has a Stripe
  * customer (creating and persisting one on first checkout), opens a subscription
  * Checkout Session for `config.stripePricePro`, and returns `{ url }`.
@@ -85,7 +85,7 @@ function statusForError(error: unknown): number {
  * id, so a retried checkout reuses one logical customer; the new id is persisted
  * only when the account had none.
  *
- * Time complexity: O(1) — at most one user read, one customer create, one
+ * Time complexity: O(1), at most one user read, one customer create, one
  * session create. Space complexity: O(1).
  */
 export async function handleCheckout(
@@ -106,7 +106,7 @@ export async function handleCheckout(
 
     const user = await getUserById(db, userId)
     if (user === null) {
-      // The key resolved to a user id, but the row is gone — treat as unauthenticated.
+      // The key resolved to a user id, but the row is gone, treat as unauthenticated.
       throw new AuthError('account not found')
     }
 

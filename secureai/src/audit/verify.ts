@@ -28,7 +28,7 @@ export interface ChainVerification {
  * seed). A caller that wants to bind the proof to a known seed compares
  * `proof.genesisHash` to `deriveGenesisHash(seed)` separately.
  *
- * Time complexity: O(n) — one digest per step, no nested rescans.
+ * Time complexity: O(n), one digest per step, no nested rescans.
  * Space complexity: O(1) beyond the input.
  */
 export async function verifyChain(proof: Proof): Promise<ChainVerification> {

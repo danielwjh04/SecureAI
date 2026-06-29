@@ -1,5 +1,5 @@
 /**
- * Claude Code PreToolUse guard — the inline interceptor that routes an agent's
+ * Claude Code PreToolUse guard, the inline interceptor that routes an agent's
  * tool calls through the SecureAI scanner and turns the scanner verdict into a
  * Claude Code permission decision (allow / ask / deny), fail-closed.
  *
@@ -17,7 +17,7 @@
  *     let through on a fault.
  *   - "Nothing to scan" is NOT a fault: a tool call with no URLs and no
  *     download-execute pattern carries no supply-chain indicator the scanner can
- *     reason about, so it is `allow` with a `null` verdict — detected by an empty
+ *     reason about, so it is `allow` with a `null` verdict, detected by an empty
  *     parse result, distinct from a real fault (oversize input still fail-closes).
  *   - Tighten-only: the decision is derived solely from the scanner verdict; this
  *     module never relaxes a BLOCK into an allow.
@@ -35,9 +35,9 @@ import { log } from '../observability/logger'
 
 /**
  * The Claude Code permission decision a PreToolUse hook may return.
- *   - `allow` — the tool call proceeds without prompting the user.
- *   - `ask`   — Claude Code prompts the user for approval before proceeding.
- *   - `deny`  — the tool call is blocked and the reason is fed back to the agent.
+ *   - `allow`, the tool call proceeds without prompting the user.
+ *   - `ask`, Claude Code prompts the user for approval before proceeding.
+ *   - `deny`, the tool call is blocked and the reason is fed back to the agent.
  */
 export type GuardPermissionDecision = 'allow' | 'ask' | 'deny'
 
@@ -135,7 +135,7 @@ function buildScannableContent(payload: PreToolUsePayload): string {
  * about (at least one URL or download-execute pattern). Runs the same
  * deterministic {@link parseSkill} the scanner runs and inspects its result: an
  * empty {@link ParseResult} (no URLs, no exec patterns) is a benign, link-free
- * tool call — nothing to scan (→ allow). Oversize input is still a real fault:
+ * tool call, nothing to scan (→ allow). Oversize input is still a real fault:
  * `parseSkill` throws {@link ParseError} on it, which propagates so the caller
  * fail-closes.
  *
@@ -145,12 +145,12 @@ function buildScannableContent(payload: PreToolUsePayload): string {
  * Time complexity: O(n) in the content length (one parser pass).
  * Space complexity: O(u + e) in the extracted URL / exec-pattern counts.
  *
- * @throws {ParseError} If `parseSkill` fails (oversize input) — a real fault the
+ * @throws {ParseError} If `parseSkill` fails (oversize input), a real fault the
  *   caller fail-closes on.
  */
 function hasScannableIndicators(content: string, deps: ScanDeps): boolean {
-  // parseSkill no longer throws on an empty extraction — a link-free document is
-  // benign and returns an empty result — so "nothing to scan" is the empty
+  // parseSkill no longer throws on an empty extraction, a link-free document is
+  // benign and returns an empty result, so "nothing to scan" is the empty
   // ParseResult. The only remaining ParseError is oversize input, which
   // propagates uncaught so the caller fail-closes (deny).
   const result = parseSkill(content, deps.config)

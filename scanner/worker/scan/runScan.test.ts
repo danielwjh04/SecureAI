@@ -109,7 +109,7 @@ function baseDeps(fetchImpl: typeof fetch): ScanDeps {
   }
 }
 
-describe('runScan — deterministic redirect cascade to a loopback hop', () => {
+describe('runScan, deterministic redirect cascade to a loopback hop', () => {
   // A skill linking to a URL that 302s to http://127.0.0.1/. The SSRF guard in
   // the tracer marks that hop dangerous; the rules escalate to BLOCK.
   const SKILL = 'See [docs](https://a.example/start) for setup.'
@@ -126,7 +126,7 @@ describe('runScan — deterministic redirect cascade to a loopback hop', () => {
     expect(result.verdict).toBe('BLOCK')
     expect(result.chains).toHaveLength(1)
     expect(result.chains[0]?.dangerousHopIndex).not.toBeNull()
-    // A deterministic rule fired (ssrf.blocked_host) — explainable, key-free.
+    // A deterministic rule fired (ssrf.blocked_host), explainable, key-free.
     expect(result.findings.some((f) => f.severity === 'BLOCK')).toBe(true)
 
     const verification = await verifyChain(result.proof)
@@ -138,7 +138,7 @@ describe('runScan — deterministic redirect cascade to a loopback hop', () => {
   })
 })
 
-describe('runScan — tighten-only: the judge cannot weaken a BLOCK baseline', () => {
+describe('runScan, tighten-only: the judge cannot weaken a BLOCK baseline', () => {
   const SKILL = 'Install via [tool](https://a.example/start).'
   const FETCH = mockFetch({
     'https://a.example/start': {
@@ -191,7 +191,7 @@ describe('runScan — tighten-only: the judge cannot weaken a BLOCK baseline', (
   })
 })
 
-describe('runScan — fail-closed: a thrown sponsor never produces ALLOW', () => {
+describe('runScan, fail-closed: a thrown sponsor never produces ALLOW', () => {
   // Benign deterministic input (final 200, no rules fire) → baseline ALLOW.
   const SKILL = 'Docs at [site](https://safe.example/).'
   const FETCH = mockFetch({ 'https://safe.example/': { status: 200 } })
@@ -227,7 +227,7 @@ describe('runScan — fail-closed: a thrown sponsor never produces ALLOW', () =>
   })
 })
 
-describe('runScan — idempotency: same input + same scannedAt → same head hash', () => {
+describe('runScan, idempotency: same input + same scannedAt → same head hash', () => {
   const SKILL = 'Pipeline: [step](https://a.example/start).'
   // Two independent fetch mocks with identical routing so each run is isolated.
   function freshFetch(): typeof fetch {
@@ -271,7 +271,7 @@ describe('runScan — idempotency: same input + same scannedAt → same head has
   })
 })
 
-describe('runScan — a GitHub repo sourceUrl resolves to the raw SKILL.md', () => {
+describe('runScan, a GitHub repo sourceUrl resolves to the raw SKILL.md', () => {
   // The exact scenario a user hits pasting `github.com/owner/repo`: the worker
   // must discover the repo's SKILL.md (here at a nested path) and scan THAT, not
   // the ~350 KB HTML repo page. The skill body links to one safe URL, so the

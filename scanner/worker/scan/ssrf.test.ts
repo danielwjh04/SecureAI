@@ -16,7 +16,7 @@ function assert(urlString: string): void {
   assertSafeUrl(new URL(urlString), CONFIG)
 }
 
-describe('assertSafeUrl — scheme', () => {
+describe('assertSafeUrl, scheme', () => {
   it('accepts a normal https URL', () => {
     expect(() => assert('https://example.com/path')).not.toThrow()
   })
@@ -36,7 +36,7 @@ describe('assertSafeUrl — scheme', () => {
   })
 })
 
-describe('assertSafeUrl — raw IP literals', () => {
+describe('assertSafeUrl, raw IP literals', () => {
   it('rejects a raw IPv4 literal host', () => {
     expect(() => assert('https://93.184.216.34/')).toThrow(
       RedirectResolutionError,
@@ -50,7 +50,7 @@ describe('assertSafeUrl — raw IP literals', () => {
   })
 })
 
-describe('assertSafeUrl — private / loopback / link-local', () => {
+describe('assertSafeUrl, private / loopback / link-local', () => {
   it('rejects RFC1918 10.0.0.0/8', () => {
     expect(() => assert('https://10.1.2.3/')).toThrow(RedirectResolutionError)
   })
@@ -85,7 +85,7 @@ describe('assertSafeUrl — private / loopback / link-local', () => {
   })
 })
 
-describe('assertSafeUrl — internal hostnames', () => {
+describe('assertSafeUrl, internal hostnames', () => {
   it('rejects localhost', () => {
     expect(() => assert('https://localhost/')).toThrow(RedirectResolutionError)
   })
@@ -103,7 +103,7 @@ describe('assertSafeUrl — internal hostnames', () => {
   })
 })
 
-describe('assertSafeUrl — accepts legitimate public https', () => {
+describe('assertSafeUrl, accepts legitimate public https', () => {
   it('accepts a normal public hostname with a port and path', () => {
     expect(() => assert('https://example.com:443/a/b?c=d')).not.toThrow()
   })
@@ -146,7 +146,7 @@ describe('isPrivateOrLoopbackHost', () => {
   })
 
   it('does NOT flag public IPv4 just outside the private ranges', () => {
-    // 172.15.x and 172.32.x are public (the private band is only 172.16–172.31).
+    // 172.15.x and 172.32.x are public (the private band is only 172.16-172.31).
     expect(isPrivateOrLoopbackHost('172.15.0.1')).toBe(false)
     expect(isPrivateOrLoopbackHost('172.32.0.1')).toBe(false)
     expect(isPrivateOrLoopbackHost('8.8.8.8')).toBe(false)

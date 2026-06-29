@@ -2,7 +2,7 @@
  * Recent-scans history repository over the narrow {@link Database} seam.
  *
  * One row records one successful AUTHENTICATED scan: its verdict, source
- * provenance (kind + a truncated label/URL — NEVER the scanned content), the
+ * provenance (kind + a truncated label/URL, NEVER the scanned content), the
  * flagged-indicator count, and the proof head hash that ties the row back to the
  * scan's tamper-evident chain. Anonymous callers are never written here (recent
  * scans are a per-account feature); the route enforces that before calling
@@ -15,7 +15,7 @@
 
 import type { BatchStatement, Database, Row } from './database'
 
-/** A row to persist into `scan_history` — one successful authenticated scan. */
+/** A row to persist into `scan_history`, one successful authenticated scan. */
 export interface ScanHistoryRow {
   readonly id: string
   readonly userId: string
@@ -38,7 +38,7 @@ export interface RecentScan {
 }
 
 /**
- * A caught-scan detail row to persist into `scan_details` — the scanned content
+ * A caught-scan detail row to persist into `scan_details`, the scanned content
  * plus the serialized evidence of ONE non-clean authenticated scan, for admin
  * review.
  *
@@ -103,10 +103,10 @@ function readCount(row: Row, column: string): number {
  * A single insert; the id is a caller-minted `crypto.randomUUID()` so replaying
  * the same logical scan with a fresh id appends a distinct entry (a re-scan is a
  * new event, not an update). The caller invokes this best-effort AFTER the scan
- * response is computed — a failure here must be caught at the call site and must
+ * response is computed, a failure here must be caught at the call site and must
  * never fail the scan.
  *
- * Time complexity: O(1) — single indexed insert. Space complexity: O(1).
+ * Time complexity: O(1), single indexed insert. Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param row - The history row to persist.
@@ -182,7 +182,7 @@ export async function listRecentScans(
  *
  * A single insert keyed on `scan_id` (the paired `scan_history.id`). The caller
  * invokes this best-effort AFTER the `scan_history` row is written and ONLY for a
- * non-clean (verdict != `ALLOW`) AUTHENTICATED scan — clean and anonymous scans
+ * non-clean (verdict != `ALLOW`) AUTHENTICATED scan, clean and anonymous scans
  * are never recorded here (CLAUDE.md §6 privacy). A failure here must be caught
  * at the call site and must never fail the scan response.
  *
@@ -190,7 +190,7 @@ export async function listRecentScans(
  * the same id is a no-op via `ON CONFLICT DO NOTHING` (a re-scan mints a fresh
  * `scan_history` id, so it is a distinct detail row, never an overwrite).
  *
- * Time complexity: O(1) — single indexed insert. Space complexity: O(1).
+ * Time complexity: O(1), single indexed insert. Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param row - The detail row to persist (content already truncated by caller).
@@ -225,9 +225,9 @@ export function scanDetailStatement(row: ScanDetailRow): BatchStatement {
  * `scan_details` carries the content + evidence, `scan_history` the
  * verdict/source/proof, and `users` the owner email. A detail whose scan or owner
  * has been removed is excluded (it can no longer be attributed), reading as
- * `null` — a 404 at the route.
+ * `null`, a 404 at the route.
  *
- * Time complexity: O(1) — three primary-key/indexed lookups. Space complexity:
+ * Time complexity: O(1), three primary-key/indexed lookups. Space complexity:
  * O(d) in the stored content length.
  *
  * @param db - The persistence seam.

@@ -58,7 +58,7 @@ export interface UserCredentialRecord {
 
 /**
  * The public-facing profile for `GET /api/me`. `apiKeyPrefix` is a short,
- * non-secret prefix of the caller's active key (enough to recognize it) — never
+ * non-secret prefix of the caller's active key (enough to recognize it), never
  * the full key, which is unrecoverable after mint.
  */
 export interface AccountProfile {
@@ -155,7 +155,7 @@ function requireString(row: Row, column: string): string {
 /**
  * Read a nullable text column as a non-empty string, or `null` when it is
  * absent, NULL, or empty. Used for display-only columns (names) that legacy and
- * API-key accounts never set — a missing value is normal, never an error.
+ * API-key accounts never set, a missing value is normal, never an error.
  */
 function optionalString(row: Row, column: string): string | null {
   const value = row[column]
@@ -188,13 +188,13 @@ async function insertApiKey(db: Database, userId: string, createdAt: string): Pr
  *
  * Mints a `crypto.randomUUID()` user id and a high-entropy raw key, persists
  * the user and ONLY the key's SHA-256 digest, and returns the user plus the raw
- * key — which is shown to the caller exactly once and is otherwise
+ * key, which is shown to the caller exactly once and is otherwise
  * unrecoverable. The two inserts run as separate statements; the user is
  * inserted first so a key row can never reference a missing user.
  *
  * The row is INSERTed `email_verified = 1`: this is the API-key signup path,
- * which has NO email-verification step — the raw key is the credential and is
- * returned directly — so the account is verified at creation and its key
+ * which has NO email-verification step, the raw key is the credential and is
+ * returned directly, so the account is verified at creation and its key
  * authenticates immediately (the column otherwise DEFAULTs to 0 / unverified).
  *
  * Time complexity: O(1) (two single-row inserts). Space complexity: O(1).
@@ -242,7 +242,7 @@ export async function createFreeUser(
  * Identical persistence to {@link createFreeUser} (user row first, then key),
  * but also stores the caller-supplied PBKDF2 `passwordHash` on the user so the
  * account can later authenticate by email + password OR by Bearer key. The
- * plaintext password is never seen here — only its already-derived hash.
+ * plaintext password is never seen here, only its already-derived hash.
  *
  * `emailVerified` sets the account's initial verification state. The register
  * route passes `false` when an email provider is configured (the account is
@@ -302,16 +302,16 @@ export async function createUserWithPassword(
  *
  * Hashes the presented key and joins `api_keys` (status `active`) to `users`,
  * returning the owning user id and tier. A missing or revoked key resolves to
- * `null` — this is an authentication MISS, not a fault, and is never thrown
+ * `null`, this is an authentication MISS, not a fault, and is never thrown
  * (the auth middleware treats a miss as anonymous, CLAUDE.md auth spec).
  *
  * The join also requires `u.email_verified = 1`, so an UNVERIFIED account's key
  * resolves to `null` (an auth miss → anonymous): a newly registered account
  * that has not yet verified its emailed code has NO working credential. This
- * fails closed — the key path is gated here, the session path in the auth
- * middleware — so neither credential authenticates an unverified account.
+ * fails closed, the key path is gated here, the session path in the auth
+ * middleware, so neither credential authenticates an unverified account.
  *
- * Time complexity: O(1) — primary-key lookup on `key_sha256` + PK join.
+ * Time complexity: O(1), primary-key lookup on `key_sha256` + PK join.
  * Space complexity: O(1).
  *
  * @param db - The persistence seam.
@@ -341,10 +341,10 @@ export async function findUserByApiKey(
  *
  * Idempotent: replaying the same `(stripeCustomerId, tier)` leaves the row in
  * the same state. A customer id that matches no user updates zero rows and is
- * a no-op, not an error — the webhook is the source of truth for whether the
+ * a no-op, not an error, the webhook is the source of truth for whether the
  * customer should exist.
  *
- * Time complexity: O(1) — indexed update on `stripe_customer_id`.
+ * Time complexity: O(1), indexed update on `stripe_customer_id`.
  * Space complexity: O(1).
  *
  * @throws {AuthError} On a database failure.
@@ -372,7 +372,7 @@ export async function setTierByStripeCustomer(
  * Idempotent for the same `(userId, tier)`. Updating an unknown user id is a
  * zero-row no-op rather than an error.
  *
- * Time complexity: O(1) — primary-key update. Space complexity: O(1).
+ * Time complexity: O(1), primary-key update. Space complexity: O(1).
  *
  * @throws {AuthError} On a database failure.
  */
@@ -393,10 +393,10 @@ export async function setUserTier(
 /**
  * Resolve a user by email for password login, or `null` when no account has that
  * email. Returns the id, tier, and stored password hash (`null` for an
- * API-key-only account). A miss is NOT an error — the login route maps both a
+ * API-key-only account). A miss is NOT an error, the login route maps both a
  * miss and a bad password to the same generic 401, never revealing which failed.
  *
- * Time complexity: O(1) — unique-index lookup on `email`. Space complexity: O(1).
+ * Time complexity: O(1), unique-index lookup on `email`. Space complexity: O(1).
  *
  * @param db - The persistence seam.
  * @param email - The canonical (trimmed, lowercased) account email.
@@ -429,9 +429,9 @@ export async function findUserByEmail(
  * Resolve a user id to its tier, or `null` when the id is unknown. Used by the
  * session-cookie auth path to turn a verified session subject into the metering
  * tier. A miss is `null` (the cookie no longer maps to a live account), not an
- * error — the auth middleware then downgrades to anonymous.
+ * error, the auth middleware then downgrades to anonymous.
  *
- * Time complexity: O(1) — primary-key lookup. Space complexity: O(1).
+ * Time complexity: O(1), primary-key lookup. Space complexity: O(1).
  *
  * @throws {AuthError} If the matched record has a corrupt (unrecognized) tier.
  */
@@ -456,7 +456,7 @@ export async function findTierByUserId(
  * `false`, so an account that cannot be proven verified is treated as
  * unverified and downgraded to anonymous.
  *
- * Time complexity: O(1) — primary-key lookup. Space complexity: O(1).
+ * Time complexity: O(1), primary-key lookup. Space complexity: O(1).
  */
 export async function isEmailVerified(db: Database, userId: string): Promise<boolean> {
   const row = await db.queryOne('SELECT email_verified FROM users WHERE id = ?', [userId])
@@ -471,11 +471,11 @@ export async function isEmailVerified(db: Database, userId: string): Promise<boo
  *
  * Idempotent: verifying an already-verified account re-sets the same value (a
  * no-op in effect), and an unknown user id updates zero rows without error. This
- * is the single write that completes a signup verification — it runs the moment
+ * is the single write that completes a signup verification, it runs the moment
  * a correct emailed code is accepted (proving email control), after which the
  * account's API key and session both authenticate.
  *
- * Time complexity: O(1) — primary-key update. Space complexity: O(1).
+ * Time complexity: O(1), primary-key update. Space complexity: O(1).
  *
  * @throws {AuthError} On a database failure.
  */
@@ -497,7 +497,7 @@ export async function markEmailVerified(db: Database, userId: string): Promise<v
  * the auth/admin gates to derive the effective role from the email allowlist plus
  * this column.
  *
- * Time complexity: O(1) — primary-key lookup. Space complexity: O(1).
+ * Time complexity: O(1), primary-key lookup. Space complexity: O(1).
  */
 export async function findRoleByUserId(
   db: Database,
@@ -513,10 +513,10 @@ export async function findRoleByUserId(
 /**
  * Read the public {@link AccountProfile} for `userId` (for `GET /api/me`), or
  * `null` when the id is unknown. `apiKeyPrefix` is the non-secret brand prefix
- * when the account has at least one ACTIVE key, else `null` — it never exposes
+ * when the account has at least one ACTIVE key, else `null`, it never exposes
  * key material (the full key is unrecoverable after mint).
  *
- * Time complexity: O(1) — primary-key read plus one indexed key-existence probe.
+ * Time complexity: O(1), primary-key read plus one indexed key-existence probe.
  * Space complexity: O(1).
  *
  * @param db - The persistence seam.

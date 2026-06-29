@@ -14,7 +14,7 @@
  *     test runtimes).
  *   - Signature comparison is constant-time.
  *   - Any tamper (payload edit, signature edit), a wrong secret, a malformed
- *     token, or an expired token all yield `null` — fail closed, never throw.
+ *     token, or an expired token all yield `null`, fail closed, never throw.
  *   - The cookie is `HttpOnly; Secure; SameSite=Lax; Path=/` so it is invisible
  *     to scripts, sent only over HTTPS, and not attached on cross-site requests.
  */

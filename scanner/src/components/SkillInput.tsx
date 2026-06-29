@@ -157,7 +157,7 @@ export function SkillInput({ onScan, busy }: SkillInputProps) {
                 />
                 <p className="text-white/45 text-[12px] leading-relaxed">
                   A GitHub repo, a <span className="font-mono">/blob/</span> link,
-                  or a raw URL — we resolve it to the actual skill an agent would
+                  or a raw URL, we resolve it to the actual skill an agent would
                   load, not the web page around it.
                 </p>
               </div>

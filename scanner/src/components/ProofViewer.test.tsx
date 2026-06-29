@@ -61,7 +61,7 @@ describe('ProofViewer', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('flips the edited row and every later row to broken — with no fetch', async () => {
+  it('flips the edited row and every later row to broken, with no fetch', async () => {
     const proof = await buildProof()
     const { container } = render(<ProofViewer proof={proof} />)
 
@@ -70,7 +70,7 @@ describe('ProofViewer', () => {
     })
 
     // Tamper step 1's payload. Re-hashing it changes its currHash, which breaks
-    // step 1 and — because each link feeds the next — every downstream step.
+    // step 1 and, because each link feeds the next, every downstream step.
     fireEvent.change(editorFor(container, 1), {
       target: { value: JSON.stringify({ url: 'https://evil.test/x', count: 99 }) },
     })

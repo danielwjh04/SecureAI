@@ -5,7 +5,7 @@
  * tamper with one byte and it breaks at exactly that link.
  *
  * It pairs an on-brand depiction of the real `POST /api/scan` -> `POST
- * /api/verify` round trip (a static, accurate code box — not a live verifier
+ * /api/verify` round trip (a static, accurate code box, not a live verifier
  * widget) with a "live" stat row derived from the committed public gallery,
  * reusing the same fetch + computation as the Enterprise KPI row. The stat row
  * degrades gracefully: an absent or empty gallery reads as zero, never an error.
@@ -68,7 +68,7 @@ const STATS: Stat[] = [
  * is an accurate static depiction, not a runnable transcript, so the response
  * bodies are shown as the contract's real shapes.
  */
-const PROOF_FLOW = `# 1 · Scan a skill — the verdict carries a re-verifiable proof.
+const PROOF_FLOW = `# 1 · Scan a skill, the verdict carries a re-verifiable proof.
 POST ${API.scan}
   { "sourceUrl": "https://github.com/owner/skill-repo" }
 -> { "verdict": "...", "proof": { "genesisHash", "steps", "headHash" } }
@@ -126,12 +126,12 @@ export function VerifyIt() {
           <CodeBlock language="http" code={PROOF_FLOW} />
           <div className="flex flex-wrap items-center gap-2 text-[12px] font-mono">
             <span className="glass-pill px-3 py-1.5 text-allow">CHAIN_OK</span>
-            <span className="text-white/35">— untouched proof re-verifies.</span>
+            <span className="text-white/35">, untouched proof re-verifies.</span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[12px] font-mono">
             <span className="glass-pill px-3 py-1.5 text-block">CHAIN_BROKEN</span>
             <span className="text-white/35">
-              — one changed byte, flagged at the exact link.
+ one changed byte, flagged at the exact link.
             </span>
           </div>
         </motion.div>

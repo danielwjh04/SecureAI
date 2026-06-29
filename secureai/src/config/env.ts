@@ -35,7 +35,7 @@ export interface Env {
   /**
    * HMAC secret signing stateless session cookies. A SECRET (set via
    * `wrangler secret put SESSION_SECRET`), so it is read from `env` at the route
-   * — never folded into {@link ScannerConfig}, and never in source. When absent,
+   * never folded into {@link ScannerConfig}, and never in source. When absent,
    * cookie auth is simply unavailable and the register/login routes return 503;
    * Bearer API-key auth keeps working without it.
    */
@@ -43,7 +43,7 @@ export interface Env {
   /**
    * API key for the Resend transactional-email provider, used to deliver 2FA
    * sign-in codes. A SECRET (set via `wrangler secret put RESEND_API_KEY`), so
-   * it is read from `env` at the route — never folded into {@link ScannerConfig},
+   * it is read from `env` at the route, never folded into {@link ScannerConfig},
    * and never in source. When absent, email 2FA is simply unavailable and login
    * issues a session immediately after the password check (today's behavior);
    * when present, a successful password starts an emailed-code challenge.
@@ -97,7 +97,7 @@ export interface ScannerConfig {
    * {@link ScanResult} (with a fresh `scannedAt`) without re-tracing redirects
    * or re-running the AI stage. `0` disables the cache. Kept SHORT by default:
    * the cache serves identical content for the window, so a changed indicator /
-   * feed could be briefly masked — the documented tradeoff for the latency win.
+   * feed could be briefly masked, the documented tradeoff for the latency win.
    */
   readonly verdictCacheTtlSeconds: number
   /** Stripe Price id for the Pro tier ($12/mo recurring). Used at checkout. */
@@ -133,8 +133,8 @@ export interface ScannerConfig {
   readonly otpMaxAttempts: number
   /**
    * Recipients (lowercased, deduped) of a contact-sales inquiry submitted via
-   * `POST /api/contact`. These live SERVER-SIDE only — the public form never
-   * carries them — so the inbox set can be retuned via the
+   * `POST /api/contact`. These live SERVER-SIDE only, the public form never
+   * carries them, so the inbox set can be retuned via the
    * `SCANNER_CONTACT_RECIPIENTS` var without a code edit and without exposing the
    * addresses to the browser. At least one recipient is required (an empty set
    * fails config load closed).
@@ -209,7 +209,7 @@ export interface ScannerConfig {
    * `feed_indicators` table and the reputation stage consults it. The source URLs
    * default to the abuse.ch online/recent exports (recency is the endpoint
    * choice, retunable here). The Auth-Key is a SECRET (`URLHAUS_AUTH_KEY`), read
-   * from env in the cron — never config, never source.
+   * from env in the cron, never config, never source.
    */
   readonly feedEnabled: boolean
   readonly feedUrlhausUrlList: string
@@ -272,8 +272,8 @@ export function loadConfig(env: Env): ScannerConfig {
     0,
     86400,
   )
-  // Billing (Stripe). The Pro price id has no safe default — it is account- and
-  // mode-specific — so the placeholder is shipped in wrangler.jsonc and must be
+  // Billing (Stripe). The Pro price id has no safe default, it is account- and
+  // mode-specific, so the placeholder is shipped in wrangler.jsonc and must be
   // replaced before the billing routes function. The base URL has a public
   // default. Secrets (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET) are NOT read
   // here; they are read from env at the route so a missing secret degrades the
@@ -285,7 +285,7 @@ export function loadConfig(env: Env): ScannerConfig {
   // runtime has no cap, which hid this). So 100k is the platform ceiling and our
   // default; the max is pinned to 100_000 so an out-of-range value fails closed at
   // config load rather than at the first register. (To exceed 100k effective cost
-  // on Workers you must chain multiple deriveBits calls — a future hardening.)
+  // on Workers you must chain multiple deriveBits calls, a future hardening.)
   // Session TTL defaults to 7 days (604800s), matching the cookie the frontend expects.
   const pbkdf2Iterations = readIntInRange(env, 'SCANNER_PBKDF2_ITERATIONS', 100000, 10000, 100000)
   const sessionTtlSeconds = readIntInRange(env, 'SCANNER_SESSION_TTL_SECONDS', 604800, 60, 31536000)
@@ -294,7 +294,7 @@ export function loadConfig(env: Env): ScannerConfig {
   // by SCANNER_ADMIN_EMAILS in wrangler.jsonc, never hardcoded here.
   const adminEmails = readSet(env, 'SCANNER_ADMIN_EMAILS', '')
   // Email 2FA tunables (non-secret). The provider secret RESEND_API_KEY is NOT
-  // read here — it is read from env at the route so a missing key degrades login
+  // read here, it is read from env at the route so a missing key degrades login
   // to immediate-session (today's behavior) rather than failing config load for
   // every route. emailFrom must be on a Resend-verified domain. The OTP TTL
   // defaults to 10 minutes; the attempt cap to 5 tries before a code is spent.
@@ -477,7 +477,7 @@ function readSet(env: Env, key: string, fallback: string): ReadonlySet<string> {
 /**
  * Read a boolean var: exactly `"true"` or `"false"` (case-insensitive, trimmed),
  * or the fallback when unset. Any other value fails closed with a
- * {@link ConfigError} rather than silently coercing — a typo'd flag must not be
+ * {@link ConfigError} rather than silently coercing, a typo'd flag must not be
  * read as a quiet `false`.
  */
 function readBool(env: Env, key: string, fallback: boolean): boolean {

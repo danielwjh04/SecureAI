@@ -1,5 +1,5 @@
 /**
- * `GET /api/stats` handler — the authenticated caller's protection stats over the
+ * `GET /api/stats` handler, the authenticated caller's protection stats over the
  * last 30 days: totals plus an ascending per-day series of verdict/indicator
  * counters, for the dashboard's monthly summary.
  *

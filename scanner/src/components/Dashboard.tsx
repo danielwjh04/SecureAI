@@ -7,7 +7,7 @@
  * key reveal on rotation.
  *
  * Every chart is themed dark with the verdict palette (--allow / --review /
- * --block) — no default light recharts theme leaks through.
+ * --block), no default light recharts theme leaks through.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -297,8 +297,8 @@ function EmptyState() {
         No scans yet
       </h3>
       <p className="text-white/55 text-[14px] max-w-md leading-relaxed">
-        Run your first scan and your protection stats — threats blocked, IOCs
-        caught, and the verdict trend — will appear here.
+        Run your first scan and your protection stats, threats blocked, IOCs
+        caught, and the verdict trend, will appear here.
       </p>
       <a
         href="#"
@@ -501,7 +501,7 @@ function RecentScans() {
 
       {(state.phase === 'error' || (state.phase === 'ready' && scans.length === 0)) && (
         <p className="text-white/45 text-[13px] py-6 text-center leading-relaxed">
-          No scans yet — run one from the scanner.
+          No scans yet, run one from the scanner.
         </p>
       )}
 
@@ -645,7 +645,7 @@ function ApiKeyCard({ apiKeyPrefix }: { apiKeyPrefix: string }) {
             <CopyButton value={revealed} label="Copy new API key" />
           </div>
           <p className="text-review/90 font-mono text-[11px] leading-snug">
-            Copy this now — it will not be shown again.
+            Copy this now, it will not be shown again.
           </p>
         </div>
       )}
@@ -701,7 +701,7 @@ function GuardSetupCard() {
           </h3>
         </div>
         <p className="text-white/55 text-[13px] leading-relaxed">
-          Screen every tool call your agent makes — fail-closed, so a call is
+          Screen every tool call your agent makes, fail-closed, so a call is
           denied unless the Guard clears it. Drop it in as a PreToolUse hook.
         </p>
       </div>
@@ -757,7 +757,7 @@ function GuardSetupCard() {
               <CopyButton value={command} label="Copy install command" />
             </div>
             <p className="text-review/90 font-mono text-[11px] leading-snug">
-              This generated a fresh API key — your previous keys are now revoked.
+              This generated a fresh API key, your previous keys are now revoked.
               Copy this command now; the key isn't shown again.
             </p>
           </div>

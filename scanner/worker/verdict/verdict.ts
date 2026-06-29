@@ -3,7 +3,7 @@
  * `escalate` (tighten-only) and `mapProbabilityToVerdict` (threshold bands).
  *
  * Port of `secureSG/guard/screening.py` (`_SEVERITY`, `escalate`,
- * `map_probability_to_verdict`). The core safety invariant — the SP3 design —
+ * `map_probability_to_verdict`). The core safety invariant, the SP3 design
  * is that a model or any later stage may only ever *raise* severity, never lower
  * it. Every place that folds a candidate verdict into a running baseline does so
  * through `escalate`, so the chain of decisions is monotonic toward caution.
@@ -31,8 +31,8 @@ const SEVERITY: Record<Verdict, number> = {
  * Return the more severe of two verdicts; ties keep `baseline`.
  *
  * This is the tighten-only gate (port of `escalate` in `screening.py`): a
- * `candidate` verdict — from a deterministic rule, Exa reputation, or the OpenAI
- * judge — may raise the running `baseline` but can never weaken it. An
+ * `candidate` verdict, from a deterministic rule, Exa reputation, or the OpenAI
+ * judge, may raise the running `baseline` but can never weaken it. An
  * equal-severity candidate keeps the baseline so a precise earlier finding is
  * not displaced by a coincident one.
  *

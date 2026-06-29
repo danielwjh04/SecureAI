@@ -4,7 +4,7 @@
  * A visitor submits `{ name, email, message }` and the inquiry is emailed to the
  * server-side-configured recipients (`config.contactRecipients`) via the same
  * Resend {@link EmailSender} the OTP flow uses. The recipient inboxes NEVER leave
- * the server — the public form carries only the visitor's own fields — so the
+ * the server, the public form carries only the visitor's own fields, so the
  * sales addresses cannot be scraped from the frontend.
  *
  * Abuse bound: a per-client-IP (CF-Connecting-IP) rate limit of
@@ -67,7 +67,7 @@ const HTML_ESCAPE_PATTERN = /[&<>"']/g
 /**
  * Escape the five HTML-significant characters so untrusted text is safe to embed
  * in an HTML email body (it renders as literal text, never markup). `&` is in the
- * map so an already-escaped entity is double-escaped rather than passed through —
+ * map so an already-escaped entity is double-escaped rather than passed through
  * the value is plain text, not pre-escaped HTML.
  *
  * Time complexity: O(n) in the string length. Space complexity: O(n).

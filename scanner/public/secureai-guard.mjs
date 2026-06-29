@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * SecureAI Guard — Claude Code PreToolUse hook (client side).
+ * SecureAI Guard, Claude Code PreToolUse hook (client side).
  *
  * Claude Code runs this script BEFORE every tool call. It reads the full
  * PreToolUse JSON payload from stdin, forwards it to the SecureAI scanner's
@@ -11,8 +11,8 @@
  *     HUMAN_APPROVAL_REQUIRED -> permissionDecision "ask"
  *     BLOCK                   -> permissionDecision "deny"
  *
- * FAIL-CLOSED GUARANTEE: if the guard cannot reach a confident decision — a
- * network error, a timeout, a non-2xx response, or an unparseable body — it
+ * FAIL-CLOSED GUARANTEE: if the guard cannot reach a confident decision, a
+ * network error, a timeout, a non-2xx response, or an unparseable body, it
  * prints a `deny` decision and exits 0. It NEVER prints `allow` on failure, so a
  * down or unreachable scanner blocks the tool call rather than waving it through.
  *
@@ -68,8 +68,8 @@ function emitDecision(permissionDecision, permissionDecisionReason) {
 }
 
 /**
- * Emit the fail-closed `deny` decision. Centralized so every failure path —
- * unreadable stdin, network fault, timeout, non-2xx, malformed body — produces
+ * Emit the fail-closed `deny` decision. Centralized so every failure path
+ * unreadable stdin, network fault, timeout, non-2xx, malformed body, produces
  * the identical deny-by-default output. Never allows on failure.
  *
  * @param {string} reason Why the guard could not verify the call.
@@ -119,7 +119,7 @@ async function main() {
   }
 
   // The payload must be valid JSON; if Claude Code handed us something
-  // unparseable, we cannot safely forward it — fail closed.
+  // unparseable, we cannot safely forward it, fail closed.
   try {
     JSON.parse(payload)
   } catch {

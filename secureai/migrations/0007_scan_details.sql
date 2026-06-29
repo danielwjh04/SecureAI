@@ -1,4 +1,4 @@
--- SecureAI caught-scan detail store — the actual scanned content + structured
+-- SecureAI caught-scan detail store, the actual scanned content + structured
 -- findings of a MALICIOUS skill/artifact, so an admin can review what was caught.
 --
 -- One row per non-clean AUTHENTICATED scan (verdict != 'ALLOW', i.e.

@@ -1,12 +1,12 @@
 /**
  * Offline common-password denylist (rule DATA, not logic). This is the curated
  * set of the most-abused passwords that registration rejects outright, without a
- * network call — the cheap first layer before the online HIBP breach check
+ * network call, the cheap first layer before the online HIBP breach check
  * (`auth/breachCheck.ts`) covers the long tail. Edit this list to retune the
  * denylist; the policy logic in `auth/passwordPolicy.ts` never changes with it.
  *
  * Entries are compared case-insensitively (the policy lowercases the candidate),
- * so list each only once in lowercase. Keep it to genuinely ubiquitous choices —
+ * so list each only once in lowercase. Keep it to genuinely ubiquitous choices
  * it is a denylist of the worst offenders, not a dictionary.
  */
 

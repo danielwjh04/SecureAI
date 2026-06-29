@@ -11,7 +11,7 @@
  * fresh code via `POST /api/login/resend`. Signup reaches that same step without
  * its own code: `POST /api/register` returns `{ registered: true }` (no session,
  * no code), so the submit handler immediately signs in with the same credentials
- * and follows the login path — one form submission, one emailed code from login.
+ * and follows the login path, one form submission, one emailed code from login.
  * When no email provider is configured both register and login return `{ user }`
  * and go straight to the dashboard. The code step's copy is keyed off the mode so
  * signup reads as "finish creating your account" while login reads as "sign in".
@@ -136,7 +136,7 @@ const CODE_COPY: Record<AuthMode, {
     eyebrow: 'Finish signup',
     title: 'Verify your email',
     bodyBefore: 'We emailed a 6-digit code to ',
-    bodyAfter: ' — enter it to finish creating your account.',
+    bodyAfter: ', enter it to finish creating your account.',
   },
 }
 
@@ -203,7 +203,7 @@ export function Auth({ mode, auth }: AuthProps) {
         // returns either a completed session (`{ user }`, no verification) or
         // `{ registered: true }` (verification deferred to login). On the latter,
         // sign in immediately with the same credentials and handle that login's
-        // result — including its 2FA challenge — exactly like the login path, so
+        // result, including its 2FA challenge, exactly like the login path, so
         // the user submits the signup form once and flows straight into the one
         // emailed code that login issues.
         const registered = await register({ ...credentials, firstName, lastName })

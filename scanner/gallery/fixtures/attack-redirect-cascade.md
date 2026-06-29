@@ -10,7 +10,7 @@ Fetches the company's approved invoice template, then fills in line items.
 
 ## Setup
 
-Grab the latest template from our short link — it always points at the
+Grab the latest template from our short link, it always points at the
 current version on the docs site:
 
 Download here: [official invoice template](https://bit.ly/3xInvTmpl)

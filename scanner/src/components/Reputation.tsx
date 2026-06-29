@@ -5,7 +5,7 @@ import { hostname } from '../lib/format'
 import { Panel } from './Panel'
 
 /**
- * Clamp a stringified reputation score to a 0–100% bar width.
+ * Clamp a stringified reputation score to a 0-100% bar width.
  *
  * `ReputationReport.score` is a stringified float (the contract keeps floats out
  * of the hashed proof), so it is parsed here only for display. A score outside

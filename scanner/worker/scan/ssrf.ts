@@ -13,11 +13,11 @@
  *   - the host must not be a private (RFC1918), loopback, link-local, or
  *     internal-only name (`localhost`, `*.internal`, `*.local`).
  *
- * RESIDUAL LIMITATION — DNS rebinding: a *public* hostname can still resolve to
+ * RESIDUAL LIMITATION, DNS rebinding: a *public* hostname can still resolve to
  * a private IP at fetch time, and the Worker has no visibility into that
  * resolution, so these literal/name checks cannot catch it. This is inherent to
  * the Workers runtime. The compensating control is that the scanner never pulls
- * attacker page *content* itself — Exa (a sandboxed external fetcher) does — so
+ * attacker page *content* itself, Exa (a sandboxed external fetcher) does, so
  * the blast radius of a rebind is limited to a redirect HEAD/GET against an
  * internal address with no response body surfaced to the client. Document, do
  * not pretend to fully solve.
@@ -83,7 +83,7 @@ const IPV4_LITERAL = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
  *   2. raw IP literal rejection (an IP host bypasses name-based policy entirely);
  *   3. private / loopback / link-local / internal-name rejection.
  *
- * Time complexity: O(1) — a fixed number of set lookups, a bounded regex on the
+ * Time complexity: O(1), a fixed number of set lookups, a bounded regex on the
  *   host, and constant suffix comparisons. No scan over the URL length.
  * Space complexity: O(1).
  *
@@ -128,7 +128,7 @@ export function assertSafeUrl(url: URL, config: SsrfConfig): void {
  *   IPv6 address (it has already removed the surrounding brackets and the port),
  *   so a single colon test is sufficient and unambiguous for parsed URLs.
  *
- * Time complexity: O(1) — bounded regex + constant comparisons. Space: O(1).
+ * Time complexity: O(1), bounded regex + constant comparisons. Space: O(1).
  *
  * @param host - Lowercase hostname from a parsed URL.
  * @returns `true` if the host is a raw IP literal.
@@ -157,7 +157,7 @@ export function isRawIpLiteral(host: string): boolean {
  * IPv6 forms rejected: `::1` (loopback), `fe80::/10` link-local prefixes.
  * Names rejected: `localhost`, and any host ending in `.internal` / `.local`.
  *
- * Time complexity: O(1) — constant octet/prefix/suffix comparisons. Space: O(1).
+ * Time complexity: O(1), constant octet/prefix/suffix comparisons. Space: O(1).
  *
  * @param host - Lowercase hostname from a parsed URL.
  * @returns `true` if the host is private/loopback/link-local/internal.
@@ -189,7 +189,7 @@ export function isPrivateOrLoopbackHost(host: string): boolean {
  * well-formed dotted-quad. Each octet must be 0..255 with no leading-zero
  * ambiguity beyond what `Number` tolerates; out-of-range values yield `null`.
  *
- * Time complexity: O(1) — fixed-size match and four bounded conversions.
+ * Time complexity: O(1), fixed-size match and four bounded conversions.
  * Space complexity: O(1) (a 4-element tuple).
  */
 function parseIpv4Octets(
@@ -260,7 +260,7 @@ function isPrivateIpv4(
  *     `fe80`..`febf`. We test the documented `fe8`/`fe9`/`fea`/`feb` prefixes,
  *     which exactly cover that /10 for the leading hextet.
  *
- * Time complexity: O(1) — constant prefix/equality checks. Space: O(1).
+ * Time complexity: O(1), constant prefix/equality checks. Space: O(1).
  */
 function isPrivateIpv6(host: string): boolean {
   if (host === '::1' || host === '0:0:0:0:0:0:0:1') {
