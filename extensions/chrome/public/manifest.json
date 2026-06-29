@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "SecureAI Browser Protection",
+  "short_name": "SecureAI",
+  "version": "0.0.0",
+  "description": "Scan browser-visible AI content and block learned risky destinations locally.",
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "alarms",
+    "contextMenus",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://secureai.software/*",
+    "https://github.com/*",
+    "https://raw.githubusercontent.com/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://www.perplexity.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SecureAI"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*",
+        "https://raw.githubusercontent.com/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://www.perplexity.ai/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureAI</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup__header">
+        <span class="popup__mark">S</span>
+        <div>
+          <h1>SecureAI</h1>
+          <p id="connection">Not paired</p>
+        </div>
+      </header>
+
+      <label class="field">
+        <span>API key</span>
+        <input id="apiKey" type="password" autocomplete="off" placeholder="sk_live..." />
+      </label>
+      <button id="saveKey" type="button">Pair extension</button>
+
+      <section class="toggles" aria-label="Protection toggles">
+        <label><input id="pasteGuard" type="checkbox" /> Paste guard</label>
+        <label><input id="pageScan" type="checkbox" /> Page scan buttons</label>
+        <label><input id="egressBlock" type="checkbox" /> Egress blocking</label>
+      </section>
+
+      <dl class="stats">
+        <div>
+          <dt>Recent verdicts</dt>
+          <dd id="recentCount">0</dd>
+        </div>
+        <div>
+          <dt>DNR rules</dt>
+          <dd id="dnrCount">0</dd>
+        </div>
+        <div>
+          <dt>Last block</dt>
+          <dd id="lastBlocked">None</dd>
+        </div>
+      </dl>
+
+      <p class="boundary">
+        SecureAI scans browser-visible content before AI reads it and blocks risky destinations in this browser.
+        It cannot see actions an AI provider runs only on its own servers.
+      </p>
+      <p id="status" class="status" role="status"></p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

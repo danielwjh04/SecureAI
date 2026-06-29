@@ -1,0 +1,45 @@
+.secureai-scan-button {
+  align-items: center;
+  background: #136f63;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  font: 600 12px/1.2 system-ui, sans-serif;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  position: relative;
+  z-index: 2147483646;
+}
+
+.secureai-toast {
+  background: #ffffff;
+  border: 1px solid #d8dee8;
+  border-left: 5px solid #136f63;
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  color: #17202a;
+  font: 13px/1.4 system-ui, sans-serif;
+  max-width: min(380px, calc(100vw - 28px));
+  padding: 12px;
+  position: fixed;
+  right: 14px;
+  top: 14px;
+  z-index: 2147483647;
+}
+
+.secureai-toast strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.secureai-toast--review {
+  border-left-color: #a66c00;
+}
+
+.secureai-toast--block {
+  border-left-color: #b42318;
+}
