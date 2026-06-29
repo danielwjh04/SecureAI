@@ -12,7 +12,7 @@
 
 ---
 
-**Verifiable security for AI agents.** SecureAI is an antivirus, a VirusTotal, for AI coding agents. It guards the two places an autonomous agent gets compromised: the skills, tools, and links it ingests (supply chain) and the actions it runs (runtime). Every decision comes with a cryptographic record you can re-check yourself. The idea in one line: don't trust the guard, verify it.
+**Verifiable security for AI agents.** SecureAI is an antivirus for AI coding agents. It guards the two places an autonomous agent gets compromised: the skills, tools, and links it ingests (supply chain) and the actions it runs (runtime). Every decision comes with a cryptographic record you can re-check yourself. The idea in one line: don't trust the guard, verify it.
 
 > **Try it live [here](https://secureai.software)** Paste a skill or a link, watch it get scanned (redirect cascade, then the SSRF-guarded tracer, then known-bad indicators, then the AI injection judge), then tamper the cryptographic proof in your own browser and watch the chain break.
 
@@ -130,7 +130,7 @@ Each tier has a daily scan cap, and the AI injection judge is reserved for paid 
 
 > These caps and paid price ids mirror `secureai/wrangler.jsonc`. They are config, not code, so change them there and keep this table in sync.
 
-Personal and Pro are sold through Stripe Checkout (idempotent webhooks + billing portal). Your app navigation is Dashboard, Scan, Protection, Activity, Integrations, and Settings. The dashboard shows protection stats, a 30-day trend, recent scans, your API key (with one-click rotation), and the one-line Guard installer.
+Free accounts subscribe to Personal or Pro through Stripe Checkout (idempotent webhooks); paid accounts manage or cancel from Settings through the Stripe billing portal. Your app navigation is How it works, Dashboard, Protection, Activity, Integrations, and Settings, with Log out on the right. The dashboard shows protection stats, a 30-day trend, recent scans, your API key (with one-click rotation), and the one-line Guard installer.
 
 ## 👥 Team & admin
 

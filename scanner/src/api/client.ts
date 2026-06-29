@@ -351,6 +351,20 @@ export async function startCheckout(tier: 'personal' | 'pro' = 'pro'): Promise<C
 }
 
 /**
+ * Open the Stripe billing portal for the signed-in paid account and return the
+ * URL to redirect to, so a subscriber can switch plan or cancel. Takes no body:
+ * the customer is resolved from the session. Throws {@link ApiError}(422) when
+ * the account has no Stripe customer yet, or (502) when the customer portal is
+ * not enabled in the Stripe dashboard.
+ */
+export async function openPortal(): Promise<CheckoutResponse> {
+  return request<CheckoutResponse>(API.portal, {
+    method: 'POST',
+    ...WITH_CREDENTIALS,
+  })
+}
+
+/**
  * Submit an enterprise sales enquiry from the pricing page's contact form. POSTs
  * the visitor's name, email, and message to {@link API.contact}; the recipient
  * addresses are server-side, so the body never carries them. This is a public,

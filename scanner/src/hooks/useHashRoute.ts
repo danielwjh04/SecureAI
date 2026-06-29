@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 
 export type Route =
   | 'scanner'
+  | 'howItWorks'
   | 'pricing'
   | 'login'
   | 'register'
@@ -17,39 +18,32 @@ export type Route =
   | 'integrations'
   | 'settings'
   | 'admin'
-export type RouteTarget = 'top' | 'how' | 'verify'
-
-export interface HashRoute {
-  route: Route
-  target: RouteTarget
-}
 
 /**
  * Map each known hash to its route. The leading `#` is stripped so a hash with a
- * trailing query (none today, but cheap insurance) still resolves. Every entry
- * lands on the `top` target except `#how`, which deep-links into the scanner
- * landing's how-it-works section, and `#verify`, which deep-links into the
- * verify-it section.
+ * trailing query (none today, but cheap insurance) still resolves. `#how` and
+ * `#verify` both resolve to the public How it works page; `#scan` and any
+ * unknown hash fall back to the scanner landing.
  */
-const HASH_ROUTES: Record<string, HashRoute> = {
-  pricing: { route: 'pricing', target: 'top' },
-  login: { route: 'login', target: 'top' },
-  register: { route: 'register', target: 'top' },
-  dashboard: { route: 'dashboard', target: 'top' },
-  scan: { route: 'scanner', target: 'top' },
-  protection: { route: 'protection', target: 'top' },
-  activity: { route: 'activity', target: 'top' },
-  integrations: { route: 'integrations', target: 'top' },
-  settings: { route: 'settings', target: 'top' },
-  admin: { route: 'admin', target: 'top' },
-  how: { route: 'scanner', target: 'how' },
-  verify: { route: 'scanner', target: 'verify' },
+const HASH_ROUTES: Record<string, Route> = {
+  pricing: 'pricing',
+  login: 'login',
+  register: 'register',
+  dashboard: 'dashboard',
+  scan: 'scanner',
+  protection: 'protection',
+  activity: 'activity',
+  integrations: 'integrations',
+  settings: 'settings',
+  admin: 'admin',
+  how: 'howItWorks',
+  verify: 'howItWorks',
 }
 
-const DEFAULT_ROUTE: HashRoute = { route: 'scanner', target: 'top' }
+const DEFAULT_ROUTE: Route = 'scanner'
 
 /** Map the current location hash to a known route. */
-function routeFromHash(): HashRoute {
+function routeFromHash(): Route {
   const key = window.location.hash.replace(/^#/, '')
   return HASH_ROUTES[key] ?? DEFAULT_ROUTE
 }
@@ -60,8 +54,8 @@ function routeFromHash(): HashRoute {
  *
  * Time complexity: O(1) per change. Space complexity: O(1).
  */
-export function useHashRoute(): HashRoute {
-  const [route, setRoute] = useState<HashRoute>(routeFromHash)
+export function useHashRoute(): Route {
+  const [route, setRoute] = useState<Route>(routeFromHash)
   useEffect(() => {
     const onChange = (): void => setRoute(routeFromHash())
     const previousScrollRestoration = window.history.scrollRestoration

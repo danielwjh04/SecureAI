@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
-import type { AuthState } from '../hooks/useAuth'
 import type { MeResponse, RecentScan, StatsResponse } from '../api/types'
 import * as client from '../api/client'
 import { GUARD_DOWNLOAD_PATH, guardInstallCommand } from '../config'
@@ -16,10 +15,6 @@ const USER: MeResponse = {
   role: 'member',
   isAdmin: false,
   isOwner: false,
-}
-
-function authState(): AuthState {
-  return { status: 'authenticated', user: USER, isAdmin: false, isOwner: false, refresh: vi.fn() }
 }
 
 function emptyStats(): StatsResponse {
@@ -57,7 +52,7 @@ describe('Dashboard', () => {
     // their loading phase, with no async state update after the synchronous render.
     vi.spyOn(client, 'fetchStats').mockReturnValue(new Promise(() => {}))
     vi.spyOn(client, 'fetchRecentScans').mockReturnValue(new Promise(() => {}))
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
 
     expect(screen.getByText(/Loading your protection stats/)).toBeInTheDocument()
     // The greeting and key card render immediately around the loading body. With
@@ -71,7 +66,7 @@ describe('Dashboard', () => {
     vi.spyOn(client, 'fetchStats').mockReturnValue(new Promise(() => {}))
     vi.spyOn(client, 'fetchRecentScans').mockReturnValue(new Promise(() => {}))
     const nameless = { ...USER, firstName: null, lastName: null }
-    render(<Dashboard user={nameless} auth={authState()} />)
+    render(<Dashboard user={nameless} />)
 
     // No first name → the heading shows the email, as before this feature.
     expect(screen.getByText(nameless.email)).toBeInTheDocument()
@@ -81,7 +76,7 @@ describe('Dashboard', () => {
   it('renders an intentional empty state for a new account with no scans', async () => {
     vi.spyOn(client, 'fetchStats').mockResolvedValue(emptyStats())
     stubRecent([])
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
 
     await waitFor(() =>
       expect(screen.getByText('No scans yet')).toBeInTheDocument(),
@@ -95,7 +90,7 @@ describe('Dashboard', () => {
   it('collapses the stat-card grid to a single column on mobile', async () => {
     vi.spyOn(client, 'fetchStats').mockResolvedValue(emptyStats())
     stubRecent([])
-    const { container } = render(<Dashboard user={USER} auth={authState()} />)
+    const { container } = render(<Dashboard user={USER} />)
 
     // The stat-card grid (rendered once stats resolve) is mobile-first single
     // column, widening to 2 at sm and 4 at lg.
@@ -127,7 +122,7 @@ describe('Dashboard · recent scans', () => {
         headHash: 'h2'.padEnd(64, '0'),
       }),
     ])
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
 
     await waitFor(() => expect(screen.getByText('Recent scans')).toBeInTheDocument())
     // Verdict pills: BLOCK shown, and HUMAN_APPROVAL_REQUIRED displays as REVIEW.
@@ -144,7 +139,7 @@ describe('Dashboard · recent scans', () => {
 
   it('shows the intentional empty state when there are no recent scans', async () => {
     stubRecent([])
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
 
     await waitFor(() =>
       expect(screen.getByText(/No scans yet, run one from the scanner/)).toBeInTheDocument(),
@@ -153,7 +148,7 @@ describe('Dashboard · recent scans', () => {
 
   it('falls back to the empty state when the recent-scans fetch fails', async () => {
     vi.spyOn(client, 'fetchRecentScans').mockRejectedValue(new Error('nope'))
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
 
     await waitFor(() =>
       expect(screen.getByText(/No scans yet, run one from the scanner/)).toBeInTheDocument(),
@@ -171,7 +166,7 @@ describe('Dashboard · API key copy', () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, { clipboard: { writeText } })
 
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
 
     // The persistent display shows the prefix with a copy button beside it.
     const copyButton = screen.getByRole('button', { name: /Copy API key prefix/ })
@@ -190,14 +185,14 @@ describe('Dashboard · Set up the Guard', () => {
   })
 
   it('renders the Guard download link with a download attribute', () => {
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
     const download = screen.getByRole('link', { name: /Download the Guard/ })
     expect(download).toHaveAttribute('href', GUARD_DOWNLOAD_PATH)
     expect(download).toHaveAttribute('download')
   })
 
   it('shows the key-rotation hint and no install command before generating', () => {
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
     expect(screen.getByText('Set up the Guard')).toBeInTheDocument()
     // The hint warns that generating mints a fresh key and revokes prior ones.
     expect(screen.getByText(/mints a fresh API key and revokes your previous keys/)).toBeInTheDocument()
@@ -209,7 +204,7 @@ describe('Dashboard · Set up the Guard', () => {
   it('rotates the key and reveals the key-embedded install command on generate', async () => {
     const newKey = 'sk_live_freshrotatedkey0001'
     const rotateSpy = vi.spyOn(client, 'rotateApiKey').mockResolvedValue({ apiKey: newKey })
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Generate install command/ }))
 
@@ -230,7 +225,7 @@ describe('Dashboard · Set up the Guard', () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, { clipboard: { writeText } })
 
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
     fireEvent.click(screen.getByRole('button', { name: /Generate install command/ }))
 
     const copyButton = await screen.findByRole('button', { name: /Copy install command/ })
@@ -242,7 +237,7 @@ describe('Dashboard · Set up the Guard', () => {
 
   it('surfaces an error and keeps the command hidden when rotation fails', async () => {
     vi.spyOn(client, 'rotateApiKey').mockRejectedValue(new Error('nope'))
-    render(<Dashboard user={USER} auth={authState()} />)
+    render(<Dashboard user={USER} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Generate install command/ }))
 

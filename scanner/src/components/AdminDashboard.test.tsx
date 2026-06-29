@@ -130,13 +130,13 @@ describe('AdminDashboard', () => {
     expect(screen.getByText(/Generated/)).toBeInTheDocument()
   })
 
-  it('renders the donut center "N users" label by default (not hovered)', async () => {
+  it('keeps the donut center "N users" label always visible', async () => {
     vi.spyOn(client, 'fetchAdminOverview').mockResolvedValue(overview())
     vi.spyOn(client, 'fetchMembers').mockResolvedValue(membersPage([member()]))
     render(<AdminDashboard />)
-    // The center label block is gated on the donut's hover state; in the default
-    // (un-hovered) render it must be present, so the "N users" readout shows when
-    // no tooltip is competing for the donut hole.
+    // The center "N users" readout is always rendered (no longer hidden on hover):
+    // a hovered tier surfaces in a small box beside the title, outside the ring,
+    // so it never competes with the center label for the donut hole.
     await waitFor(() => expect(screen.getByText('users')).toBeInTheDocument())
     expect(screen.getAllByText('42').length).toBeGreaterThanOrEqual(1)
   })

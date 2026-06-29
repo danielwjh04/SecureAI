@@ -17,25 +17,25 @@ describe('useHashRoute', () => {
 
     const { result } = renderHook(() => useHashRoute())
 
-    expect(result.current).toEqual({ route: 'scanner', target: 'top' })
+    expect(result.current).toBe('scanner')
   })
 
-  it('maps the how-it-works hash to the scanner route and how target', () => {
+  it('maps the how-it-works hash to the How it works page', () => {
     replaceHash('')
     const { result } = renderHook(() => useHashRoute())
 
     act(() => dispatchHash('#how'))
 
-    expect(result.current).toEqual({ route: 'scanner', target: 'how' })
+    expect(result.current).toBe('howItWorks')
   })
 
-  it('maps the verify hash to the scanner route and verify target', () => {
+  it('maps the verify hash to the How it works page', () => {
     replaceHash('')
     const { result } = renderHook(() => useHashRoute())
 
     act(() => dispatchHash('#verify'))
 
-    expect(result.current).toEqual({ route: 'scanner', target: 'verify' })
+    expect(result.current).toBe('howItWorks')
   })
 
   it.each([
@@ -49,13 +49,13 @@ describe('useHashRoute', () => {
     ['#integrations', 'integrations'],
     ['#settings', 'settings'],
     ['#admin', 'admin'],
-  ])('maps %s to the %s route at the top target', (hash, route) => {
+  ])('maps %s to the %s route', (hash, route) => {
     replaceHash('')
     const { result } = renderHook(() => useHashRoute())
 
     act(() => dispatchHash(hash))
 
-    expect(result.current).toEqual({ route, target: 'top' })
+    expect(result.current).toBe(route)
   })
 
   it('falls back to the scanner route for an unknown hash', () => {
@@ -64,18 +64,18 @@ describe('useHashRoute', () => {
 
     act(() => dispatchHash('#nope'))
 
-    expect(result.current).toEqual({ route: 'scanner', target: 'top' })
+    expect(result.current).toBe('scanner')
   })
 
-  it('no longer treats #guard as a deep-link target (falls back to the scanner top)', () => {
+  it('no longer treats #guard as a deep-link (falls back to the scanner)', () => {
     replaceHash('')
     const { result } = renderHook(() => useHashRoute())
 
     act(() => dispatchHash('#guard'))
 
-    // The Guard section was removed from the landing; #guard is now just an
-    // unknown hash and must not resolve to a `guard` target.
-    expect(result.current).toEqual({ route: 'scanner', target: 'top' })
+    // The Guard section was removed from the landing; #guard is just an unknown
+    // hash and falls back to the scanner.
+    expect(result.current).toBe('scanner')
   })
 
   it('uses manual scroll restoration while mounted', () => {

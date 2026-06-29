@@ -3,7 +3,8 @@
  * fullscreen background video behind a glass navbar. `useScan` owns the scan
  * lifecycle and `useHashRoute` selects the top-level surface:
  *   - #pricing           -> the pricing page
- *   - scanner, idle/scan -> the scrollable landing (hero + how-it-works + examples)
+ *   - #how               -> the public How it works page (explainer + examples)
+ *   - scanner, idle/scan -> the cinematic hero landing (just the scan box)
  *   - scanner, done      -> the full result report (scrolls; video dimmed behind)
  *   - scanner, error     -> a fail-closed error card
  * The navbar mark calls `reset`, so it always returns to a fresh scanner
@@ -33,10 +34,21 @@ import { useScan } from './scan/useScan'
 import { useHashRoute } from './hooks/useHashRoute'
 import { useAuth } from './hooks/useAuth'
 import { guardRedirect } from './lib/routeGuard'
+import { REPO_URL } from './config'
 import type { ScanState } from './scan/scanMachine'
+import type { ScanResult } from './api/types'
 
 const SHELL =
   'relative bg-black w-screen min-h-screen flex flex-col selection:bg-white selection:text-black'
+
+/** The GitHub mark (lucide 1.x dropped its brand icons), tinted via `currentColor`. */
+function GithubMark({ className }: { className?: string }): ReactNode {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  )
+}
 
 /** The site footer: the product mark (SecureAI) + links. */
 function Footer(): ReactNode {
@@ -48,8 +60,14 @@ function Footer(): ReactNode {
           <span className="text-white/80 font-semibold">SecureAI</span>
         </div>
         <div className="flex items-center gap-6 font-mono text-white/45">
-          <a href="#" className="hover:text-white transition-colors">
-            Scanner
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 hover:text-white transition-colors"
+          >
+            <GithubMark className="w-3.5 h-3.5" />
+            GitHub
           </a>
           <a href="#pricing" className="hover:text-white transition-colors">
             Pricing
@@ -129,11 +147,19 @@ function LoadingSurface({ label }: { label: string }): ReactNode {
 }
 
 function App(): ReactNode {
-  const { route, target } = useHashRoute()
+  const route = useHashRoute()
   const controller = useScan()
   const auth = useAuth()
   const { state } = controller
   const previousRouteRef = useRef(route)
+
+  // Picking an example from the How it works gallery loads it as a finished
+  // result, then clears the hash so the scanner route's result view renders
+  // (state.phase === 'done') instead of the How it works page.
+  const handleGalleryPick = (result: ScanResult): void => {
+    controller.loadResult(result)
+    window.location.hash = ''
+  }
 
   // The dashboard and admin surfaces are gated. The redirect decision is a pure
   // function (testable in isolation): an anonymous visitor is bounced to login,
@@ -146,44 +172,18 @@ function App(): ReactNode {
     }
   }, [route, auth.status, auth.isAdmin])
 
+  // Every route lands at the top: the How it works sections now live on their
+  // own page rather than as scroll anchors on the landing, so there is no
+  // deep-link target to honour. A same-route navigation scrolls with the
+  // browser default; a route change jumps instantly.
   useEffect(() => {
     const sameRoute = previousRouteRef.current === route
     previousRouteRef.current = route
-
-    // Non-anchor routes reset to the top.
-    if (target !== 'how' && target !== 'verify') {
-      const frame = window.requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: sameRoute ? 'auto' : 'instant' })
-      })
-      return () => window.cancelAnimationFrame(frame)
-    }
-
-    // Anchor jump. Coming from another route the landing mounts fresh, so the
-    // first frame fires before the hero web font and height settle: a single
-    // scrollIntoView lands against a layout that then grows and strands the
-    // section under the navbar. Re-scroll on the next frame and once fonts
-    // resolve. The section carries its own top padding, so each landing is flush
-    // (the black wrapper covers the hero video, no scroll-margin offset).
-    let cancelled = false
-    const frames: number[] = []
-    const land = (): void => {
-      if (cancelled) return
-      document
-        .getElementById(target)
-        ?.scrollIntoView({ block: 'start', behavior: 'instant' })
-    }
-    frames.push(
-      window.requestAnimationFrame(() => {
-        land()
-        frames.push(window.requestAnimationFrame(land))
-      }),
-    )
-    void document.fonts?.ready?.then(land)
-    return () => {
-      cancelled = true
-      frames.forEach(window.cancelAnimationFrame)
-    }
-  }, [route, target])
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: sameRoute ? 'auto' : 'instant' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [route])
 
   // Pricing surface.
   if (route === 'pricing') {
@@ -219,7 +219,7 @@ function App(): ReactNode {
         <div className="fixed inset-0 bg-black/55" aria-hidden="true" />
         <Navbar onHome={controller.reset} auth={auth} />
         {auth.status === 'authenticated' && auth.user !== null ? (
-          <Dashboard user={auth.user} auth={auth} />
+          <Dashboard user={auth.user} />
         ) : (
           <section className="relative z-10 flex-1 flex items-center justify-center px-6 py-20">
             <p className="text-white/45 font-mono text-sm">Loading your dashboard…</p>
@@ -314,6 +314,28 @@ function App(): ReactNode {
     )
   }
 
+  // Public "How it works" page: the explainer sections and the example gallery
+  // that once sat under the landing, now their own destination in the standard
+  // app-page shell over the dimmed video.
+  if (route === 'howItWorks') {
+    return (
+      <main id="top" className={SHELL}>
+        <BackgroundVideo />
+        <div className="fixed inset-0 bg-black/55" aria-hidden="true" />
+        <Navbar onHome={controller.reset} auth={auth} />
+        <div className="relative z-10">
+          <HowItWorks />
+          <EaseOfUse />
+          <VerifyIt />
+          <section className="max-w-5xl mx-auto px-6 pb-20">
+            <Gallery onPick={handleGalleryPick} />
+          </section>
+        </div>
+        <Footer />
+      </main>
+    )
+  }
+
   // Finished report.
   if (state.phase === 'done') {
     return (
@@ -339,22 +361,14 @@ function App(): ReactNode {
     )
   }
 
-  // Landing (idle / scanning): the cinematic hero over the video, then the
-  // translucent-black content sections that scroll up over it (the background
-  // video stays faintly visible through them, matching the rest of the app).
+  // Landing (idle / scanning): just the cinematic hero over the video. The
+  // explainer sections and the example gallery now live on the How it works
+  // page (#how), reachable from the navbar.
   return (
     <main id="top" className={SHELL}>
       <BackgroundVideo />
       <Navbar onHome={controller.reset} auth={auth} />
       <Hero state={state} onScan={controller.scan} />
-      <div className="relative z-10 bg-black/60">
-        <HowItWorks />
-        <EaseOfUse />
-        <VerifyIt />
-        <section className="max-w-5xl mx-auto px-6 pb-20">
-          <Gallery onPick={controller.loadResult} />
-        </section>
-      </div>
       <Footer />
     </main>
   )

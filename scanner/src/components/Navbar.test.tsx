@@ -66,10 +66,58 @@ describe('Navbar app navigation', () => {
         auth={authState({ status: 'authenticated', user: user(false), isAdmin: false })}
       />,
     )
-    for (const label of ['Dashboard', 'Scan', 'Protection', 'Activity', 'Integrations', 'Settings']) {
+    for (const label of ['How it works', 'Dashboard', 'Protection', 'Activity', 'Integrations', 'Settings']) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
+    // The redundant "Scan" item (it duplicated the logo) is gone.
+    expect(screen.queryByRole('link', { name: 'Scan' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Enterprise' })).toBeNull()
+  })
+
+  it('orders How it works first among the authenticated app links', () => {
+    render(
+      <Navbar
+        auth={authState({ status: 'authenticated', user: user(false), isAdmin: false })}
+      />,
+    )
+    const how = screen.getByRole('link', { name: 'How it works' })
+    const dashboard = screen.getByRole('link', { name: 'Dashboard' })
+    // How it works precedes Dashboard in the DOM (it leads the cluster).
+    expect(
+      how.compareDocumentPosition(dashboard) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+})
+
+describe('Navbar log out', () => {
+  it('renders a Log out button at the right, after the Admin pill, for an admin', () => {
+    render(
+      <Navbar
+        auth={authState({ status: 'authenticated', user: user(true), isAdmin: true })}
+      />,
+    )
+    const logout = screen.getByRole('button', { name: 'Log out' })
+    const admin = screen.getByRole('link', { name: /Admin/ })
+    expect(logout).toBeInTheDocument()
+    // Admin sits to the LEFT of Log out: Admin appears earlier in the DOM.
+    expect(
+      admin.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('renders Log out for an authenticated non-admin (no Admin pill)', () => {
+    render(
+      <Navbar
+        auth={authState({ status: 'authenticated', user: user(false), isAdmin: false })}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Admin/ })).toBeNull()
+  })
+
+  it('shows no Log out button for an anonymous visitor', () => {
+    render(<Navbar auth={authState()} />)
+    expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull()
   })
 })
 

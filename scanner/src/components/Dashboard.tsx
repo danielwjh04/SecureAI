@@ -30,7 +30,6 @@ import {
   FileText,
   Key,
   Link2,
-  LogOut,
   RefreshCw,
   ScanLine,
   ShieldAlert,
@@ -43,7 +42,6 @@ import type { LucideIcon } from 'lucide-react'
 import {
   fetchRecentScans,
   fetchStats,
-  logout,
   rotateApiKey,
   startCheckout,
 } from '../api/client'
@@ -62,7 +60,6 @@ import type {
   RecentScan,
   StatsResponse,
 } from '../api/types'
-import type { AuthState } from '../hooks/useAuth'
 
 /** The verdict palette, read once so cards and charts share exact colors. */
 const COLOR = {
@@ -76,7 +73,6 @@ const COLOR = {
 interface DashboardProps {
   /** The signed-in account; the parent guarantees this is non-null here. */
   user: MeResponse
-  auth: AuthState
 }
 
 type LoadState =
@@ -84,7 +80,7 @@ type LoadState =
   | { phase: 'ready'; stats: StatsResponse }
   | { phase: 'error'; message: string }
 
-export function Dashboard({ user, auth }: DashboardProps) {
+export function Dashboard({ user }: DashboardProps) {
   const [load, setLoad] = useState<LoadState>({ phase: 'loading' })
 
   useEffect(() => {
@@ -103,15 +99,6 @@ export function Dashboard({ user, auth }: DashboardProps) {
     }
   }, [])
 
-  const handleLogout = async (): Promise<void> => {
-    try {
-      await logout()
-    } finally {
-      await auth.refresh()
-      window.location.assign('#login')
-    }
-  }
-
   const handleUpgrade = async (): Promise<void> => {
     try {
       const { url } = await startCheckout()
@@ -128,7 +115,6 @@ export function Dashboard({ user, auth }: DashboardProps) {
           email={user.email}
           firstName={user.firstName}
           tier={user.tier}
-          onLogout={handleLogout}
           onUpgrade={handleUpgrade}
         />
 
@@ -159,12 +145,11 @@ interface DashboardHeaderProps {
   /** Account holder's given name; drives the greeting, falling back to the email. */
   firstName: string | null
   tier: AccountTier
-  onLogout: () => void
   onUpgrade: () => void
 }
 
-/** The greeting row: a "Hi <name>!" heading (email fallback), tier badge, upgrade (free only), log out. */
-function DashboardHeader({ email, firstName, tier, onLogout, onUpgrade }: DashboardHeaderProps) {
+/** The greeting row: a "Hi <name>!" heading (email fallback), tier badge, and upgrade (free only). */
+function DashboardHeader({ email, firstName, tier, onUpgrade }: DashboardHeaderProps) {
   // Greet by first name when the account has one; a nameless (legacy / API-key)
   // account falls back to its email so the heading is never empty.
   const greeting = firstName !== null && firstName.length > 0 ? `Hi ${firstName}!` : email
@@ -198,14 +183,6 @@ function DashboardHeader({ email, firstName, tier, onLogout, onUpgrade }: Dashbo
             Upgrade to Pro
           </button>
         )}
-        <button
-          type="button"
-          onClick={onLogout}
-          className="glass-pill inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white/70 hover:text-white transition-colors cursor-pointer"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          Log out
-        </button>
       </div>
     </motion.div>
   )
@@ -324,7 +301,7 @@ function VerdictBreakdown({ totals }: { totals: StatsResponse['totals'] }) {
       <h3 className="text-[12px] font-mono uppercase tracking-[0.14em] text-white/55">
         Verdict breakdown
       </h3>
-      <div className="h-[180px]">
+      <div className="flex-1 min-h-[180px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <XAxis type="number" hide />

@@ -355,53 +355,63 @@ function TierBreakdown({ tiers, total }: { tiers: AdminTierCounts; total: number
     { name: 'Enterprise', value: tiers.enterprise, color: COLOR.enterprise },
   ]
   const hasUsers = total > 0
-  // The hover tooltip (e.g. "Pro 3") paints in the donut hole, where the centered
-  // "N users" label also sits. Hide that label while a segment is hovered so the
-  // two never overlap; it returns the moment the cursor leaves the ring.
-  const [hovered, setHovered] = useState(false)
+  const chartData = hasUsers
+    ? data
+    : [{ name: 'None', value: 1, color: 'rgba(255,255,255,0.08)' }]
+  // The hovered tier surfaces as a small box beside the title (outside the ring),
+  // so the centered "N users" label stays put in the donut hole instead of being
+  // overwritten by a tooltip painted in the same spot.
+  const [activeTier, setActiveTier] = useState<{
+    name: string
+    value: number
+    color: string
+  } | null>(null)
   return (
     <div className="liquid-glass rounded-2xl p-5 flex flex-col gap-4">
-      <h3 className="text-[12px] font-mono uppercase tracking-[0.14em] text-white/55">
-        Tier breakdown
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[12px] font-mono uppercase tracking-[0.14em] text-white/55">
+          Tier breakdown
+        </h3>
+        {activeTier !== null && (
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white">
+            <span className="w-2 h-2 rounded-full" style={{ background: activeTier.color }} />
+            {activeTier.name} · {formatCount(activeTier.value)}
+          </span>
+        )}
+      </div>
       <div className="h-[200px] relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={hasUsers ? data : [{ name: 'None', value: 1, color: 'rgba(255,255,255,0.08)' }]}
+              data={chartData}
               dataKey="value"
               nameKey="name"
               innerRadius={52}
               outerRadius={78}
               paddingAngle={hasUsers ? 2 : 0}
               stroke="none"
-              onMouseEnter={() => setHovered(true)}
-              onMouseLeave={() => setHovered(false)}
+              onMouseEnter={(_, index) => {
+                if (hasUsers) setActiveTier(data[index] ?? null)
+              }}
+              onMouseLeave={() => setActiveTier(null)}
             >
-              {(hasUsers ? data : [{ name: 'None', value: 1, color: 'rgba(255,255,255,0.08)' }]).map(
-                (entry) => (
-                  <Cell key={entry.name} fill={entry.color} />
-                ),
-              )}
+              {chartData.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
             </Pie>
-            {hasUsers && (
-              <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: '#fff' }} />
-            )}
           </PieChart>
         </ResponsiveContainer>
-        {!hovered && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span
-              className="text-2xl font-medium text-white tabular-nums"
-              style={{ fontFamily: "'Instrument Serif', serif" }}
-            >
-              {formatCount(total)}
-            </span>
-            <span className="text-white/45 font-mono text-[10px] uppercase tracking-[0.14em]">
-              users
-            </span>
-          </div>
-        )}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span
+            className="text-2xl font-medium text-white tabular-nums"
+            style={{ fontFamily: "'Instrument Serif', serif" }}
+          >
+            {formatCount(total)}
+          </span>
+          <span className="text-white/45 font-mono text-[10px] uppercase tracking-[0.14em]">
+            users
+          </span>
+        </div>
       </div>
       <div className="flex items-center justify-center gap-4 text-[11px] font-mono">
         {data.map((entry) => (
@@ -430,7 +440,7 @@ function VerdictTotals({ totals }: { totals: AdminOverview['usageTotals'] }) {
       </h3>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {cells.map(({ key, Icon, label, value, accent }) => (
-          <div key={key} className="flex flex-col gap-1.5">
+          <div key={key} className="flex flex-col items-center text-center gap-1.5">
             <Icon className={`w-4 h-4 ${accent}`} />
             <span className={`text-2xl font-medium tabular-nums ${accent}`} style={{ fontFamily: "'Instrument Serif', serif" }}>
               {formatCount(value)}

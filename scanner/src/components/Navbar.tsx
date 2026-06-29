@@ -16,16 +16,18 @@ import { AnimatePresence, motion } from 'motion/react'
 import {
   Activity,
   BarChart3,
+  BookOpen,
   LayoutDashboard,
+  LogOut,
   Menu,
   PlugZap,
-  ScanLine,
   Settings,
   Shield,
   ShieldCheck,
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { logout } from '../api/client'
 import { useHashRoute } from '../hooks/useHashRoute'
 import type { Route } from '../hooks/useHashRoute'
 import type { AuthState } from '../hooks/useAuth'
@@ -45,8 +47,8 @@ interface NavLink {
 }
 
 const APP_LINKS: readonly NavLink[] = [
+  { href: '#how', label: 'How it works', route: 'howItWorks', Icon: BookOpen },
   { href: '#dashboard', label: 'Dashboard', route: 'dashboard', Icon: LayoutDashboard },
-  { href: '#scan', label: 'Scan', route: 'scanner', Icon: ScanLine },
   { href: '#protection', label: 'Protection', route: 'protection', Icon: Shield },
   { href: '#activity', label: 'Activity', route: 'activity', Icon: Activity },
   { href: '#integrations', label: 'Integrations', route: 'integrations', Icon: PlugZap },
@@ -54,7 +56,7 @@ const APP_LINKS: readonly NavLink[] = [
 ]
 
 export function Navbar({ onHome, auth }: NavbarProps) {
-  const { route, target } = useHashRoute()
+  const route = useHashRoute()
   const [menuOpen, setMenuOpen] = useState(false)
   const linkClass = (active: boolean): string =>
     active
@@ -65,6 +67,17 @@ export function Navbar({ onHome, auth }: NavbarProps) {
     setMenuOpen(false)
   }
   const closeMenu = (): void => setMenuOpen(false)
+  // Mirrors the Settings/Dashboard sign-out: clear the cookie, re-read the
+  // (now anonymous) session, and land on the login screen. Fail-closed: the
+  // redirect runs even if the logout request itself fails.
+  const handleLogout = async (): Promise<void> => {
+    try {
+      await logout()
+    } finally {
+      await auth.refresh()
+      window.location.assign('#login')
+    }
+  }
 
   return (
     <motion.nav
@@ -88,7 +101,7 @@ export function Navbar({ onHome, auth }: NavbarProps) {
                   <a
                     key={href}
                     href={href}
-                    onClick={itemRoute === 'scanner' ? handleScannerSectionClick : closeMenu}
+                    onClick={closeMenu}
                     className={`inline-flex items-center gap-1.5 ${linkClass(route === itemRoute)}`}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -99,8 +112,8 @@ export function Navbar({ onHome, auth }: NavbarProps) {
                 <>
                   <a
                     href="#how"
-                    onClick={handleScannerSectionClick}
-                    className={linkClass(route === 'scanner' && target === 'how')}
+                    onClick={closeMenu}
+                    className={linkClass(route === 'howItWorks')}
                   >
                     How it works
                   </a>
@@ -126,6 +139,15 @@ export function Navbar({ onHome, auth }: NavbarProps) {
                     <span className="hidden sm:inline">Admin</span>
                   </a>
                 )}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  aria-label="Log out"
+                  className="glass-pill inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 text-white/70 hover:text-white transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Log out</span>
+                </button>
               </>
             ) : auth.status === 'anonymous' ? (
               <a
@@ -166,11 +188,11 @@ export function Navbar({ onHome, auth }: NavbarProps) {
             >
               <div className="flex flex-col gap-1 pt-3 mt-3 border-t border-white/10 text-sm font-medium">
                 {auth.status === 'authenticated' ? (
-                  APP_LINKS.map(({ href, label, route: itemRoute, Icon }) => (
+                  APP_LINKS.map(({ href, label, Icon }) => (
                     <a
                       key={href}
                       href={href}
-                      onClick={itemRoute === 'scanner' ? handleScannerSectionClick : closeMenu}
+                      onClick={closeMenu}
                       className="px-2 py-2.5 rounded-xl hover:bg-white/5 text-white/80 hover:text-white transition-colors inline-flex items-center gap-2"
                     >
                       <Icon className="w-4 h-4" />
@@ -181,7 +203,7 @@ export function Navbar({ onHome, auth }: NavbarProps) {
                   <>
                     <a
                       href="#how"
-                      onClick={handleScannerSectionClick}
+                      onClick={closeMenu}
                       className="px-2 py-2.5 rounded-xl hover:bg-white/5 text-white/80 hover:text-white transition-colors"
                     >
                       How it works
