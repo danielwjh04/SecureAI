@@ -63,6 +63,8 @@ export interface ScannerConfig {
   readonly redirectTimeoutMs: number
   readonly allowedSchemes: ReadonlySet<string>
   readonly shortenerHosts: ReadonlySet<string>
+  /** Allowed cross-origin clients for `/api/*` CORS, matched against Origin exactly. */
+  readonly corsOrigins: ReadonlySet<string>
   /**
    * Curated known-bad host/domain denylist (lowercased) for the reputation
    * stage. A entry `evil.com` flags `evil.com` and every subdomain of it.
@@ -87,6 +89,8 @@ export interface ScannerConfig {
   readonly capAnonymousPerDay: number
   /** Max metered scans per UTC day for a free-tier account. */
   readonly capFreePerDay: number
+  /** Max metered scans per UTC day for a personal-tier account. */
+  readonly capPersonalPerDay: number
   /** Max metered scans per UTC day for a pro-tier account. */
   readonly capProPerDay: number
   /** Tiers granted the paid AI stage. Lowercased tier names, e.g. `pro`. */
@@ -100,7 +104,9 @@ export interface ScannerConfig {
    * feed could be briefly masked, the documented tradeoff for the latency win.
    */
   readonly verdictCacheTtlSeconds: number
-  /** Stripe Price id for the Pro tier ($12/mo recurring). Used at checkout. */
+  /** Stripe Price id for the Personal tier recurring subscription. */
+  readonly stripePricePersonal: string
+  /** Stripe Price id for the Pro tier recurring subscription. Used at checkout. */
   readonly stripePricePro: string
   /** Public base URL for billing redirect (success/cancel) and portal returns. */
   readonly appBaseUrl: string
@@ -240,6 +246,7 @@ export function loadConfig(env: Env): ScannerConfig {
   const redirectTimeoutMs = readIntInRange(env, 'SCANNER_REDIRECT_TIMEOUT_MS', 5000, 100, 60000)
   const allowedSchemes = readSet(env, 'SCANNER_ALLOWED_SCHEMES', 'https')
   const shortenerHosts = readSet(env, 'SCANNER_URL_SHORTENERS', '')
+  const corsOrigins = readSet(env, 'SCANNER_CORS_ORIGINS', '')
   // Curated known-bad host denylist for the reputation stage. Default empty:
   // an empty denylist is valid (the stage simply flags nothing statically) and
   // hosts can also be added dynamically in KV under `host:<hostname>`.
@@ -256,12 +263,14 @@ export function loadConfig(env: Env): ScannerConfig {
   const detailMaxBytes = readIntInRange(env, 'SCANNER_DETAIL_MAX_BYTES', 16384, 256, 262144)
   const subrequestCap = readIntInRange(env, 'SCANNER_SUBREQUEST_CAP', 50, 1, 1000)
   // Per-tier daily caps (accounts layer). Defaults match the free-tier funnel:
-  // a small anonymous allowance, a larger free allowance, a high pro allowance.
+  // a small anonymous allowance, a larger free allowance, a personal allowance,
+  // and a high pro allowance.
   const capAnonymousPerDay = readIntInRange(env, 'SCANNER_CAP_ANONYMOUS_PER_DAY', 10, 0, 1000000)
   const capFreePerDay = readIntInRange(env, 'SCANNER_CAP_FREE_PER_DAY', 100, 0, 1000000)
+  const capPersonalPerDay = readIntInRange(env, 'SCANNER_CAP_PERSONAL_PER_DAY', 1000, 0, 1000000)
   const capProPerDay = readIntInRange(env, 'SCANNER_CAP_PRO_PER_DAY', 5000, 0, 1000000)
-  // Tiers that get the paid AI stage. Comma var, default just `pro`.
-  const aiTiers = readSet(env, 'SCANNER_AI_TIERS', 'pro')
+  // Tiers that get the paid AI stage. Comma var, default paid consumer tiers.
+  const aiTiers = readSet(env, 'SCANNER_AI_TIERS', 'personal,pro')
   // Edge verdict-cache TTL (seconds). Default 5 minutes; 0 disables the cache;
   // capped at 24h. A repeated identical scan within the window returns the
   // cached result without re-running the redirect trace or the AI stage.
@@ -272,12 +281,13 @@ export function loadConfig(env: Env): ScannerConfig {
     0,
     86400,
   )
-  // Billing (Stripe). The Pro price id has no safe default, it is account- and
-  // mode-specific, so the placeholder is shipped in wrangler.jsonc and must be
+  // Billing (Stripe). Price ids have no safe default, they are account- and
+  // mode-specific, so placeholders are shipped in wrangler.jsonc and must be
   // replaced before the billing routes function. The base URL has a public
   // default. Secrets (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET) are NOT read
   // here; they are read from env at the route so a missing secret degrades the
   // billing routes to 503 rather than failing config load for every route.
+  const stripePricePersonal = readString(env, 'STRIPE_PRICE_PERSONAL', 'price_REPLACE_PERSONAL')
   const stripePricePro = readString(env, 'STRIPE_PRICE_PRO', 'price_REPLACE')
   const appBaseUrl = readString(env, 'SCANNER_APP_BASE_URL', 'https://secureai.software')
   // Auth tunables (non-secret). IMPORTANT: the Cloudflare Workers runtime caps
@@ -395,6 +405,7 @@ export function loadConfig(env: Env): ScannerConfig {
     redirectTimeoutMs,
     allowedSchemes,
     shortenerHosts,
+    corsOrigins,
     badHosts,
     aiModel,
     aiTimeoutMs,
@@ -405,9 +416,11 @@ export function loadConfig(env: Env): ScannerConfig {
     subrequestCap,
     capAnonymousPerDay,
     capFreePerDay,
+    capPersonalPerDay,
     capProPerDay,
     aiTiers,
     verdictCacheTtlSeconds,
+    stripePricePersonal,
     stripePricePro,
     appBaseUrl,
     pbkdf2Iterations,

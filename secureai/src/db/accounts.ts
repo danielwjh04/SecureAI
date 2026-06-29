@@ -23,11 +23,12 @@ export interface User {
 }
 
 /** The paid-account tiers, plus the default free tier. */
-export type AccountTier = 'free' | 'pro' | 'enterprise'
+export type AccountTier = 'free' | 'personal' | 'pro' | 'enterprise'
 
 /** The allowlisted persisted tiers, validated on read (never trust the store). */
 const ACCOUNT_TIERS: ReadonlySet<string> = new Set<AccountTier>([
   'free',
+  'personal',
   'pro',
   'enterprise',
 ])
@@ -114,7 +115,7 @@ function generateApiKey(): string {
 
 /**
  * Coerce a stored `tier` column into the validated {@link AccountTier} union,
- * allowlisting the three legal values. An unrecognized stored tier is a
+ * allowlisting the legal values. An unrecognized stored tier is a
  * corrupted record and fails closed (CLAUDE.md §6: allowlist all field values).
  *
  * Time complexity: O(1). Space complexity: O(1).
@@ -130,7 +131,7 @@ function parseTier(value: unknown): AccountTier {
 
 /**
  * Validate a caller-supplied tier value against the {@link ACCOUNT_TIERS}
- * allowlist, or `null` when it is not one of {`free`, `pro`, `enterprise`}. The
+ * allowlist, or `null` when it is not one of the account tiers. The
  * non-throwing counterpart to {@link parseTier} (which is for stored columns):
  * used by the owner-only tier-change endpoint to reject (422) anything outside
  * the allowlist BEFORE any write, so an unrecognized tier can never be persisted.

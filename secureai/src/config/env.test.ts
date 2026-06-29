@@ -19,10 +19,27 @@ describe('loadConfig', () => {
     expect(config.aiModel).toBe('@cf/x/y')
   })
 
+  it('parses allowed CORS origins from a comma list', () => {
+    const defaults = loadConfig({})
+    expect(defaults.corsOrigins.size).toBe(0)
+
+    const config = loadConfig({
+      SCANNER_CORS_ORIGINS: 'chrome-extension://one, https://client.example',
+    })
+    expect(config.corsOrigins.has('chrome-extension://one')).toBe(true)
+    expect(config.corsOrigins.has('https://client.example')).toBe(true)
+  })
+
   it('defaults the verdict-cache TTL to 300s and parses an override', () => {
     expect(loadConfig({}).verdictCacheTtlSeconds).toBe(300)
     expect(loadConfig({ SCANNER_VERDICT_CACHE_TTL_S: '0' }).verdictCacheTtlSeconds).toBe(0)
     expect(loadConfig({ SCANNER_VERDICT_CACHE_TTL_S: '600' }).verdictCacheTtlSeconds).toBe(600)
+  })
+
+  it('defaults and parses the personal-tier daily cap', () => {
+    expect(loadConfig({}).capPersonalPerDay).toBe(1000)
+    expect(loadConfig({ SCANNER_CAP_PERSONAL_PER_DAY: '2500' }).capPersonalPerDay).toBe(2500)
+    expect(() => loadConfig({ SCANNER_CAP_PERSONAL_PER_DAY: '-1' })).toThrow(ConfigError)
   })
 
   it('rejects an out-of-range verdict-cache TTL', () => {
@@ -116,13 +133,16 @@ describe('loadConfig', () => {
 
   it('exposes billing config with defaults and overrides', () => {
     const defaults = loadConfig({})
+    expect(defaults.stripePricePersonal).toBe('price_REPLACE_PERSONAL')
     expect(defaults.stripePricePro).toBe('price_REPLACE')
     expect(defaults.appBaseUrl).toBe('https://secureai.software')
 
     const overridden = loadConfig({
+      STRIPE_PRICE_PERSONAL: 'price_personal_123',
       STRIPE_PRICE_PRO: 'price_live_123',
       SCANNER_APP_BASE_URL: 'https://app.example.com',
     })
+    expect(overridden.stripePricePersonal).toBe('price_personal_123')
     expect(overridden.stripePricePro).toBe('price_live_123')
     expect(overridden.appBaseUrl).toBe('https://app.example.com')
   })

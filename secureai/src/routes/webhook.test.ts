@@ -82,6 +82,23 @@ describe('handleWebhook effects', () => {
     })
   })
 
+  it('grants personal when subscription metadata requests it', async () => {
+    const { db, store } = memoryDatabase()
+    const { user, apiKey } = await createFreeUser(db, 'personal-sub@example.com')
+    await setStripeCustomerId(db, user.id, 'cus_personal')
+
+    const gw = new FakeBillingGateway()
+    gw.event = stripeEvent('evt_personal_sub', 'customer.subscription.updated', {
+      ...subscriptionObject('cus_personal', 'active', 'price_personal_12', PERIOD_END_SECONDS),
+      metadata: { secureai_tier: 'personal' },
+    })
+
+    const res = await handleWebhook(post('sig'), db, gw, DAY)
+    expect(res.status).toBe(200)
+    expect(await findUserByApiKey(db, apiKey)).toEqual({ userId: user.id, tier: 'personal' })
+    expect(store.subscriptions.get(user.id)?.price_id).toBe('price_personal_12')
+  })
+
   it('grants pro on checkout.session.completed (tier set; mirror written by the sub event)', async () => {
     const { db } = memoryDatabase()
     const { user, apiKey } = await createFreeUser(db, 'checkout@example.com')
@@ -96,6 +113,23 @@ describe('handleWebhook effects', () => {
     const res = await handleWebhook(post('sig'), db, gw, DAY)
     expect(res.status).toBe(200)
     expect(await findUserByApiKey(db, apiKey)).toEqual({ userId: user.id, tier: 'pro' })
+  })
+
+  it('grants personal on checkout.session.completed metadata', async () => {
+    const { db } = memoryDatabase()
+    const { user, apiKey } = await createFreeUser(db, 'personal-checkout@example.com')
+    await setStripeCustomerId(db, user.id, 'cus_chk_personal')
+
+    const gw = new FakeBillingGateway()
+    gw.event = stripeEvent('evt_checkout_personal', 'checkout.session.completed', {
+      customer: 'cus_chk_personal',
+      subscription: 'sub_personal',
+      metadata: { secureai_tier: 'personal' },
+    })
+
+    const res = await handleWebhook(post('sig'), db, gw, DAY)
+    expect(res.status).toBe(200)
+    expect(await findUserByApiKey(db, apiKey)).toEqual({ userId: user.id, tier: 'personal' })
   })
 
   it('dedupes a replayed event id as an inert 200 (no second effect)', async () => {

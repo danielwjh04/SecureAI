@@ -103,7 +103,7 @@ describe('handleAdminOverview', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as AdminOverview
     expect(body.totalUsers).toBe(2)
-    expect(body.usersByTier).toEqual({ free: 1, pro: 1, enterprise: 0 })
+    expect(body.usersByTier).toEqual({ free: 1, personal: 0, pro: 1, enterprise: 0 })
     expect(body.usageTotals).toEqual({ scans: 1, allows: 0, reviews: 0, blocks: 1, flagged: 4 })
     expect(body.activeSubscriptions).toBe(1)
     expect(body.signupsDaily).toEqual([{ day, count: 2 }])
@@ -514,6 +514,15 @@ describe('handleAdminMemberTier', () => {
     const res = await handleAdminMemberTier(tierReq(bearer(ownerKey), { userId: user.id, tier: 'enterprise' }), deps(db))
     expect(res.status).toBe(200)
     expect(store.users.get(user.id)?.tier).toBe('enterprise')
+  })
+
+  it('lets an owner set a member to personal (200)', async () => {
+    const { db, store } = memoryDatabase()
+    const ownerKey = await adminBearer(db)
+    const { user } = await createFreeUser(db, 'personal@example.com')
+    const res = await handleAdminMemberTier(tierReq(bearer(ownerKey), { userId: user.id, tier: 'personal' }), deps(db))
+    expect(res.status).toBe(200)
+    expect(store.users.get(user.id)?.tier).toBe('personal')
   })
 
   it('forbids a granted admin from changing tiers (403)', async () => {

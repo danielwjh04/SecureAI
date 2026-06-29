@@ -12,13 +12,16 @@
 
 import type { FeedIndicator } from '../pipeline/feedParse'
 import type { FeedIndicatorStore } from '../pipeline/indicators'
-import type { Database } from './database'
+import type { BatchStatement, Database } from './database'
 
 /**
  * Rows per multi-row INSERT. Four bound params per row, kept well under SQLite's
  * ~999 bound-variable limit so each chunk is one prepared statement.
  */
-const FEED_CHUNK_ROWS = 100
+const FEED_INSERT_ROWS = 100
+
+/** Number of INSERT statements sent in one database batch call. */
+const FEED_BATCH_STATEMENTS = 20
 
 /**
  * A {@link FeedIndicatorStore} backed by the `feed_indicators` table. `match`
@@ -69,7 +72,7 @@ export function d1FeedStore(db: Database): FeedIndicatorStore {
  * An EMPTY `indicators` is a no-op (no flip): a refresh that gathered nothing
  * (every source failed) never empties the denylist, the last good version stays.
  *
- * Time complexity: O(n) inserts in chunks of {@link FEED_CHUNK_ROWS}. Space: O(n).
+ * Time complexity: O(n) inserts in chunks of {@link FEED_INSERT_ROWS}. Space: O(n).
  *
  * @param db - The persistence seam.
  * @param version - The new monotonic version (the cron's scheduledTime, ms).
@@ -85,17 +88,21 @@ export async function replaceFeed(
   if (indicators.length === 0) {
     return
   }
-  for (let offset = 0; offset < indicators.length; offset += FEED_CHUNK_ROWS) {
-    const chunk = indicators.slice(offset, offset + FEED_CHUNK_ROWS)
+  const inserts: BatchStatement[] = []
+  for (let offset = 0; offset < indicators.length; offset += FEED_INSERT_ROWS) {
+    const chunk = indicators.slice(offset, offset + FEED_INSERT_ROWS)
     const placeholders = chunk.map(() => '(?, ?, ?, ?)').join(', ')
     const params: unknown[] = []
     for (const indicator of chunk) {
       params.push(version, indicator.kind, indicator.value, indicator.source)
     }
-    await db.execute(
-      `INSERT INTO feed_indicators (version, kind, value, source) VALUES ${placeholders}`,
+    inserts.push({
+      sql: `INSERT INTO feed_indicators (version, kind, value, source) VALUES ${placeholders}`,
       params,
-    )
+    })
+  }
+  for (let index = 0; index < inserts.length; index += FEED_BATCH_STATEMENTS) {
+    await db.batch(inserts.slice(index, index + FEED_BATCH_STATEMENTS))
   }
   await db.execute('UPDATE feed_meta SET current_version = ?, updated_at = ? WHERE id = 1', [
     version,

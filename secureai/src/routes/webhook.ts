@@ -22,6 +22,7 @@
 import type Stripe from 'stripe'
 import type { Database } from '../db/database'
 import type { BillingGateway } from '../billing/stripe'
+import type { AccountTier } from '../db/accounts'
 import { BillingError } from '../errors'
 import { setTierByStripeCustomer } from '../db/accounts'
 import {
@@ -39,7 +40,7 @@ const STATUS_SERVICE_UNAVAILABLE = 503
 /** Header carrying Stripe's HMAC signature over the raw body. */
 const SIGNATURE_HEADER = 'stripe-signature'
 
-/** Event types that grant the Pro tier (subscription is active/created). */
+/** Event types that grant a paid tier (subscription is active/created). */
 const PRO_GRANT_EVENTS: ReadonlySet<string> = new Set([
   'checkout.session.completed',
   'customer.subscription.created',
@@ -48,6 +49,13 @@ const PRO_GRANT_EVENTS: ReadonlySet<string> = new Set([
 
 /** Event type that revokes the Pro tier (subscription ended). */
 const SUBSCRIPTION_DELETED = 'customer.subscription.deleted'
+
+function paidTierFromMetadata(
+  object: { metadata?: { secureai_tier?: string | null } | null },
+): Extract<AccountTier, 'personal' | 'pro'> {
+  const tier = object.metadata?.secureai_tier
+  return tier === 'personal' ? 'personal' : 'pro'
+}
 
 /**
  * Extract the Stripe customer id from an event's object, which is either a
@@ -98,16 +106,19 @@ function readSubscriptionFields(
  *
  * Time complexity: O(1). Space complexity: O(1).
  */
-async function applyProGrant(db: Database, event: Stripe.Event): Promise<void> {
-  const object = event.data.object as { customer?: string | { id: string } | null }
+async function applyPaidGrant(db: Database, event: Stripe.Event): Promise<void> {
+  const object = event.data.object as {
+    customer?: string | { id: string } | null
+    metadata?: { secureai_tier?: string | null } | null
+  }
   const customerId = extractCustomerId(object)
   if (customerId === null) {
     // No customer to map → nothing to do. Acknowledged, not faulted.
     return
   }
 
-  // The tier grant is keyed on the customer id and is the authority for access.
-  await setTierByStripeCustomer(db, customerId, 'pro')
+  const tier = paidTierFromMetadata(object)
+  await setTierByStripeCustomer(db, customerId, tier)
 
   // Mirror the subscription only for subscription.* events, which carry the
   // status/price/period. checkout.session.completed grants the tier; the
@@ -202,7 +213,7 @@ export async function handleWebhook(
 
     // 3. Dispatch the verified, deduped event to its effect.
     if (PRO_GRANT_EVENTS.has(event.type)) {
-      await applyProGrant(db, event)
+      await applyPaidGrant(db, event)
     } else if (event.type === SUBSCRIPTION_DELETED) {
       await applySubscriptionDeleted(db, event)
     }

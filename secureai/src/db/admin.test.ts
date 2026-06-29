@@ -29,7 +29,7 @@ async function seedUser(
   db: Parameters<typeof setUserTier>[0],
   store: MemoryStore,
   email: string,
-  tier: 'free' | 'pro' | 'enterprise',
+  tier: 'free' | 'personal' | 'pro' | 'enterprise',
   day: string,
 ): Promise<string> {
   const { user } = await createFreeUser(db, email)
@@ -64,13 +64,14 @@ describe('usersByTier', () => {
     const { db, store } = memoryDatabase()
     await seedUser(db, store, 'f1@example.com', 'free', '2026-06-01')
     await seedUser(db, store, 'f2@example.com', 'free', '2026-06-01')
+    await seedUser(db, store, 'p0@example.com', 'personal', '2026-06-01')
     await seedUser(db, store, 'p1@example.com', 'pro', '2026-06-01')
-    expect(await usersByTier(db)).toEqual({ free: 2, pro: 1, enterprise: 0 })
+    expect(await usersByTier(db)).toEqual({ free: 2, personal: 1, pro: 1, enterprise: 0 })
   })
 
   it('returns all zeros for an empty store', async () => {
     const { db } = memoryDatabase()
-    expect(await usersByTier(db)).toEqual({ free: 0, pro: 0, enterprise: 0 })
+    expect(await usersByTier(db)).toEqual({ free: 0, personal: 0, pro: 0, enterprise: 0 })
   })
 
   it('wraps a database failure as an AdminError', async () => {

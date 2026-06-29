@@ -334,7 +334,7 @@ function toAdminMember(row: MemberRow, adminEmails: ReadonlySet<string>): AdminM
  * requires the effective role to be owner OR admin ({@link canViewAdmin}; 403
  * otherwise), then returns a page of the members directory plus the total count
  * for pagination. An optional `q` filters by a case-insensitive substring on the
- * email OR the tier/plan (so `pro` / `free` / `enterprise` filters by plan); the
+ * email OR the tier/plan (so `personal`, `pro`, `free`, or `enterprise` filters by plan); the
  * `total` reflects the filtered count, and an over-length `q` is a 422. Each row
  * carries its effective (owner-aware) role. Requires `env.DB` (503 otherwise).
  *
@@ -648,7 +648,7 @@ async function parseTierBody(
  * Handle `POST /api/admin/members/tier`. Authenticates the caller and requires
  * the effective role to be OWNER ({@link canManageRoles}; an admin or member is
  * 403, an anonymous caller is 401). Validates `{ userId, tier }` where `tier` is
- * allowlisted to {`free`, `pro`, `enterprise`} (422 otherwise). Rejects an
+ * allowlisted to persisted account tiers (422 otherwise). Rejects an
  * unknown `userId` with 404, read BEFORE any write. On success sets the
  * target's tier and returns `200 { id, tier }`. Requires `env.DB` (503
  * otherwise).

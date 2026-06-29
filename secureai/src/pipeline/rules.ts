@@ -1,7 +1,7 @@
 /**
  * Deterministic hard rules, the explainable baseline verdict.
  *
- * Before any sponsor call (Exa reputation, OpenAI judge), the traced redirect
+ * Before any reputation or Workers AI inference stage, the traced redirect
  * cascades and the parser's exec-pattern findings are run through a fixed set of
  * structural rules. Each rule that fires emits a `RuleFinding`; the baseline
  * verdict is the maximum severity across all findings. These rules are reliable,

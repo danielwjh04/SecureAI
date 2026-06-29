@@ -111,6 +111,7 @@ describe('FakeBillingGateway', () => {
       await gw.createCheckoutSession({
         customerId: 'cus_fake',
         priceId: 'price_pro',
+        tier: 'pro',
         successUrl: 's',
         cancelUrl: 'c',
       }),

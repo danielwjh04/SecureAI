@@ -26,10 +26,10 @@
  * a private IP at fetch time, and the Worker has no visibility into that
  * resolution, so these literal/name checks cannot catch it. This is inherent to
  * the Workers runtime. The compensating control is that the scanner never pulls
- * attacker page *content* itself, Exa (a sandboxed external fetcher) does, so
- * the blast radius of a rebind is limited to a redirect HEAD/GET against an
- * internal address with no response body surfaced to the client. Document, do
- * not pretend to fully solve.
+ * attacker page *content* itself during redirect tracing, so the blast radius
+ * of a rebind is limited to a redirect request against an internal address with
+ * no response body surfaced to the client. Document, do not pretend to fully
+ * solve.
  *
  * Fail-closed posture: a hop that the SSRF guard rejects is recorded as a
  * dangerous hop and the cascade stops (we never fetch it). A genuine transport

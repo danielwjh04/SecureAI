@@ -16,6 +16,7 @@ import { log } from '../observability/logger'
 /** Per-tier account counts. Absent tiers read as 0, never undefined. */
 export interface TierCounts {
   readonly free: number
+  readonly personal: number
   readonly pro: number
   readonly enterprise: number
 }
@@ -71,8 +72,8 @@ export interface ThreatRow {
   readonly scannedAt: string
 }
 
-/** The three persisted account tiers, used to densify the tier breakdown. */
-const TIERS = ['free', 'pro', 'enterprise'] as const
+/** The persisted account tiers, used to densify the tier breakdown. */
+const TIERS = ['free', 'personal', 'pro', 'enterprise'] as const
 
 /**
  * Coerce an aggregate column to a non-negative integer, defaulting to 0. A
@@ -108,7 +109,7 @@ export async function countUsers(db: Database): Promise<number> {
 }
 
 /**
- * Count accounts grouped by tier, densified to the three known tiers so a tier
+ * Count accounts grouped by tier, densified to the known tiers so a tier
  * with no accounts reads as 0 (an unknown stored tier is simply ignored, the
  * breakdown only reports the allowlisted tiers).
  *
@@ -131,8 +132,9 @@ export async function usersByTier(db: Database): Promise<TierCounts> {
     }
     return {
       free: counts[TIERS[0]] ?? 0,
-      pro: counts[TIERS[1]] ?? 0,
-      enterprise: counts[TIERS[2]] ?? 0,
+      personal: counts[TIERS[1]] ?? 0,
+      pro: counts[TIERS[2]] ?? 0,
+      enterprise: counts[TIERS[3]] ?? 0,
     }
   } catch (error: unknown) {
     throw wrap('usersByTier', error)
@@ -225,8 +227,8 @@ export async function activeSubscriptions(db: Database): Promise<number> {
  * Read a page of the members directory: `limit` accounts from `offset`, ordered
  * oldest-first (stable signup order), each with its summed lifetime scan count.
  * An optional `q` filters to accounts whose email OR tier contains `q`
- * (case-insensitive substring), so searching `pro` / `free` / `enterprise`
- * filters by plan; absent/empty `q` returns every account (the directory's
+ * (case-insensitive substring), so searching `personal`, `pro`, `free`, or
+ * `enterprise` filters by plan; absent/empty `q` returns every account (the directory's
  * default).
  *
  * The scan total is a LEFT JOIN + `SUM` over `usage` keyed by the user id as the

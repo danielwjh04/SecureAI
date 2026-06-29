@@ -80,6 +80,9 @@ const ROUTE_ADMIN_MEMBER_REMOVE = '/api/admin/members/remove'
 /** Prefix of the caught-scan detail path; the scan id follows as `:id`. */
 const ROUTE_ADMIN_SCANS_PREFIX = '/api/admin/scans/'
 const ROUTE_KEY_ROTATE = '/api/key/rotate'
+const CORS_ALLOW_METHODS = 'GET, POST, OPTIONS'
+const CORS_ALLOW_HEADERS = 'Content-Type, Authorization'
+const CORS_MAX_AGE_SECONDS = '86400'
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -105,6 +108,11 @@ export default {
     setLogLevel(config.logLevel)
     setMetricsDataset((env.METRICS as MetricsDataset | undefined) ?? null)
 
+    const corsOrigin = allowedCorsOrigin(request, config)
+    if (request.method === 'OPTIONS') {
+      return corsPreflightResponse(corsOrigin)
+    }
+
     // Per-request DB seam. When D1 read replication is enabled (and DB is bound),
     // open a session seeded with the caller's prior bookmark (read-your-writes):
     // their reads see at least their own writes, while others may hit a replica.
@@ -123,6 +131,7 @@ export default {
         session?.getBookmark() ?? null,
         config.dbBookmarkTtlSeconds,
       )
+      applyCors(stamped, corsOrigin)
       stamped.headers.set('x-request-id', requestId)
       return stamped
     }
@@ -466,4 +475,30 @@ function errorResponse(error: unknown): Response {
 
 function jsonError(message: string, status: number): Response {
   return Response.json({ error: message }, { status })
+}
+
+function allowedCorsOrigin(request: Request, config: ScannerConfig): string | null {
+  const origin = request.headers.get('Origin')
+  if (origin === null) {
+    return null
+  }
+  return config.corsOrigins.has(origin) ? origin : null
+}
+
+function corsPreflightResponse(origin: string | null): Response {
+  const headers = new Headers({
+    'Access-Control-Allow-Methods': CORS_ALLOW_METHODS,
+    'Access-Control-Allow-Headers': CORS_ALLOW_HEADERS,
+    'Access-Control-Max-Age': CORS_MAX_AGE_SECONDS,
+  })
+  if (origin !== null) {
+    headers.set('Access-Control-Allow-Origin', origin)
+  }
+  return new Response(null, { status: 204, headers })
+}
+
+function applyCors(response: Response, origin: string | null): void {
+  if (origin !== null) {
+    response.headers.set('Access-Control-Allow-Origin', origin)
+  }
 }

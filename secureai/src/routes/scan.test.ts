@@ -61,6 +61,38 @@ describe('handleScan', () => {
     const res = await handleScan(post({}), {}, config)
     expect(res.status).toBe(422)
   })
+
+  it('accepts a benign MCP scan body', async () => {
+    const res = await handleScan(
+      post({
+        mcp: {
+          name: 'docs',
+          transport: 'stdio',
+          command: 'node',
+          args: ['server.js'],
+          permissions: ['docs:read'],
+          tools: [{ name: 'search_docs', description: 'Search local docs only' }],
+        },
+      }),
+      {},
+      config,
+    )
+    expect(res.status).toBe(200)
+    const result = (await res.json()) as ScanResult
+    expect(result.verdict).toBe('ALLOW')
+    expect(result.source.kind).toBe('mcp')
+    expect(await verifyChain(result.proof)).toEqual({ ok: true, firstBrokenIndex: null })
+  })
+
+  it('maps a body with both content and mcp to 422', async () => {
+    const res = await handleScan(post({ content: 'x', mcp: { name: 'docs' } }), {}, config)
+    expect(res.status).toBe(422)
+  })
+
+  it('maps an empty MCP scan body to 422', async () => {
+    const res = await handleScan(post({ mcp: {} }), {}, config)
+    expect(res.status).toBe(422)
+  })
 })
 
 describe('handleScan, metering and caps', () => {

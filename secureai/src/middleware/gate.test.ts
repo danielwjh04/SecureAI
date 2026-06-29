@@ -11,6 +11,7 @@ describe('capForTier', () => {
   it('returns the configured per-tier caps', () => {
     expect(capForTier('anonymous', config)).toBe(10)
     expect(capForTier('free', config)).toBe(100)
+    expect(capForTier('personal', config)).toBe(1000)
     expect(capForTier('pro', config)).toBe(5000)
   })
 
@@ -19,23 +20,30 @@ describe('capForTier', () => {
   })
 
   it('honors overridden caps from config vars', () => {
-    const tuned = loadConfig({ SCANNER_CAP_ANONYMOUS_PER_DAY: '3', SCANNER_CAP_FREE_PER_DAY: '7' })
+    const tuned = loadConfig({
+      SCANNER_CAP_ANONYMOUS_PER_DAY: '3',
+      SCANNER_CAP_FREE_PER_DAY: '7',
+      SCANNER_CAP_PERSONAL_PER_DAY: '77',
+    })
     expect(capForTier('anonymous', tuned)).toBe(3)
     expect(capForTier('free', tuned)).toBe(7)
+    expect(capForTier('personal', tuned)).toBe(77)
   })
 })
 
 describe('aiAllowedForTier', () => {
-  it('grants AI only to tiers in config.aiTiers (default: pro)', () => {
+  it('grants AI only to tiers in config.aiTiers (default: personal and pro)', () => {
     expect(aiAllowedForTier('pro', config)).toBe(true)
+    expect(aiAllowedForTier('personal', config)).toBe(true)
     expect(aiAllowedForTier('free', config)).toBe(false)
     expect(aiAllowedForTier('enterprise', config)).toBe(false)
     expect(aiAllowedForTier('anonymous', config)).toBe(false)
   })
 
   it('never grants AI to anonymous even when listed', () => {
-    const tuned = loadConfig({ SCANNER_AI_TIERS: 'anonymous,pro,enterprise' })
+    const tuned = loadConfig({ SCANNER_AI_TIERS: 'anonymous,personal,pro,enterprise' })
     expect(aiAllowedForTier('anonymous', tuned)).toBe(false)
+    expect(aiAllowedForTier('personal', tuned)).toBe(true)
     expect(aiAllowedForTier('enterprise', tuned)).toBe(true)
   })
 })

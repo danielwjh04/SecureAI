@@ -83,6 +83,7 @@ describe('StripeBillingGateway operations', () => {
     const url = await gw.createCheckoutSession({
       customerId: 'cus_1',
       priceId: 'price_pro',
+      tier: 'pro',
       successUrl: 's',
       cancelUrl: 'c',
     })
@@ -96,7 +97,7 @@ describe('StripeBillingGateway operations', () => {
       breaker,
     )
     await expect(
-      gw.createCheckoutSession({ customerId: 'c', priceId: 'p', successUrl: 's', cancelUrl: 'x' }),
+      gw.createCheckoutSession({ customerId: 'c', priceId: 'p', tier: 'pro', successUrl: 's', cancelUrl: 'x' }),
     ).rejects.toBeInstanceOf(BillingError)
   })
 
@@ -135,7 +136,7 @@ describe('StripeBillingGateway operations', () => {
       breaker,
     )
     await expect(
-      gw.createCheckoutSession({ customerId: 'c', priceId: 'p', successUrl: 's', cancelUrl: 'x' }),
+      gw.createCheckoutSession({ customerId: 'c', priceId: 'p', tier: 'pro', successUrl: 's', cancelUrl: 'x' }),
     ).rejects.toBeInstanceOf(BillingError)
   })
 

@@ -11,6 +11,19 @@ function req(path: string, method = 'POST', body?: unknown): Request {
   return new Request(`https://secureai.test${path}`, init)
 }
 
+function reqWithHeaders(
+  path: string,
+  method: string,
+  headers: HeadersInit,
+  body?: unknown,
+): Request {
+  const init: RequestInit = { method, headers }
+  if (body !== undefined) {
+    init.body = JSON.stringify(body)
+  }
+  return new Request(`https://secureai.test${path}`, init)
+}
+
 const baseEnv: Env = {}
 
 describe('worker.fetch routing', () => {
@@ -23,6 +36,64 @@ describe('worker.fetch routing', () => {
     // An out-of-range var makes loadConfig throw ConfigError before any handler.
     const res = await worker.fetch(req('/api/scan'), { SCANNER_MAX_URLS: '0' })
     expect(res.status).toBe(500)
+  })
+
+  it('answers API preflight for an allowed CORS origin', async () => {
+    const res = await worker.fetch(
+      reqWithHeaders('/api/scan', 'OPTIONS', {
+        Origin: 'chrome-extension://secureai-test',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'Content-Type, Authorization',
+      }),
+      { SCANNER_CORS_ORIGINS: 'chrome-extension://secureai-test' },
+    )
+
+    expect(res.status).toBe(204)
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('chrome-extension://secureai-test')
+    expect(res.headers.get('Access-Control-Allow-Methods')).toBe('GET, POST, OPTIONS')
+    expect(res.headers.get('Access-Control-Allow-Headers')).toBe('Content-Type, Authorization')
+    expect(res.headers.get('Access-Control-Max-Age')).toBe('86400')
+    expect(res.headers.has('Access-Control-Allow-Credentials')).toBe(false)
+  })
+
+  it('answers API preflight without allow-origin for a disallowed CORS origin', async () => {
+    const res = await worker.fetch(
+      reqWithHeaders('/api/scan', 'OPTIONS', { Origin: 'chrome-extension://other' }),
+      { SCANNER_CORS_ORIGINS: 'chrome-extension://secureai-test' },
+    )
+
+    expect(res.status).toBe(204)
+    expect(res.headers.has('Access-Control-Allow-Origin')).toBe(false)
+  })
+
+  it('adds CORS to an API response for an allowed origin', async () => {
+    const res = await worker.fetch(
+      reqWithHeaders('/api/scan', 'POST', { Origin: 'chrome-extension://secureai-test' }, {}),
+      { SCANNER_CORS_ORIGINS: 'chrome-extension://secureai-test' },
+    )
+
+    expect(res.status).toBe(422)
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('chrome-extension://secureai-test')
+    expect(res.headers.has('Access-Control-Allow-Credentials')).toBe(false)
+  })
+
+  it('leaves same-origin API responses without CORS headers', async () => {
+    const res = await worker.fetch(req('/api/scan', 'POST', {}), {
+      SCANNER_CORS_ORIGINS: 'chrome-extension://secureai-test',
+    })
+
+    expect(res.status).toBe(422)
+    expect(res.headers.has('Access-Control-Allow-Origin')).toBe(false)
+  })
+
+  it('does not open non-API preflight requests', async () => {
+    const res = await worker.fetch(
+      reqWithHeaders('/', 'OPTIONS', { Origin: 'chrome-extension://secureai-test' }),
+      { SCANNER_CORS_ORIGINS: 'chrome-extension://secureai-test' },
+    )
+
+    expect(res.status).toBe(404)
+    expect(res.headers.has('Access-Control-Allow-Origin')).toBe(false)
   })
 
   it('routes POST /api/scan to the scan handler (422 on empty body)', async () => {

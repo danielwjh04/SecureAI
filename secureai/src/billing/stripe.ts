@@ -24,12 +24,17 @@ import { BillingError } from '../errors'
 import type { CircuitBreaker } from '../resilience/circuitBreaker'
 import { log } from '../observability/logger'
 
+/** Paid tiers backed by Stripe subscription prices. */
+export type PaidCheckoutTier = 'personal' | 'pro'
+
 /** Inputs for a subscription Checkout Session. */
 export interface CheckoutSessionParams {
   /** The Stripe customer the subscription is billed to. */
   readonly customerId: string
-  /** The recurring Price id to subscribe to (the Pro $12/mo price). */
+  /** The recurring Price id to subscribe to. */
   readonly priceId: string
+  /** The SecureAI tier this Stripe price grants. */
+  readonly tier: PaidCheckoutTier
   /** Where Stripe returns the buyer on success. */
   readonly successUrl: string
   /** Where Stripe returns the buyer on cancel. */
@@ -181,6 +186,8 @@ export class StripeBillingGateway implements BillingGateway {
           mode: 'subscription',
           customer: params.customerId,
           line_items: [{ price: params.priceId, quantity: 1 }],
+          metadata: { secureai_tier: params.tier },
+          subscription_data: { metadata: { secureai_tier: params.tier } },
           success_url: params.successUrl,
           cancel_url: params.cancelUrl,
         })

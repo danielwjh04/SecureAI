@@ -148,6 +148,29 @@ describe('WorkersAiInferenceClient.detect', () => {
     expect(userMessage?.content).toContain('known phishing host')
   })
 
+  it('tells the model ordinary skill workflow instructions are not injection', async () => {
+    const runFn = vi.fn(async () => ({
+      response: JSON.stringify({ pInjection: 0.05, findings: [], rationale: 'benign skill' }),
+    }))
+    const client = buildInferenceClient({ run: runFn }, CONFIG)
+
+    const result = await client.detect(
+      'dispatch helper agents and summarize the module graph',
+      NO_REPUTATION,
+      'ALLOW',
+    )
+
+    const [, inputs] = runFn.mock.calls[0] as unknown as [
+      string,
+      { messages: { role: string; content: string }[] },
+    ]
+    const systemMessage = inputs.messages.find((m) => m.role === 'system')
+    expect(systemMessage?.content).toContain('NORMAL skill content')
+    expect(systemMessage?.content).toContain('are NOT prompt injection by themselves')
+    expect(systemMessage?.content).toContain('exfiltrating secrets or files')
+    expect(result.verdict).toBe<Verdict>('ALLOW')
+  })
+
   it('throws InferenceError on non-JSON model output', async () => {
     const runner = staticRunner('I cannot help with that request.')
     const client = buildInferenceClient(runner, CONFIG)

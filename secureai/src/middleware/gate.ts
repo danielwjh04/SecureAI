@@ -21,9 +21,10 @@ import { getUsage } from '../db/usage'
 export const UNLIMITED = Number.POSITIVE_INFINITY
 
 /**
- * The daily metered-scan cap for a tier. Anonymous / free / pro caps come from
- * config; enterprise is unmetered ({@link UNLIMITED}). The mapping is exhaustive
- * over {@link AuthTier} so a new tier cannot silently fall through.
+ * The daily metered-scan cap for a tier. Anonymous, free, personal, and pro
+ * caps come from config; enterprise is unmetered ({@link UNLIMITED}). The
+ * mapping is exhaustive over {@link AuthTier} so a new tier cannot silently fall
+ * through.
  *
  * Time complexity: O(1). Space complexity: O(1).
  */
@@ -33,6 +34,8 @@ export function capForTier(tier: AuthTier, config: ScannerConfig): number {
       return config.capAnonymousPerDay
     case 'free':
       return config.capFreePerDay
+    case 'personal':
+      return config.capPersonalPerDay
     case 'pro':
       return config.capProPerDay
     case 'enterprise':

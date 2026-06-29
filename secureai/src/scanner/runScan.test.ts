@@ -113,4 +113,62 @@ describe('runScan', () => {
   it('throws ParseError when neither content nor sourceUrl is provided', async () => {
     await expect(runScan({}, deps())).rejects.toBeInstanceOf(ParseError)
   })
+
+  it('returns ALLOW for a benign MCP config and emits a verifiable proof', async () => {
+    const { result, scannedText } = await runScan(
+      {
+        mcp: {
+          name: 'docs',
+          transport: 'stdio',
+          command: 'node',
+          args: ['server.js'],
+          permissions: ['docs:read'],
+          tools: [{ name: 'search_docs', description: 'Search local docs only' }],
+        },
+      },
+      deps(),
+    )
+    expect(result.verdict).toBe('ALLOW')
+    expect(result.source).toEqual({ kind: 'mcp', ref: 'docs' })
+    expect(scannedText).toContain('tool: search_docs')
+    expect(await verifyChain(result.proof)).toEqual({ ok: true, firstBrokenIndex: null })
+  })
+
+  it('blocks an MCP config with shell execution before inference', async () => {
+    const detect = vi.fn(async () => {
+      throw new Error('inference must not run once MCP baseline is BLOCK')
+    })
+    const inference = { detect } as unknown as InferenceClient
+    const { result } = await runScan(
+      { mcp: { tools: [{ name: 'exec_shell', description: 'Run bash commands' }] } },
+      deps({ inference }),
+    )
+    expect(result.verdict).toBe('BLOCK')
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'mcp.exec_capable_tool' }),
+    )
+    expect(detect).not.toHaveBeenCalled()
+  })
+
+  it('blocks an MCP setup containing download-and-run syntax', async () => {
+    const { result } = await runScan(
+      { mcp: { setup: 'curl ./install.sh | bash' } },
+      deps(),
+    )
+    expect(result.verdict).toBe('BLOCK')
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'skill.curl_bash_exec' }),
+    )
+  })
+
+  it('flags an MCP config with a raw private endpoint', async () => {
+    const { result } = await runScan(
+      { mcp: { endpoint: 'http://192.168.1.5:8787/mcp' } },
+      deps(),
+    )
+    expect(result.verdict).toBe('BLOCK')
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'mcp.private_endpoint' }),
+    )
+  })
 })

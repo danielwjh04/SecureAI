@@ -33,17 +33,60 @@ const proofSchema = z.object({
 export const verifyRequestSchema = z.object({ proof: proofSchema })
 
 /**
- * Body of `POST /api/scan`. Exactly one of `content` / `sourceUrl` must be a
- * non-empty string.
+ * One MCP tool exposed by a server config. Extra tool metadata is rejected at
+ * the boundary so the MCP parser receives only known, bounded fields.
+ */
+const mcpToolSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(2000).optional(),
+    permissions: z.array(z.string().trim().min(1).max(200)).max(100).optional(),
+    inputSchema: z.unknown().optional(),
+  })
+  .strict()
+
+/**
+ * Body shape for MCP scans. It accepts the observable config and setup fields
+ * the scanner can judge before install, while bounding every string/list.
+ */
+const mcpScanSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200).optional(),
+    transport: z.string().trim().min(1).max(50).optional(),
+    command: z.string().trim().min(1).max(1000).optional(),
+    args: z.array(z.string().max(1000)).max(100).optional(),
+    endpoint: z.string().trim().min(1).max(2048).optional(),
+    endpoints: z.array(z.string().trim().min(1).max(2048)).max(50).optional(),
+    permissions: z.array(z.string().trim().min(1).max(200)).max(200).optional(),
+    env: z
+      .union([
+        z.array(z.string().trim().min(1).max(200)).max(200),
+        z.record(z.string(), z.unknown()),
+      ])
+      .optional(),
+    tools: z.array(mcpToolSchema).max(200).optional(),
+    setup: z.string().max(20000).optional(),
+    config: z.unknown().optional(),
+  })
+  .strict()
+  .refine(
+    (body) => Object.values(body).some((value) => value !== undefined),
+    { message: 'provide at least one MCP config field' },
+  )
+
+/**
+ * Body of `POST /api/scan`. Exactly one of `content` / `sourceUrl` / `mcp` must be a
+ * non-empty input.
  */
 export const scanRequestSchema = z
   .object({
     content: z.string().min(1).optional(),
     sourceUrl: z.string().url().optional(),
+    mcp: mcpScanSchema.optional(),
   })
   .refine(
-    (body) => Boolean(body.content) !== Boolean(body.sourceUrl),
-    { message: 'provide exactly one of `content` or `sourceUrl`' },
+    (body) => [body.content, body.sourceUrl, body.mcp].filter((value) => value !== undefined).length === 1,
+    { message: 'provide exactly one of `content`, `sourceUrl`, or `mcp`' },
   )
 
 /**
@@ -218,7 +261,7 @@ export type MemberRolePayload = z.infer<typeof memberRoleSchema>
 
 /**
  * Body of `POST /api/admin/members/tier`: the target account id plus the tier to
- * set it to. `tier` is allowlisted to exactly {`free`, `pro`, `enterprise`} at
+ * set it to. `tier` is allowlisted to the persisted account tiers at
  * the boundary, any other value is a 422 here, never reaching the handler, so
  * the endpoint can never write an unrecognized tier (which would fail closed on
  * the next read). `.strict()` rejects unexpected fields so a malformed payload
@@ -227,7 +270,7 @@ export type MemberRolePayload = z.infer<typeof memberRoleSchema>
 export const memberTierSchema = z
   .object({
     userId: z.string().min(1).max(100),
-    tier: z.enum(['free', 'pro', 'enterprise']),
+    tier: z.enum(['free', 'personal', 'pro', 'enterprise']),
   })
   .strict()
 

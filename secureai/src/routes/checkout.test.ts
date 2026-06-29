@@ -7,7 +7,10 @@ import { loadConfig } from '../config/env'
 import { SESSION_COOKIE_NAME, signSession } from '../auth/session'
 import { handleCheckout } from './checkout'
 
-const config = loadConfig({ STRIPE_PRICE_PRO: 'price_pro_12' })
+const config = loadConfig({
+  STRIPE_PRICE_PERSONAL: 'price_personal_12',
+  STRIPE_PRICE_PRO: 'price_pro_12',
+})
 const SESSION_SECRET = 'checkout-cookie-secret'
 
 function post(apiKey?: string): Request {
@@ -16,6 +19,17 @@ function post(apiKey?: string): Request {
     headers['Authorization'] = `Bearer ${apiKey}`
   }
   return new Request('https://secureai.test/api/checkout', { method: 'POST', headers })
+}
+
+function postTier(apiKey: string, tier: 'personal' | 'pro'): Request {
+  return new Request('https://secureai.test/api/checkout', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ tier }),
+  })
 }
 
 describe('handleCheckout', () => {
@@ -36,8 +50,38 @@ describe('handleCheckout', () => {
 
     // The checkout used the Pro price and the configured base URL.
     expect(gw.lastCheckout?.priceId).toBe('price_pro_12')
+    expect(gw.lastCheckout?.tier).toBe('pro')
     expect(gw.lastCheckout?.customerId).toBe('cus_new')
     expect(gw.lastCheckout?.successUrl).toContain(config.appBaseUrl)
+  })
+
+  it('creates a Personal checkout session when requested', async () => {
+    const { db } = memoryDatabase()
+    const { apiKey } = await createFreeUser(db, 'personal-pay@example.com')
+    const gw = new FakeBillingGateway()
+
+    const res = await handleCheckout(postTier(apiKey, 'personal'), db, gw, config)
+    expect(res.status).toBe(200)
+    expect(gw.lastCheckout?.priceId).toBe('price_personal_12')
+    expect(gw.lastCheckout?.tier).toBe('personal')
+  })
+
+  it('rejects an unknown checkout tier with 422', async () => {
+    const { db } = memoryDatabase()
+    const { apiKey } = await createFreeUser(db, 'bad-tier@example.com')
+    const gw = new FakeBillingGateway()
+    const req = new Request('https://secureai.test/api/checkout', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tier: 'enterprise' }),
+    })
+
+    const res = await handleCheckout(req, db, gw, config)
+    expect(res.status).toBe(422)
+    expect(gw.calls).toEqual([])
   })
 
   it('reuses an existing customer id without re-creating one', async () => {

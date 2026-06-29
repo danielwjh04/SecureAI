@@ -42,6 +42,7 @@ import { ParseError, SourceResolutionError } from '../errors'
 import { parseSkill } from '../pipeline/parse'
 import { assertSafeUrl, traceRedirects } from '../pipeline/redirects'
 import { evaluateRules } from '../pipeline/rules'
+import { buildMcpScanText, evaluateMcpRules } from '../pipeline/mcp'
 import { escalate } from '../verdict'
 import { parseGithubWebUrl, resolveGithubSkillUrl } from './github'
 import { log } from '../observability/logger'
@@ -122,6 +123,13 @@ async function resolveSkillText(
   fetchImpl: typeof fetch,
   githubToken: string | undefined,
 ): Promise<{ text: string; source: ScanResult['source'] }> {
+  if (request.mcp !== undefined) {
+    return {
+      text: buildMcpScanText(request.mcp),
+      source: { kind: 'mcp', ref: request.mcp.name ?? 'mcp-config' },
+    }
+  }
+
   const content = request.content
   if (content !== undefined && content.trim().length > 0) {
     return { text: content, source: { kind: 'paste', ref: 'paste' } }
@@ -301,8 +309,14 @@ export async function runScan(request: ScanRequest, deps: ScanDeps): Promise<Sca
     execPatterns: [...parsed.execPatterns],
     config: { shortenerHosts: new Set(config.shortenerHosts) },
   })
-  const baseline: Verdict = ruleOutcome.verdict
-  const findings: RuleFinding[] = ruleOutcome.findings
+  let baseline: Verdict = ruleOutcome.verdict
+  const findings: RuleFinding[] = [...ruleOutcome.findings]
+  if (request.mcp !== undefined) {
+    for (const finding of evaluateMcpRules(request.mcp)) {
+      findings.push(finding)
+      baseline = escalate(baseline, finding.severity)
+    }
+  }
 
   // 5. Reputation (fail-closed; tighten-only).
   const finalUrls = chains.map((chain) => chain.finalUrl)

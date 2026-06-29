@@ -1,12 +1,12 @@
 /**
- * `POST /api/checkout` handler, start a Pro-tier subscription.
+ * `POST /api/checkout` handler, start a paid subscription.
  *
  * Authenticated: the caller must present an `Authorization: Bearer <key>` that
  * resolves to a known account. An anonymous or unknown-key caller is a 401
  * {@link AuthError} (unlike the metering routes, billing is never anonymous
  * there is no account to bill). The handler ensures the account has a Stripe
  * customer (creating and persisting one on first checkout), opens a subscription
- * Checkout Session for `config.stripePricePro`, and returns `{ url }`.
+ * Checkout Session for the requested paid tier, and returns `{ url }`.
  *
  * Billing requires both the account store (`env.DB`) and the Stripe seam; when
  * either is absent the route returns 503 rather than fabricating a session.
@@ -14,11 +14,12 @@
 
 import type { ScannerConfig } from '../config/env'
 import type { Database } from '../db/database'
-import type { BillingGateway } from '../billing/stripe'
+import type { BillingGateway, PaidCheckoutTier } from '../billing/stripe'
 import { AuthError, BillingError, ParseError, ScannerError } from '../errors'
 import { authenticate } from '../middleware/auth'
 import { getUserById, setStripeCustomerId } from '../db/billing'
 import { log } from '../observability/logger'
+import { z } from 'zod'
 
 const STATUS_OK = 200
 const STATUS_UNAUTHORIZED = 401
@@ -30,6 +31,16 @@ const STATUS_SERVICE_UNAVAILABLE = 503
 /** Path segments appended to the app base URL for post-checkout redirects. */
 const SUCCESS_PATH = '/billing/success'
 const CANCEL_PATH = '/billing/cancel'
+
+const checkoutSchema = z
+  .object({
+    tier: z.enum(['personal', 'pro']).optional(),
+  })
+  .strict()
+
+function priceIdForTier(tier: PaidCheckoutTier, config: ScannerConfig): string {
+  return tier === 'personal' ? config.stripePricePersonal : config.stripePricePro
+}
 
 /**
  * Resolve the authenticated user id, or throw an {@link AuthError}. Billing has
@@ -76,10 +87,38 @@ function statusForError(error: unknown): number {
 }
 
 /**
+ * Parse the optional checkout body. For backward compatibility, no JSON body
+ * means Pro. When JSON is present, it must be `{ "tier": "personal" }` or
+ * `{ "tier": "pro" }`.
+ *
+ * Time complexity: O(n) in the request body size. Space complexity: O(n).
+ *
+ * @throws {ParseError} On malformed JSON or an unrecognized tier.
+ */
+async function readCheckoutTier(request: Request): Promise<PaidCheckoutTier> {
+  const contentType = request.headers.get('content-type') ?? ''
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return 'pro'
+  }
+  let raw: unknown
+  try {
+    raw = await request.json()
+  } catch (error: unknown) {
+    throw new ParseError('invalid checkout request body', { cause: error })
+  }
+  const parsed = checkoutSchema.safeParse(raw)
+  if (!parsed.success) {
+    throw new ParseError('invalid checkout request body')
+  }
+  return parsed.data.tier ?? 'pro'
+}
+
+/**
  * Handle `POST /api/checkout`. Requires `env.DB` AND a billing gateway; without
  * either, returns 503. Authenticates the caller (401 if anonymous), ensures the
  * account has a Stripe customer (persisting a new one on first checkout), opens
- * a subscription Checkout Session for the Pro price, and returns `{ url }`.
+ * a subscription Checkout Session for the requested paid tier, and returns
+ * `{ url }`.
  *
  * Idempotent customer creation: the gateway keys customer creation on the user
  * id, so a retried checkout reuses one logical customer; the new id is persisted
@@ -102,6 +141,7 @@ export async function handleCheckout(
     )
   }
   try {
+    const tier = await readCheckoutTier(request)
     const userId = await requireUserId(request, db, sessionSecret)
 
     const user = await getUserById(db, userId)
@@ -119,7 +159,8 @@ export async function handleCheckout(
     const base = config.appBaseUrl
     const url = await billing.createCheckoutSession({
       customerId,
-      priceId: config.stripePricePro,
+      priceId: priceIdForTier(tier, config),
+      tier,
       successUrl: `${base}${SUCCESS_PATH}`,
       cancelUrl: `${base}${CANCEL_PATH}`,
     })
