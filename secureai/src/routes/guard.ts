@@ -197,6 +197,7 @@ export async function handleGuard(
           githubToken: typeof env.GITHUB_TOKEN === 'string' ? env.GITHUB_TOKEN : undefined,
         }),
       config.guardPolicyVersion,
+      config.guardTrustRevision,
     )
     metrics.count('guard.decision', { labels: [decision.decision] })
 

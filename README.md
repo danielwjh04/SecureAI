@@ -110,6 +110,8 @@ Before the Claude Code, Cursor, Codex, or browser-served guard adapters call `/a
 
 On DB-backed deployments, Guard requires an authenticated API key by default. A missing, malformed, expired, or unknown credential returns 401, which the local adapters treat as a fail-closed deny. The public scanner can still support anonymous scans; runtime Guard actions do not silently fall back to anonymous mode.
 
+Guard cache keys bind repeated decisions to the policy version, trust revision, project scope, device identity, integration version, content hash, tool name, and exact tool input when those fields are present. Bumping `SCANNER_GUARD_POLICY_VERSION` or `SCANNER_GUARD_TRUST_REVISION` invalidates old Guard cache entries without changing code.
+
 ## Browser extension (Chrome and Edge MV3)
 
 The browser extension lives in `extensions/chrome/`. It adds "Scan with SecureAI" on supported GitHub and raw GitHub pages, scans selected or pasted text, and guards supported browser AI pages before content is sent.

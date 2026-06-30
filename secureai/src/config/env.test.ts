@@ -41,6 +41,13 @@ describe('loadConfig', () => {
     expect(loadConfig({ SCANNER_GUARD_REQUIRE_AUTH: 'false' }).guardRequireAuth).toBe(false)
   })
 
+  it('defaults and parses the Guard trust revision', () => {
+    expect(loadConfig({}).guardTrustRevision).toBe('1')
+    expect(loadConfig({ SCANNER_GUARD_TRUST_REVISION: 'feed-2026-06-30' }).guardTrustRevision).toBe(
+      'feed-2026-06-30',
+    )
+  })
+
   it('defaults and parses the personal-tier daily cap', () => {
     expect(loadConfig({}).capPersonalPerDay).toBe(1000)
     expect(loadConfig({ SCANNER_CAP_PERSONAL_PER_DAY: '2500' }).capPersonalPerDay).toBe(2500)

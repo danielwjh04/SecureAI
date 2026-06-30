@@ -108,6 +108,8 @@ export interface ScannerConfig {
   readonly guardRequireAuth: boolean
   /** Version string folded into guard-decision cache keys. Bump on policy retunes. */
   readonly guardPolicyVersion: string
+  /** Trust/intel revision folded into guard-decision cache keys. Bump on feed changes. */
+  readonly guardTrustRevision: string
   /** Guard tool names treated as low-risk filesystem reads when paths are not sensitive. */
   readonly guardReadTools: ReadonlySet<string>
   /** Guard tool names treated as filesystem writes. */
@@ -313,6 +315,7 @@ export function loadConfig(env: Env): ScannerConfig {
   )
   const guardRequireAuth = readBool(env, 'SCANNER_GUARD_REQUIRE_AUTH', true)
   const guardPolicyVersion = readString(env, 'SCANNER_GUARD_POLICY_VERSION', '1')
+  const guardTrustRevision = readString(env, 'SCANNER_GUARD_TRUST_REVISION', '1')
   const guardReadTools = readSet(env, 'SCANNER_GUARD_READ_TOOLS', 'read,grep,glob,ls')
   const guardWriteTools = readSet(
     env,
@@ -503,6 +506,7 @@ export function loadConfig(env: Env): ScannerConfig {
     verdictCacheTtlSeconds,
     guardRequireAuth,
     guardPolicyVersion,
+    guardTrustRevision,
     guardReadTools,
     guardWriteTools,
     guardShellTools,

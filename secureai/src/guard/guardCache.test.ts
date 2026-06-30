@@ -48,9 +48,14 @@ describe('resolveCachedDecision', () => {
     expect(computeB).toHaveBeenCalledTimes(1)
   })
 
-  it('keys only on tool_name + tool_input (context fields do not perturb the key)', async () => {
+  it('ignores session-only context but binds to project and device scope', async () => {
     const withContext: PreToolUsePayload = { ...PAYLOAD, session_id: 's1', cwd: '/tmp' }
-    expect(await cacheKeyForPayload(PAYLOAD)).toBe(await cacheKeyForPayload(withContext))
+    const withSessionOnly: PreToolUsePayload = { ...PAYLOAD, session_id: 's1', transcript_path: '/tmp/log' }
+    const withDevice = { ...PAYLOAD, device_id: 'dev_1' } as PreToolUsePayload
+
+    expect(await cacheKeyForPayload(PAYLOAD)).toBe(await cacheKeyForPayload(withSessionOnly))
+    expect(await cacheKeyForPayload(PAYLOAD)).not.toBe(await cacheKeyForPayload(withContext))
+    expect(await cacheKeyForPayload(PAYLOAD)).not.toBe(await cacheKeyForPayload(withDevice))
 
     const different: PreToolUsePayload = { ...PAYLOAD, tool_input: { command: 'ls' } }
     expect(await cacheKeyForPayload(PAYLOAD)).not.toBe(await cacheKeyForPayload(different))
@@ -58,5 +63,11 @@ describe('resolveCachedDecision', () => {
 
   it('keys on the guard policy version', async () => {
     expect(await cacheKeyForPayload(PAYLOAD, '1')).not.toBe(await cacheKeyForPayload(PAYLOAD, '2'))
+  })
+
+  it('keys on the guard trust revision', async () => {
+    expect(await cacheKeyForPayload(PAYLOAD, '1', 'feed-a')).not.toBe(
+      await cacheKeyForPayload(PAYLOAD, '1', 'feed-b'),
+    )
   })
 })

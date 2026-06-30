@@ -1,18 +1,15 @@
 /**
  * Edge cache for {@link GuardDecision}s, the guard-route analogue of the scan
  * {@link ../scanner/verdictCache}. The guard is the latency-critical inline path
- * (Claude Code blocks on it before every tool call), so caching a repeated
- * identical decision skips the redirect trace + AI compute and returns in O(1).
+ * because local agents block on it before every guarded tool call.
  *
- * It caches the DECISION only; the route still authenticates, enforces the daily
- * cap, and meters usage on a hit (those live in the route, not here). The key is
- * `guard:v2:` + sha256(canonical({policy_version, tool_name, tool_input})), so
- * field ordering / unrelated context never perturbs it and policy retunes can
- * invalidate old decisions. Unlike a scan result a {@link GuardDecision} carries
- * no time-varying field, so the cached value is returned verbatim.
+ * The cache stores the decision only. The route still authenticates, enforces
+ * the daily cap, and meters usage on every hit. Cache keys are bound to policy
+ * revision, trust revision, project scope, device identity, integration version,
+ * content hash, tool name, and exact tool input when those fields are present.
  *
- * Security tradeoff (same as the verdict cache): a short TTL bounds how long a
- * denylist/indicator change can be masked; `0` disables the cache.
+ * Security tradeoff: a short TTL bounds how long a changed policy or indicator
+ * can be masked. Setting the TTL to 0 disables the cache.
  */
 
 import type { PreToolUsePayload } from '../schemas/validate'
@@ -25,13 +22,13 @@ const CACHE_KEY_PREFIX = 'guard:v2:'
 
 const textEncoder = new TextEncoder()
 
-/** The minimal KV surface the guard cache uses (injectable `{ get, put }` fake). */
+/** The minimal KV surface the guard cache uses, injectable for tests. */
 export interface GuardCacheKv {
   get(key: string): Promise<string | null>
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>
 }
 
-/** Lowercase-hex SHA-256 of a UTF-8 string (fixed-length cache key from payload). */
+/** Lowercase-hex SHA-256 of a UTF-8 string. */
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', textEncoder.encode(value))
   let hex = ''
@@ -42,25 +39,39 @@ async function sha256Hex(value: string): Promise<string> {
 }
 
 /**
- * Derive the cache key from policy version plus scannable fields of a PreToolUse payload:
- * the tool name and its input record. The context fields (`session_id`, `cwd`, …)
- * never enter the key, so sessions share an entry until the policy version changes.
+ * Derive the cache key from policy version, trust revision, project scope, and
+ * scannable fields of a PreToolUse payload. Session-only fields such as
+ * `session_id` and `transcript_path` never enter the key, while `cwd` does
+ * because it is the project scope.
  *
  * Time complexity: O(n) in the payload byte length. Space complexity: O(n).
  */
 export async function cacheKeyForPayload(
   payload: PreToolUsePayload,
   policyVersion = '1',
+  trustRevision = '1',
 ): Promise<string> {
+  const payloadRecord = payload as unknown as Record<string, unknown>
   const scannable = {
     policy_version: policyVersion,
+    trust_revision: trustRevision,
+    provider: stringOrNull(payloadRecord.provider),
+    agent: stringOrNull(payloadRecord.agent),
+    device_id: stringOrNull(payloadRecord.device_id),
+    integration_version: stringOrNull(payloadRecord.integration_version),
+    project_scope: stringOrNull(payload.cwd),
+    content_hash: stringOrNull(payloadRecord.content_hash),
     tool_name: payload.tool_name,
     tool_input: payload.tool_input,
   }
   return CACHE_KEY_PREFIX + (await sha256Hex(canonicalJson(scannable)))
 }
 
-/** Parse a cached decision, or `null` (treated as a MISS) on a corrupt entry. */
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+/** Parse a cached decision, or `null` on a corrupt entry. */
 function parseCached(value: string): GuardDecision | null {
   try {
     return JSON.parse(value) as GuardDecision
@@ -72,17 +83,11 @@ function parseCached(value: string): GuardDecision | null {
 }
 
 /**
- * Resolve a guard decision, serving from cache when available and recomputing
- * (then populating the cache) on a miss. Does NOT meter, cap, or authenticate
- * those run in the route on a hit just as on a miss; only `compute()` is skipped.
+ * Resolve a guard decision from cache when possible and recompute on a miss.
+ * Authentication, caps, and metering run in the route on hits and misses.
  *
- * Resolution:
- *   - Cache disabled (no KV, or `ttlSeconds <= 0`): always `compute()`.
- *   - HIT: return the cached {@link GuardDecision} verbatim.
- *   - MISS: `compute()`, write the serialized decision with `expirationTtl`, return it.
- *
- * Time complexity: one KV read (+ one write on a miss) plus `compute()` on a
- *   miss. Space complexity: O(decision size).
+ * Time complexity: one KV read plus one write on a miss, plus `compute()` on a
+ * miss. Space complexity: O(decision size).
  */
 export async function resolveCachedDecision(
   payload: PreToolUsePayload,
@@ -90,11 +95,12 @@ export async function resolveCachedDecision(
   ttlSeconds: number,
   compute: () => Promise<GuardDecision>,
   policyVersion = '1',
+  trustRevision = '1',
 ): Promise<GuardDecision> {
   if (kv === null || ttlSeconds <= 0) {
     return compute()
   }
-  const key = await cacheKeyForPayload(payload, policyVersion)
+  const key = await cacheKeyForPayload(payload, policyVersion, trustRevision)
   const hit = await kv.get(key)
   if (hit !== null) {
     const parsed = parseCached(hit)
