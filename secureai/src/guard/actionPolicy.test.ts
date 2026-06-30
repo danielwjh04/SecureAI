@@ -80,4 +80,23 @@ describe('guard action policy', () => {
       expect.objectContaining({ ruleId: 'guard.unknown_shell_command' }),
     )
   })
+
+  it('requires review for a secret file read via a safe shell reader (no URL)', () => {
+    const action = normalizeGuardAction(
+      payload('Bash', { command: 'cat ~/.ssh/id_rsa' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.sensitive_path_access' }),
+    )
+  })
+
+  it('keeps a benign safe shell read as ALLOW', () => {
+    const action = normalizeGuardAction(payload('Bash', { command: 'cat README.md' }), config)
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('ALLOW')
+    expect(policy.findings).toEqual([])
+  })
 })

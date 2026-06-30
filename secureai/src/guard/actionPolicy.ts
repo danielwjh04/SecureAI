@@ -10,6 +10,7 @@
 import type { RuleFinding, Verdict } from '../schemas/contract'
 import type { PreToolUsePayload } from '../schemas/validate'
 import { escalate } from '../verdict'
+import { commandTouchesSensitivePath } from './commandRisk'
 
 export type GuardActionOperation =
   | 'read_file'
@@ -220,6 +221,13 @@ export function evaluateGuardActionPolicy(
   }
 
   if (action.commandStructure !== null) {
+    if (commandTouchesSensitivePath(action.commandStructure.command, config.guardSensitivePathMarkers)) {
+      record({
+        ruleId: 'guard.sensitive_path_access',
+        severity: REVIEW,
+        detail: `shell command accesses a sensitive path: ${action.commandStructure.command}`,
+      })
+    }
     recordCommandFinding(action.commandStructure, record)
   }
 
