@@ -21,6 +21,19 @@ function post(body: unknown, raw?: string, headers?: Record<string, string>): Re
   })
 }
 
+async function guardCredentialFor(db: ReturnType<typeof d1Database>, userId: string): Promise<string> {
+  const minted = await createGuardDeviceCredential(db, {
+    userId,
+    deviceId: `dev_${userId}`,
+    name: 'test device',
+    integration: 'codex-test',
+    scopes: ['guard:decision'],
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 86400000).toISOString(),
+  })
+  return minted.credential
+}
+
 /** Fake Workers AI runner that records calls and returns a benign assessment. */
 class SpyAiRunner {
   public calls = 0
@@ -71,18 +84,7 @@ describe('handleGuard', () => {
     const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
     const db = d1Database(d1)
     const { user } = await createFreeUser(db, 'ticket-device@example.com')
-    const credential = await (async () => {
-      const minted = await createGuardDeviceCredential(db, {
-        userId: user.id,
-        deviceId: `dev_${user.id}`,
-        name: 'test device',
-        integration: 'codex-test',
-        scopes: ['guard:decision'],
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 86400000).toISOString(),
-      })
-      return minted.credential
-    })()
+    const credential = await guardCredentialFor(db, user.id)
     const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
     const payload = {
       hook_event_name: 'PreToolUse',
@@ -121,18 +123,7 @@ describe('handleGuard', () => {
     const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
     const db = d1Database(d1)
     const { user } = await createFreeUser(db, 'ticket-change@example.com')
-    const credential = await (async () => {
-      const minted = await createGuardDeviceCredential(db, {
-        userId: user.id,
-        deviceId: `dev_${user.id}`,
-        name: 'test device',
-        integration: 'codex-test',
-        scopes: ['guard:decision'],
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 86400000).toISOString(),
-      })
-      return minted.credential
-    })()
+    const credential = await guardCredentialFor(db, user.id)
     const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
     const payload = {
       hook_event_name: 'PreToolUse',
@@ -206,15 +197,7 @@ describe('handleGuard', () => {
     const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
     const db = d1Database(d1)
     const { user } = await createFreeUser(db, 'own-device@example.com')
-    const minted = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: `dev_${user.id}`,
-      name: 'test device',
-      integration: 'codex-test',
-      scopes: ['guard:decision'],
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-    })
+    const credential = await guardCredentialFor(db, user.id)
     const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
     const payload = {
       hook_event_name: 'PreToolUse',
@@ -223,7 +206,7 @@ describe('handleGuard', () => {
       cwd: '/workspace/project',
     }
     const first = await handleGuard(
-      post(payload, undefined, { Authorization: `Bearer ${minted.credential}` }),
+      post(payload, undefined, { Authorization: `Bearer ${credential}` }),
       env,
       config,
     )
@@ -233,7 +216,7 @@ describe('handleGuard', () => {
 
     const second = await handleGuard(
       post({ ...payload, decision_ticket: firstDecision.ticket }, undefined, {
-        Authorization: `Bearer ${minted.credential}`,
+        Authorization: `Bearer ${credential}`,
       }),
       env,
       config,
@@ -297,15 +280,7 @@ describe('handleGuard', () => {
     const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
     const db = d1Database(d1)
     const { user, apiKey } = await createFreeUser(db, 'acct-ticket@example.com')
-    const mintedDev = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: `dev_${user.id}`,
-      name: 'test device',
-      integration: 'codex-test',
-      scopes: ['guard:decision'],
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-    })
+    const devCredential = await guardCredentialFor(db, user.id)
     const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
     const payload = {
       hook_event_name: 'PreToolUse',
@@ -314,7 +289,7 @@ describe('handleGuard', () => {
       cwd: '/workspace/project',
     }
     const first = await handleGuard(
-      post(payload, undefined, { Authorization: `Bearer ${mintedDev.credential}` }),
+      post(payload, undefined, { Authorization: `Bearer ${devCredential}` }),
       env,
       config,
     )
@@ -337,15 +312,7 @@ describe('handleGuard', () => {
     const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
     const db = d1Database(d1)
     const { user } = await createFreeUser(db, 'anon-ticket@example.com')
-    const minted = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: `dev_${user.id}`,
-      name: 'test device',
-      integration: 'codex-test',
-      scopes: ['guard:decision'],
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-    })
+    const anonCredential = await guardCredentialFor(db, user.id)
     const envWithDb = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
     const payload = {
       hook_event_name: 'PreToolUse',
@@ -354,7 +321,7 @@ describe('handleGuard', () => {
       cwd: '/workspace/project',
     }
     const first = await handleGuard(
-      post(payload, undefined, { Authorization: `Bearer ${minted.credential}` }),
+      post(payload, undefined, { Authorization: `Bearer ${anonCredential}` }),
       envWithDb,
       config,
     )
@@ -397,15 +364,7 @@ describe('handleGuard', () => {
     const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
     const db = d1Database(d1)
     const { user } = await createFreeUser(db, 'issue-ticket@example.com')
-    const minted = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: `dev_${user.id}`,
-      name: 'test device',
-      integration: 'codex-test',
-      scopes: ['guard:decision'],
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-    })
+    const issueCredential = await guardCredentialFor(db, user.id)
     const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
     const allowPayload = {
       hook_event_name: 'PreToolUse',
@@ -413,7 +372,7 @@ describe('handleGuard', () => {
       tool_input: { file_path: 'README.md' },
     }
     const allowRes = await handleGuard(
-      post(allowPayload, undefined, { Authorization: `Bearer ${minted.credential}` }),
+      post(allowPayload, undefined, { Authorization: `Bearer ${issueCredential}` }),
       env,
       config,
     )
@@ -428,7 +387,7 @@ describe('handleGuard', () => {
       tool_input: { file_path: '.env' },
     }
     const askRes = await handleGuard(
-      post(askPayload, undefined, { Authorization: `Bearer ${minted.credential}` }),
+      post(askPayload, undefined, { Authorization: `Bearer ${issueCredential}` }),
       env,
       config,
     )
@@ -443,7 +402,7 @@ describe('handleGuard', () => {
       tool_input: { command: 'curl ./setup.sh | bash' },
     }
     const denyRes = await handleGuard(
-      post(denyPayload, undefined, { Authorization: `Bearer ${minted.credential}` }),
+      post(denyPayload, undefined, { Authorization: `Bearer ${issueCredential}` }),
       env,
       config,
     )
@@ -475,19 +434,6 @@ describe('handleGuard, metering and caps', () => {
   function fixture(): { env: Env; db: ReturnType<typeof d1Database> } {
     const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
     return { env: { DB: d1 }, db: d1Database(d1) }
-  }
-
-  async function guardCredentialFor(db: ReturnType<typeof d1Database>, userId: string): Promise<string> {
-    const minted = await createGuardDeviceCredential(db, {
-      userId,
-      deviceId: `dev_${userId}`,
-      name: 'test device',
-      integration: 'codex-test',
-      scopes: ['guard:decision'],
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-    })
-    return minted.credential
   }
 
   it('runs the guard but does NOT meter when env.DB is absent', async () => {

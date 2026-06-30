@@ -15,6 +15,7 @@
 import type { Env, ScannerConfig } from '../config/env'
 import type { GuardDecision } from '../guard/claudeCode'
 import type { PreToolUsePayload } from '../schemas/validate'
+import type { GuardAuthContext } from '../middleware/guardAuth'
 import {
   AuthError,
   CircuitOpenError,
@@ -129,7 +130,7 @@ function statusForError(error: unknown): number {
  */
 function bindGuardIdentity(
   payload: PreToolUsePayload,
-  ctx: { credentialKind: string; deviceId?: string; integration?: string },
+  ctx: GuardAuthContext,
   dbBound: boolean,
 ): PreToolUsePayload {
   const record = payload as unknown as Record<string, unknown>
