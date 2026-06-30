@@ -27,6 +27,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import { pathToFileURL } from 'node:url'
 
 const DEFAULT_API_URL = 'https://secureai.software'
 const DEFAULT_TIMEOUT_MS = 5000
@@ -301,7 +302,13 @@ async function main() {
   process.exit(0)
 }
 
-main().catch(() => {
-  process.stdout.write(JSON.stringify(failClosedOutput('unexpected guard error')))
-  process.exit(0)
-})
+function isCliEntry() {
+  return process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href
+}
+
+if (isCliEntry()) {
+  main().catch(() => {
+    process.stdout.write(JSON.stringify(failClosedOutput('unexpected guard error')))
+    process.exit(0)
+  })
+}
