@@ -164,6 +164,8 @@ export interface ScannerConfig {
   readonly guardLastSeenThrottleSeconds: number
   /** Lifetime, in days, for newly minted Guard device credentials. */
   readonly guardDeviceCredentialTtlDays: number
+  /** Byte count of the random portion of a minted Guard device credential. Range 16..64. */
+  readonly guardDeviceCredentialBytes: number
   /** Maximum number of active Guard device credentials allowed per account. */
   readonly guardMaxDevicesPerAccount: number
   /**
@@ -396,6 +398,13 @@ export function loadConfig(env: Env): ScannerConfig {
     1,
     365,
   )
+  const guardDeviceCredentialBytes = readIntInRange(
+    env,
+    'SCANNER_GUARD_DEVICE_CREDENTIAL_BYTES',
+    32,
+    16,
+    64,
+  )
   const guardDevicePurgeGraceDays = readIntInRange(env, 'SCANNER_GUARD_DEVICE_PURGE_GRACE_DAYS', 7, 0, 365)
   const guardMaxDevicesPerAccount = readIntInRange(
     env,
@@ -601,6 +610,7 @@ export function loadConfig(env: Env): ScannerConfig {
     guardAllowAccountCredentials,
     guardLastSeenThrottleSeconds,
     guardDeviceCredentialTtlDays,
+    guardDeviceCredentialBytes,
     guardDevicePurgeGraceDays,
     guardMaxDevicesPerAccount,
     guardReadTools,

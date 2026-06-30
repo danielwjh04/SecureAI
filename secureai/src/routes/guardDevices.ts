@@ -16,6 +16,7 @@ import {
   guardDeviceRevokeSchema,
 } from '../schemas/validate'
 import {
+  GUARD_DECISION_SCOPE,
   activeGuardDeviceExists,
   countActiveGuardDevices,
   createGuardDeviceCredential,
@@ -138,15 +139,19 @@ export async function handleGuardDeviceRegister(
     const expiresAt = new Date(
       createdAt.getTime() + deps.config.guardDeviceCredentialTtlDays * MILLISECONDS_PER_DAY,
     )
-    const minted = await createGuardDeviceCredential(db, {
-      userId: subject,
-      deviceId,
-      name: body.name ?? null,
-      integration: body.integration,
-      scopes: body.scopes ?? ['guard:decision'],
-      createdAt: createdAt.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-    })
+    const minted = await createGuardDeviceCredential(
+      db,
+      {
+        userId: subject,
+        deviceId,
+        name: body.name ?? null,
+        integration: body.integration,
+        scopes: body.scopes ?? [GUARD_DECISION_SCOPE],
+        createdAt: createdAt.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+      },
+      deps.config.guardDeviceCredentialBytes,
+    )
     return Response.json(
       { device: publicDevice(minted.device), credential: minted.credential },
       { status: STATUS_CREATED },

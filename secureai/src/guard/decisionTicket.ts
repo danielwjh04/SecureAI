@@ -7,6 +7,7 @@
 
 import type { GuardPermissionDecision } from '../schemas/contract'
 import type { PreToolUsePayload } from '../schemas/validate'
+import { guardDecisionTicketSchema } from '../schemas/validate'
 import { canonicalJson } from '../audit/chain'
 
 const HMAC_ALGORITHM = 'HMAC'
@@ -72,45 +73,14 @@ export interface GuardTicketVerification {
 /**
  * Parse an unknown value into a structurally valid ticket, or `null`.
  *
+ * Delegates to {@link guardDecisionTicketSchema}. Preserves the null-on-miss
+ * contract so all callers are unaffected.
+ *
  * Time complexity: O(1). Space complexity: O(1).
  */
 export function parseGuardDecisionTicket(value: unknown): GuardDecisionTicket | null {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-  const record = value as Record<string, unknown>
-  if (
-    !(record.alg === 'HS256' || record.alg === 'ES256') ||
-    typeof record.kid !== 'string' ||
-    record.kid.length === 0 ||
-    typeof record.action_hash !== 'string' ||
-    typeof record.scope !== 'string' ||
-    !(record.decision === 'allow' || record.decision === 'ask' || record.decision === 'deny') ||
-    typeof record.policy_version !== 'string' ||
-    typeof record.trust_revision !== 'string' ||
-    typeof record.expires_at !== 'string' ||
-    typeof record.signature !== 'string'
-  ) {
-    return null
-  }
-  const ticket: GuardDecisionTicket = {
-    alg: record.alg,
-    kid: record.kid,
-    action_hash: record.action_hash,
-    scope: record.scope,
-    decision: record.decision,
-    policy_version: record.policy_version,
-    trust_revision: record.trust_revision,
-    expires_at: record.expires_at,
-    signature: record.signature,
-  }
-  if (typeof record.device_id === 'string' && record.device_id.length > 0) {
-    ticket.device_id = record.device_id
-  }
-  if (typeof record.integration_version === 'string' && record.integration_version.length > 0) {
-    ticket.integration_version = record.integration_version
-  }
-  return ticket
+  const result = guardDecisionTicketSchema.safeParse(value)
+  return result.success ? result.data : null
 }
 
 /**

@@ -24,15 +24,19 @@ function post(body: unknown, raw?: string, headers?: Record<string, string>): Re
 }
 
 async function guardCredentialFor(db: ReturnType<typeof d1Database>, userId: string): Promise<string> {
-  const minted = await createGuardDeviceCredential(db, {
-    userId,
-    deviceId: `dev_${userId}`,
-    name: 'test device',
-    integration: 'codex-test',
-    scopes: ['guard:decision'],
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 86400000).toISOString(),
-  })
+  const minted = await createGuardDeviceCredential(
+    db,
+    {
+      userId,
+      deviceId: `dev_${userId}`,
+      name: 'test device',
+      integration: 'codex-test',
+      scopes: ['guard:decision'],
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    },
+    32,
+  )
   return minted.credential
 }
 
@@ -233,24 +237,32 @@ describe('handleGuard', () => {
     const db = d1Database(d1)
     const { user: userA } = await createFreeUser(db, 'device-a@example.com')
     const { user: userB } = await createFreeUser(db, 'device-b@example.com')
-    const mintedA = await createGuardDeviceCredential(db, {
-      userId: userA.id,
-      deviceId: `dev_${userA.id}`,
-      name: 'device A',
-      integration: 'codex-test',
-      scopes: ['guard:decision'],
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-    })
-    const mintedB = await createGuardDeviceCredential(db, {
-      userId: userB.id,
-      deviceId: `dev_${userB.id}`,
-      name: 'device B',
-      integration: 'codex-test',
-      scopes: ['guard:decision'],
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-    })
+    const mintedA = await createGuardDeviceCredential(
+      db,
+      {
+        userId: userA.id,
+        deviceId: `dev_${userA.id}`,
+        name: 'device A',
+        integration: 'codex-test',
+        scopes: ['guard:decision'],
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+      32,
+    )
+    const mintedB = await createGuardDeviceCredential(
+      db,
+      {
+        userId: userB.id,
+        deviceId: `dev_${userB.id}`,
+        name: 'device B',
+        integration: 'codex-test',
+        scopes: ['guard:decision'],
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+      32,
+    )
     const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
     const payload = {
       hook_event_name: 'PreToolUse',

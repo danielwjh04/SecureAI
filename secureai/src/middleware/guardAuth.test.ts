@@ -18,15 +18,19 @@ function request(key?: string): Request {
 }
 
 async function deviceKey(db: ReturnType<typeof memoryDatabase>['db'], userId: string): Promise<string> {
-  const minted = await createGuardDeviceCredential(db, {
-    userId,
-    deviceId: 'dev_auth',
-    name: 'Auth test',
-    integration: 'codex',
-    scopes: ['guard:decision'],
-    createdAt: '2026-06-30T00:00:00.000Z',
-    expiresAt: '2026-07-30T00:00:00.000Z',
-  })
+  const minted = await createGuardDeviceCredential(
+    db,
+    {
+      userId,
+      deviceId: 'dev_auth',
+      name: 'Auth test',
+      integration: 'codex',
+      scopes: ['guard:decision'],
+      createdAt: '2026-06-30T00:00:00.000Z',
+      expiresAt: '2026-07-30T00:00:00.000Z',
+    },
+    32,
+  )
   return minted.credential
 }
 
@@ -34,15 +38,19 @@ async function mintDevice(
   db: ReturnType<typeof memoryDatabase>['db'],
   userId: string,
 ): Promise<{ deviceId: string; credential: string }> {
-  const minted = await createGuardDeviceCredential(db, {
-    userId,
-    deviceId: 'dev_throttle',
-    name: 'Throttle test',
-    integration: 'claude-code',
-    scopes: ['guard:decision'],
-    createdAt: '2026-06-30T00:00:00.000Z',
-    expiresAt: '2026-07-30T00:00:00.000Z',
-  })
+  const minted = await createGuardDeviceCredential(
+    db,
+    {
+      userId,
+      deviceId: 'dev_throttle',
+      name: 'Throttle test',
+      integration: 'claude-code',
+      scopes: ['guard:decision'],
+      createdAt: '2026-06-30T00:00:00.000Z',
+      expiresAt: '2026-07-30T00:00:00.000Z',
+    },
+    32,
+  )
   return { deviceId: minted.device.id, credential: minted.credential }
 }
 

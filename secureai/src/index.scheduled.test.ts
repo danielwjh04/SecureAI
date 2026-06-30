@@ -51,15 +51,19 @@ describe('worker.scheduled (threat-feed cron)', () => {
 
     // Insert a credential whose expires_at is before scheduledTime (1700 ms epoch),
     // so it will be past the grace window regardless of the configured grace days.
-    await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_expired',
-      name: null,
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '1970-01-01T00:00:00.000Z',
-      expiresAt: '1970-01-01T00:00:00.000Z',
-    })
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_expired',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '1970-01-01T00:00:00.000Z',
+        expiresAt: '1970-01-01T00:00:00.000Z',
+      },
+      32,
+    )
 
     expect(store.guardDeviceCredentials.size).toBe(1)
 

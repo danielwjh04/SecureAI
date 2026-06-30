@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { GUARD_DECISION_SCOPE } from '../db/guardDevices'
 
 const proofStepKindSchema = z.enum([
   'SKILL_INPUT',
@@ -247,7 +248,7 @@ export const guardDeviceRegisterSchema = z
     deviceId: z.string().trim().min(1).max(128).optional(),
     name: z.string().trim().min(1).max(120).optional(),
     integration: z.string().trim().min(1).max(80),
-    scopes: z.array(z.enum(['guard:decision'])).min(1).max(4).optional(),
+    scopes: z.array(z.literal(GUARD_DECISION_SCOPE)).min(1).max(4).optional(),
   })
   .strict()
 
@@ -375,3 +376,26 @@ export const threatsOffsetSchema = z
   .optional()
   .transform((raw) => (raw === undefined ? '0' : raw))
   .pipe(z.coerce.number().int().nonnegative())
+
+/**
+ * Structural schema for an inbound Guard decision ticket. Mirrors
+ * {@link GuardDecisionTicket} (decisionTicket.ts) and preserves the exact
+ * contract of the previous hand-parser: `kid` must be non-empty (the only
+ * length-checked field); all other string fields accept empty strings; unknown
+ * keys are stripped (Zod default, no `.strict()` or `.passthrough()`).
+ *
+ * Time complexity: O(1). Space complexity: O(1).
+ */
+export const guardDecisionTicketSchema = z.object({
+  alg: z.enum(['HS256', 'ES256']),
+  kid: z.string().min(1),
+  action_hash: z.string(),
+  scope: z.string(),
+  decision: z.enum(['allow', 'ask', 'deny']),
+  policy_version: z.string(),
+  trust_revision: z.string(),
+  expires_at: z.string(),
+  signature: z.string(),
+  device_id: z.string().min(1).optional(),
+  integration_version: z.string().min(1).optional(),
+})

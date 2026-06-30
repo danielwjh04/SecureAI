@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { memoryDatabase } from './memory.test'
 import { createFreeUser, sha256Hex } from './accounts'
 import {
+  DEVICE_CREDENTIAL_PREFIX,
   activeGuardDeviceExists,
   countActiveGuardDevices,
   createGuardDeviceCredential,
@@ -20,15 +21,19 @@ describe('guard device credentials', () => {
   it('mints a raw credential once and stores only its SHA-256 digest', async () => {
     const { db, store } = memoryDatabase()
     const { user } = await createFreeUser(db, 'device@example.com')
-    const minted = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_one',
-      name: 'Laptop',
-      integration: 'codex',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: tomorrow(),
-    })
+    const minted = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_one',
+        name: 'Laptop',
+        integration: 'codex',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      32,
+    )
 
     expect(minted.credential).toMatch(/^gd_secureai_[0-9a-f]{64}$/)
     const digest = await sha256Hex(minted.credential)
@@ -41,15 +46,19 @@ describe('guard device credentials', () => {
   it('resolves active unexpired credentials and rejects expired or revoked ones', async () => {
     const { db } = memoryDatabase()
     const { user } = await createFreeUser(db, 'resolve-device@example.com')
-    const minted = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_one',
-      name: null,
-      integration: 'cursor',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: '2026-07-01T00:00:00.000Z',
-    })
+    const minted = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_one',
+        name: null,
+        integration: 'cursor',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: '2026-07-01T00:00:00.000Z',
+      },
+      32,
+    )
 
     await expect(
       findGuardDeviceByCredential(db, minted.credential, '2026-06-30T12:00:00.000Z'),
@@ -72,15 +81,19 @@ describe('guard device credentials', () => {
   it('findGuardDeviceByCredential returns lastSeenAt', async () => {
     const { db } = memoryDatabase()
     const { user } = await createFreeUser(db, 'last-seen@example.com')
-    const minted = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_ls',
-      name: null,
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: '2026-07-30T00:00:00.000Z',
-    })
+    const minted = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_ls',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: '2026-07-30T00:00:00.000Z',
+      },
+      32,
+    )
 
     const fresh = await findGuardDeviceByCredential(db, minted.credential, '2026-06-30T12:00:00.000Z')
     expect(fresh?.lastSeenAt).toBeNull()
@@ -94,15 +107,19 @@ describe('guard device credentials', () => {
   it('lists devices without exposing raw credentials', async () => {
     const { db } = memoryDatabase()
     const { user } = await createFreeUser(db, 'list-device@example.com')
-    const minted = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_list',
-      name: 'Work laptop',
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: '2026-07-30T00:00:00.000Z',
-    })
+    const minted = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_list',
+        name: 'Work laptop',
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: '2026-07-30T00:00:00.000Z',
+      },
+      32,
+    )
 
     const devices = await listGuardDevices(db, user.id)
     expect(devices).toHaveLength(1)
@@ -119,24 +136,32 @@ describe('guard device credentials', () => {
   it('re-registering the same device and integration revokes the prior active credential and leaves exactly one active', async () => {
     const { db } = memoryDatabase()
     const { user } = await createFreeUser(db, 'rotate@example.com')
-    const first = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_rotate',
-      name: null,
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: tomorrow(),
-    })
-    const second = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_rotate',
-      name: null,
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T01:00:00.000Z',
-      expiresAt: tomorrow(),
-    })
+    const first = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_rotate',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      32,
+    )
+    const second = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_rotate',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T01:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      32,
+    )
 
     const all = await listGuardDevices(db, user.id)
     // Both rows preserved (one active, one revoked).
@@ -155,24 +180,32 @@ describe('guard device credentials', () => {
   it('the same device with a different integration keeps both active', async () => {
     const { db } = memoryDatabase()
     const { user } = await createFreeUser(db, 'two-integrations@example.com')
-    await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_shared',
-      name: null,
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: tomorrow(),
-    })
-    await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_shared',
-      name: null,
-      integration: 'codex',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T01:00:00.000Z',
-      expiresAt: tomorrow(),
-    })
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_shared',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      32,
+    )
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_shared',
+        name: null,
+        integration: 'codex',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T01:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      32,
+    )
 
     const all = await listGuardDevices(db, user.id)
     expect(all).toHaveLength(2)
@@ -182,24 +215,32 @@ describe('guard device credentials', () => {
   it('countActiveGuardDevices counts only active rows', async () => {
     const { db } = memoryDatabase()
     const { user } = await createFreeUser(db, 'count@example.com')
-    const m1 = await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_a',
-      name: null,
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: tomorrow(),
-    })
-    await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_b',
-      name: null,
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T01:00:00.000Z',
-      expiresAt: tomorrow(),
-    })
+    const m1 = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_a',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      32,
+    )
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_b',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T01:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      32,
+    )
 
     expect(await countActiveGuardDevices(db, user.id)).toBe(2)
 
@@ -211,15 +252,19 @@ describe('guard device credentials', () => {
   it('activeGuardDeviceExists returns true only for a matching active tuple', async () => {
     const { db } = memoryDatabase()
     const { user } = await createFreeUser(db, 'exists@example.com')
-    await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_x',
-      name: null,
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: tomorrow(),
-    })
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_x',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      32,
+    )
 
     expect(await activeGuardDeviceExists(db, user.id, 'dev_x', 'claude-code')).toBe(true)
     expect(await activeGuardDeviceExists(db, user.id, 'dev_x', 'codex')).toBe(false)
@@ -231,37 +276,49 @@ describe('guard device credentials', () => {
     const { user } = await createFreeUser(db, 'purge@example.com')
 
     // Long-expired: expires_at is well before the cutoff.
-    await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_long_expired',
-      name: 'Long expired',
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-01-01T00:00:00.000Z',
-      expiresAt: '2026-01-10T00:00:00.000Z',
-    })
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_long_expired',
+        name: 'Long expired',
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        expiresAt: '2026-01-10T00:00:00.000Z',
+      },
+      32,
+    )
 
     // Recently expired: within the grace window (expires_at is between cutoff and now).
-    await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_recently_expired',
-      name: 'Recently expired',
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-20T00:00:00.000Z',
-      expiresAt: '2026-06-28T00:00:00.000Z',
-    })
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_recently_expired',
+        name: 'Recently expired',
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-20T00:00:00.000Z',
+        expiresAt: '2026-06-28T00:00:00.000Z',
+      },
+      32,
+    )
 
     // Active: expires in the future.
-    await createGuardDeviceCredential(db, {
-      userId: user.id,
-      deviceId: 'dev_active',
-      name: 'Active device',
-      integration: 'claude-code',
-      scopes: ['guard:decision'],
-      createdAt: '2026-06-30T00:00:00.000Z',
-      expiresAt: '2026-09-30T00:00:00.000Z',
-    })
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_active',
+        name: 'Active device',
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: '2026-09-30T00:00:00.000Z',
+      },
+      32,
+    )
 
     // Cutoff sits between the long-expired row and the recently-expired row.
     const cutoff = '2026-06-20T00:00:00.000Z'
@@ -276,5 +333,25 @@ describe('guard device credentials', () => {
     expect(deviceIds).toContain('dev_active')
     // Confirm the store also reflects the deletion.
     expect(store.guardDeviceCredentials.size).toBe(2)
+  })
+
+  it('the minted credential length reflects the configured byte count', async () => {
+    const { db } = memoryDatabase()
+    const { user } = await createFreeUser(db, 'bytes@example.com')
+    const bytes = 16
+    const minted = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_bytes',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: tomorrow(),
+      },
+      bytes,
+    )
+    expect(minted.credential.length).toBe(DEVICE_CREDENTIAL_PREFIX.length + 2 * bytes)
   })
 })

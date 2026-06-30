@@ -4,6 +4,7 @@ import type { PreToolUsePayload } from '../schemas/validate'
 import {
   type GuardDecisionTicket,
   guardActionHash,
+  parseGuardDecisionTicket,
   signGuardDecisionTicket,
   verifyGuardDecisionTicket,
 } from './decisionTicket'
@@ -195,6 +196,90 @@ describe('Guard decision tickets', () => {
       ok: true,
       reason: 'ticket valid',
     })
+  })
+
+  it('parseGuardDecisionTicket rejects a ticket missing a required field', () => {
+    const base = {
+      alg: 'HS256',
+      kid: 'k1',
+      action_hash: 'abc',
+      scope: '/workspace',
+      decision: 'allow',
+      policy_version: '1',
+      trust_revision: '1',
+      expires_at: '2026-12-31T00:00:00.000Z',
+      signature: 'sig',
+    }
+    expect(parseGuardDecisionTicket({ ...base, action_hash: undefined })).toBeNull()
+    expect(parseGuardDecisionTicket({ ...base, kid: undefined })).toBeNull()
+    expect(parseGuardDecisionTicket({ ...base, signature: undefined })).toBeNull()
+  })
+
+  it('parseGuardDecisionTicket rejects a ticket with a wrong-typed field', () => {
+    const base = {
+      alg: 'HS256',
+      kid: 'k1',
+      action_hash: 'abc',
+      scope: '/workspace',
+      decision: 'allow',
+      policy_version: '1',
+      trust_revision: '1',
+      expires_at: '2026-12-31T00:00:00.000Z',
+      signature: 'sig',
+    }
+    expect(parseGuardDecisionTicket({ ...base, kid: 42 })).toBeNull()
+    expect(parseGuardDecisionTicket({ ...base, expires_at: true })).toBeNull()
+  })
+
+  it('parseGuardDecisionTicket rejects a ticket with an invalid alg', () => {
+    const base = {
+      alg: 'RS256',
+      kid: 'k1',
+      action_hash: 'abc',
+      scope: '/workspace',
+      decision: 'allow',
+      policy_version: '1',
+      trust_revision: '1',
+      expires_at: '2026-12-31T00:00:00.000Z',
+      signature: 'sig',
+    }
+    expect(parseGuardDecisionTicket(base)).toBeNull()
+  })
+
+  it('parseGuardDecisionTicket rejects a ticket with an invalid decision', () => {
+    const base = {
+      alg: 'HS256',
+      kid: 'k1',
+      action_hash: 'abc',
+      scope: '/workspace',
+      decision: 'approve',
+      policy_version: '1',
+      trust_revision: '1',
+      expires_at: '2026-12-31T00:00:00.000Z',
+      signature: 'sig',
+    }
+    expect(parseGuardDecisionTicket(base)).toBeNull()
+  })
+
+  it('parseGuardDecisionTicket accepts a fully valid ticket', () => {
+    const base = {
+      alg: 'HS256',
+      kid: 'k1',
+      action_hash: 'abc',
+      scope: '/workspace',
+      decision: 'deny',
+      policy_version: '1',
+      trust_revision: '1',
+      expires_at: '2026-12-31T00:00:00.000Z',
+      signature: 'sig',
+      device_id: 'dev-1',
+      integration_version: '1.0.0',
+    }
+    const result = parseGuardDecisionTicket(base)
+    expect(result).not.toBeNull()
+    expect(result?.alg).toBe('HS256')
+    expect(result?.decision).toBe('deny')
+    expect(result?.device_id).toBe('dev-1')
   })
 
   it('rejects a ticket whose kid matches no verifier', async () => {

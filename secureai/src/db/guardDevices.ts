@@ -10,9 +10,8 @@ import { AuthError } from '../errors'
 import { parseAccountTier, sha256Hex } from './accounts'
 import { log } from '../observability/logger'
 
-const DEVICE_CREDENTIAL_PREFIX = 'gd_secureai_'
-const DEVICE_CREDENTIAL_BYTES = 32
-const REQUIRED_SCOPE = 'guard:decision'
+export const DEVICE_CREDENTIAL_PREFIX = 'gd_secureai_'
+export const GUARD_DECISION_SCOPE = 'guard:decision' as const
 
 export interface GuardDeviceRecord {
   readonly id: string
@@ -52,8 +51,8 @@ export interface CreateGuardDeviceInput {
   readonly expiresAt: string
 }
 
-function generateGuardDeviceCredential(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(DEVICE_CREDENTIAL_BYTES))
+function generateGuardDeviceCredential(byteCount: number): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteCount))
   let hex = ''
   for (const byte of bytes) {
     hex += byte.toString(16).padStart(2, '0')
@@ -120,13 +119,14 @@ function rowToDevice(row: Row): GuardDeviceRecord {
 export async function createGuardDeviceCredential(
   db: Database,
   input: CreateGuardDeviceInput,
+  credentialBytes: number,
 ): Promise<MintedGuardDevice> {
-  const credential = generateGuardDeviceCredential()
+  const credential = generateGuardDeviceCredential(credentialBytes)
   const credentialHash = await sha256Hex(credential)
   const id = crypto.randomUUID()
-  const scopes = input.scopes.includes(REQUIRED_SCOPE)
+  const scopes = input.scopes.includes(GUARD_DECISION_SCOPE)
     ? input.scopes
-    : [REQUIRED_SCOPE, ...input.scopes]
+    : [GUARD_DECISION_SCOPE, ...input.scopes]
   try {
     await db.batch([
       {
@@ -233,7 +233,7 @@ export async function findGuardDeviceByCredential(
     return null
   }
   const scopes = parseScopes(row['scopes'])
-  if (!scopes.includes(REQUIRED_SCOPE)) {
+  if (!scopes.includes(GUARD_DECISION_SCOPE)) {
     return null
   }
   return {
