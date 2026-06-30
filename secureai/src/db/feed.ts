@@ -15,6 +15,27 @@ import type { FeedIndicatorStore } from '../pipeline/indicators'
 import type { BatchStatement, Database } from './database'
 
 /**
+ * Read the active feed version from `feed_meta`, or `null` when the table has
+ * no row yet (feed never loaded) or the value is missing.
+ *
+ * Time complexity: O(1) indexed lookup. Space complexity: O(1).
+ *
+ * @param db - The persistence seam.
+ * @returns The `current_version` as a string, or `null` when absent.
+ */
+export async function currentFeedVersion(db: Database): Promise<string | null> {
+  const row = await db.queryOne('SELECT current_version FROM feed_meta WHERE id = 1', [])
+  if (row === null) {
+    return null
+  }
+  const version = row['current_version']
+  if (version === null || version === undefined) {
+    return null
+  }
+  return String(version)
+}
+
+/**
  * Rows per multi-row INSERT. Four bound params per row, kept well under SQLite's
  * ~999 bound-variable limit so each chunk is one prepared statement.
  */

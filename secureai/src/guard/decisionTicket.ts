@@ -146,6 +146,10 @@ export async function signGuardDecisionTicket(
   if (context.signer.alg === 'HS256' && context.signer.secret.length === 0) {
     return null
   }
+  const scope = stringOrNull(payload.cwd)
+  if (scope === null) {
+    return null
+  }
   const expiresAt = new Date(context.now.getTime() + context.ttlSeconds * 1000).toISOString()
   const ticket = unsignedTicket(
     payload,
@@ -155,6 +159,7 @@ export async function signGuardDecisionTicket(
     await guardActionHash(payload),
     context.signer.alg,
     context.signer.kid,
+    scope,
   )
   return { ...ticket, signature: await signatureFor(ticket, context.signer) }
 }
@@ -169,6 +174,10 @@ export async function verifyGuardDecisionTicket(
   ticket: GuardDecisionTicket,
   context: GuardTicketContext,
 ): Promise<GuardTicketVerification> {
+  const scope = stringOrNull(payload.cwd)
+  if (scope === null) {
+    return { ok: false, reason: 'missing project scope' }
+  }
   const expiresMs = Date.parse(ticket.expires_at)
   if (!Number.isFinite(expiresMs) || expiresMs <= context.now.getTime()) {
     return { ok: false, reason: 'ticket expired' }
@@ -200,6 +209,7 @@ export async function verifyGuardDecisionTicket(
     expectedHash,
     ticket.alg,
     ticket.kid,
+    scope,
   )
   if (!(await verifySignature(expected, ticket.signature, verifier))) {
     return { ok: false, reason: 'signature mismatch' }
@@ -215,13 +225,14 @@ function unsignedTicket(
   actionHash: string,
   alg: GuardTicketAlgorithm,
   kid: string,
+  scope: string,
 ): Omit<GuardDecisionTicket, 'signature'> {
   const record = payload as unknown as Record<string, unknown>
   const ticket: Omit<GuardDecisionTicket, 'signature'> = {
     alg,
     kid,
     action_hash: actionHash,
-    scope: stringOrNull(payload.cwd) ?? 'project:unknown',
+    scope,
     decision,
     policy_version: context.policyVersion,
     trust_revision: context.trustRevision,

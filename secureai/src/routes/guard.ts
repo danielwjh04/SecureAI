@@ -43,7 +43,7 @@ import { breakerFor, type BreakerStore } from '../resilience/circuitBreaker'
 import { DenylistReputationClient, type IndicatorKv } from '../pipeline/indicators'
 import { preToolUseSchema } from '../schemas/validate'
 import { d1Database, type Database } from '../db/database'
-import { d1FeedStore } from '../db/feed'
+import { currentFeedVersion, d1FeedStore } from '../db/feed'
 import { authenticateGuard } from '../middleware/guardAuth'
 import { aiAllowedForTier, enforceDailyCap } from '../middleware/gate'
 import { recordVerdict } from '../db/usage'
@@ -192,7 +192,13 @@ export async function handleGuard(
 
     const guardPayload = bindGuardIdentity(payload, ctx, db !== null)
 
-    const ticketContext = guardTicketContextFromEnv(env, config, now)
+    const feedVersion = config.feedEnabled && db !== null ? await currentFeedVersion(db) : null
+    const effectiveTrustRevision =
+      feedVersion !== null
+        ? config.guardTrustRevision + ':feed:' + feedVersion
+        : config.guardTrustRevision
+
+    const ticketContext = guardTicketContextFromEnv(env, config, now, effectiveTrustRevision)
     let decision: GuardDecision | null = null
     const presentedTicket = parseGuardDecisionTicket(
       (guardPayload as unknown as Record<string, unknown>).decision_ticket,
@@ -268,7 +274,7 @@ export async function handleGuard(
             githubToken: typeof env.GITHUB_TOKEN === 'string' ? env.GITHUB_TOKEN : undefined,
           }),
         config.guardPolicyVersion,
-        config.guardTrustRevision,
+        effectiveTrustRevision,
       )
     }
 
@@ -331,6 +337,7 @@ function guardTicketContextFromEnv(
   env: Env,
   config: ScannerConfig,
   now: Date,
+  trustRevision: string,
 ): GuardTicketContext | null {
   if (config.guardTicketTtlSeconds <= 0) {
     return null
@@ -356,7 +363,7 @@ function guardTicketContextFromEnv(
       signer,
       verifiers: [verifier],
       policyVersion: config.guardPolicyVersion,
-      trustRevision: config.guardTrustRevision,
+      trustRevision,
       ttlSeconds: config.guardTicketTtlSeconds,
       now,
     }
@@ -372,7 +379,7 @@ function guardTicketContextFromEnv(
     signer,
     verifiers: [verifier],
     policyVersion: config.guardPolicyVersion,
-    trustRevision: config.guardTrustRevision,
+    trustRevision,
     ttlSeconds: config.guardTicketTtlSeconds,
     now,
   }

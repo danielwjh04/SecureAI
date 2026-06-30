@@ -69,4 +69,36 @@ describe('Guard decision tickets', () => {
       verifyGuardDecisionTicket(payload, ticket, { ...context, policyVersion: 'policy-2' }),
     ).resolves.toEqual({ ok: false, reason: 'policy version mismatch' })
   })
+
+  it('signGuardDecisionTicket returns null when cwd is absent', async () => {
+    const noCwd = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+    } as PreToolUsePayload
+
+    await expect(signGuardDecisionTicket(noCwd, 'allow', context)).resolves.toBeNull()
+  })
+
+  it('a ticket signed with one scope fails to verify against a different scope', async () => {
+    const ticket = requireTicket(await signGuardDecisionTicket(payload, 'allow', context))
+    const differentScope = { ...payload, cwd: '/workspace/other-project' } as PreToolUsePayload
+
+    const result = await verifyGuardDecisionTicket(differentScope, ticket, context)
+    expect(result.ok).toBe(false)
+  })
+
+  it('verifyGuardDecisionTicket returns missing project scope when cwd is absent', async () => {
+    const ticket = requireTicket(await signGuardDecisionTicket(payload, 'allow', context))
+    const noCwd = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+    } as PreToolUsePayload
+
+    await expect(verifyGuardDecisionTicket(noCwd, ticket, context)).resolves.toEqual({
+      ok: false,
+      reason: 'missing project scope',
+    })
+  })
 })

@@ -2,7 +2,24 @@ import { describe, expect, it } from 'vitest'
 import type { FeedIndicator } from '../pipeline/feedParse'
 import type { Database } from './database'
 import { memoryDatabase } from './memory.test'
-import { d1FeedStore, replaceFeed } from './feed'
+import { currentFeedVersion, d1FeedStore, replaceFeed } from './feed'
+
+describe('currentFeedVersion', () => {
+  it('returns the current_version as a string when feed_meta has a row', async () => {
+    const { db } = memoryDatabase()
+    await replaceFeed(db, 1234, '2026-06-30T00:00:00.000Z', [
+      { kind: 'host', value: 'evil.com', source: 'urlhaus' },
+    ])
+    const version = await currentFeedVersion(db)
+    expect(version).toBe('1234')
+  })
+
+  it('returns null when feed_meta has no row', async () => {
+    const { db } = memoryDatabase()
+    const version = await currentFeedVersion(db)
+    expect(version).toBeNull()
+  })
+})
 
 describe('d1FeedStore.match', () => {
   it('returns null before any feed version is loaded', async () => {

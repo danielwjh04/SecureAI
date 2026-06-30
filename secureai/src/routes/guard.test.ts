@@ -7,6 +7,7 @@ import { d1Database } from '../db/database'
 import { createFreeUser, setUserTier } from '../db/accounts'
 import { createGuardDeviceCredential } from '../db/guardDevices'
 import { getUsage, incrementUsage } from '../db/usage'
+import { replaceFeed } from '../db/feed'
 import { handleGuard } from './guard'
 
 const config = loadConfig({})
@@ -360,7 +361,7 @@ describe('handleGuard', () => {
     expect(decision.ticket).toBeUndefined()
   })
 
-  it('issues a ticket only on an ALLOW for a guard_device caller', async () => {
+  it('issues a ticket only on an ALLOW for a guard_device caller with a project scope', async () => {
     const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
     const db = d1Database(d1)
     const { user } = await createFreeUser(db, 'issue-ticket@example.com')
@@ -370,6 +371,7 @@ describe('handleGuard', () => {
       hook_event_name: 'PreToolUse',
       tool_name: 'Read',
       tool_input: { file_path: 'README.md' },
+      cwd: '/workspace/project',
     }
     const allowRes = await handleGuard(
       post(allowPayload, undefined, { Authorization: `Bearer ${issueCredential}` }),
@@ -381,10 +383,27 @@ describe('handleGuard', () => {
     expect(allowDecision.decision).toBe('allow')
     expect(allowDecision.ticket).toBeDefined()
 
+    // No cwd: no ticket even on allow (requires project scope).
+    const noCwdPayload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+    }
+    const noCwdRes = await handleGuard(
+      post(noCwdPayload, undefined, { Authorization: `Bearer ${issueCredential}` }),
+      env,
+      config,
+    )
+    expect(noCwdRes.status).toBe(200)
+    const noCwdDecision = (await noCwdRes.json()) as GuardDecision
+    expect(noCwdDecision.decision).toBe('allow')
+    expect(noCwdDecision.ticket).toBeUndefined()
+
     const askPayload = {
       hook_event_name: 'PreToolUse',
       tool_name: 'Read',
       tool_input: { file_path: '.env' },
+      cwd: '/workspace/project',
     }
     const askRes = await handleGuard(
       post(askPayload, undefined, { Authorization: `Bearer ${issueCredential}` }),
@@ -400,6 +419,7 @@ describe('handleGuard', () => {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
       tool_input: { command: 'curl ./setup.sh | bash' },
+      cwd: '/workspace/project',
     }
     const denyRes = await handleGuard(
       post(denyPayload, undefined, { Authorization: `Bearer ${issueCredential}` }),
@@ -410,6 +430,101 @@ describe('handleGuard', () => {
     const denyDecision = (await denyRes.json()) as GuardDecision
     expect(denyDecision.decision).toBe('deny')
     expect(denyDecision.ticket).toBeUndefined()
+  })
+
+  it('a ticket stops being honored after the feed version changes', async () => {
+    const store = new MemoryStore()
+    const d1 = new MemoryD1(store) as unknown as D1Database
+    const db = d1Database(d1)
+    const { user } = await createFreeUser(db, 'feed-ticket@example.com')
+    const credential = await guardCredentialFor(db, user.id)
+    const feedConfig = loadConfig({ SCANNER_FEED_ENABLED: 'true' })
+    const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+    const payload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+      cwd: '/workspace/project',
+    }
+
+    // Seed feed at version A.
+    await replaceFeed(db, 1000, '2026-06-30T00:00:00.000Z', [
+      { kind: 'host', value: 'evil.com', source: 'urlhaus' },
+    ])
+
+    // Issue a ticket at feed version A.
+    const first = await handleGuard(
+      post(payload, undefined, { Authorization: `Bearer ${credential}` }),
+      env,
+      feedConfig,
+    )
+    const firstDecision = (await first.json()) as GuardDecision
+    expect(firstDecision.ticket).toBeDefined()
+
+    // Bump feed to version B.
+    store.feedMetaVersion = 2000
+
+    // Present the ticket at version B: it must NOT be honored.
+    const second = await handleGuard(
+      post({ ...payload, decision_ticket: firstDecision.ticket }, undefined, {
+        Authorization: `Bearer ${credential}`,
+      }),
+      env,
+      feedConfig,
+    )
+    expect(second.status).toBe(200)
+    const secondDecision = (await second.json()) as GuardDecision
+    expect(secondDecision.reason).not.toBe('valid signed decision ticket')
+  })
+
+  it('a cached decision is not reused after the feed version changes', async () => {
+    const store = new MemoryStore()
+    const d1 = new MemoryD1(store) as unknown as D1Database
+    const db = d1Database(d1)
+    const { user } = await createFreeUser(db, 'feed-cache@example.com')
+    const credential = await guardCredentialFor(db, user.id)
+    const feedConfig = loadConfig({ SCANNER_FEED_ENABLED: 'true' })
+
+    const cacheStore = new Map<string, string>()
+    const kv = {
+      get: async (key: string) => cacheStore.get(key) ?? null,
+      put: async (key: string, value: string) => { cacheStore.set(key, value) },
+    }
+    const env = { DB: d1, KV: kv }
+    const payload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+      cwd: '/workspace/project',
+    }
+
+    // Seed feed at version A.
+    await replaceFeed(db, 1000, '2026-06-30T00:00:00.000Z', [
+      { kind: 'host', value: 'evil.com', source: 'urlhaus' },
+    ])
+
+    // First request: populates the cache at feed version 1000.
+    const first = await handleGuard(
+      post(payload, undefined, { Authorization: `Bearer ${credential}` }),
+      env as unknown as Env,
+      feedConfig,
+    )
+    expect(first.status).toBe(200)
+    const cacheSize = cacheStore.size
+    expect(cacheSize).toBeGreaterThan(0)
+
+    // Bump feed to version B.
+    store.feedMetaVersion = 2000
+
+    // Second request with the same payload: must NOT be served from the old cache entry.
+    const second = await handleGuard(
+      post(payload, undefined, { Authorization: `Bearer ${credential}` }),
+      env as unknown as Env,
+      feedConfig,
+    )
+    expect(second.status).toBe(200)
+    // A new cache entry must have been written (total keys increased).
+    expect(cacheStore.size).toBeGreaterThan(cacheSize)
   })
 })
 

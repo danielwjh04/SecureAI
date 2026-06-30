@@ -403,6 +403,13 @@ export class MemoryStore {
       }
       return null
     }
+    // currentFeedVersion: read the active feed pointer from feed_meta.
+    if (sql.includes('SELECT current_version FROM feed_meta WHERE id = 1')) {
+      if (this.feedMetaVersion === null) {
+        return null
+      }
+      return { current_version: this.feedMetaVersion }
+    }
     throw new Error(`MemoryStore: unrecognized queryOne SQL: ${sql}`)
   }
 
