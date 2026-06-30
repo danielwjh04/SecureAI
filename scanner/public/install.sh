@@ -11,13 +11,20 @@
 set -euo pipefail
 
 API_URL="${SECUREAI_API_URL:-https://secureai.software}"
+RELEASE_BASE_URL="${SECUREAI_RELEASE_BASE_URL:-${API_URL}}"
+RELEASE_BASE_URL="${RELEASE_BASE_URL%/}"
+CHECKSUMS_URL="${SECUREAI_CHECKSUMS_URL:-${RELEASE_BASE_URL}/SHA256SUMS.txt}"
 SECUREAI_DIR="${SECUREAI_DIR:-${HOME}/.secureai}"
 CONFIG_PATH="${SECUREAI_CONFIG_PATH:-${SECUREAI_DIR}/config.json}"
 PRIVACY_MODE="${SECUREAI_PRIVACY_MODE:-balanced}"
 
-CLAUDE_GUARD_URL="${SECUREAI_CLAUDE_GUARD_URL:-${API_URL}/secureai-guard.mjs}"
-CURSOR_GUARD_URL="${SECUREAI_CURSOR_GUARD_URL:-https://raw.githubusercontent.com/danielwjh04/SecureAI/main/integrations/cursor/secureai-guard.mjs}"
-CODEX_GUARD_URL="${SECUREAI_CODEX_GUARD_URL:-https://raw.githubusercontent.com/danielwjh04/SecureAI/main/integrations/codex/secureai-guard.mjs}"
+CLAUDE_GUARD_RELEASE_NAME="${SECUREAI_CLAUDE_GUARD_RELEASE_NAME:-secureai-claude-code-guard.mjs}"
+CURSOR_GUARD_RELEASE_NAME="${SECUREAI_CURSOR_GUARD_RELEASE_NAME:-secureai-cursor-guard.mjs}"
+CODEX_GUARD_RELEASE_NAME="${SECUREAI_CODEX_GUARD_RELEASE_NAME:-secureai-codex-guard.mjs}"
+
+CLAUDE_GUARD_URL="${SECUREAI_CLAUDE_GUARD_URL:-${RELEASE_BASE_URL}/${CLAUDE_GUARD_RELEASE_NAME}}"
+CURSOR_GUARD_URL="${SECUREAI_CURSOR_GUARD_URL:-${RELEASE_BASE_URL}/${CURSOR_GUARD_RELEASE_NAME}}"
+CODEX_GUARD_URL="${SECUREAI_CODEX_GUARD_URL:-${RELEASE_BASE_URL}/${CODEX_GUARD_RELEASE_NAME}}"
 
 CLAUDE_GUARD_PATH="${SECUREAI_CLAUDE_GUARD_PATH:-${SECUREAI_DIR}/secureai-guard.mjs}"
 CURSOR_GUARD_PATH="${SECUREAI_CURSOR_GUARD_PATH:-${SECUREAI_DIR}/secureai-cursor-guard.mjs}"
@@ -30,10 +37,14 @@ CODEX_HOOKS_PATH="${SECUREAI_CODEX_HOOKS_PATH:-${HOME}/.codex/hooks.json}"
 BROWSER_STORE_URL="${SECUREAI_BROWSER_STORE_URL:-}"
 BROWSER_PAIRING_URL="${SECUREAI_BROWSER_PAIRING_URL:-${API_URL}/#browser-pair=}"
 DRY_RUN="${SECUREAI_DRY_RUN:-0}"
+CHECKSUMS_TMP=""
+DOWNLOAD_TMP=""
 
 info() { printf '  %s\n' "$1"; }
 ok() { printf '[ok] %s\n' "$1"; }
 fail() { printf '[error] %s\n' "$1" >&2; exit 1; }
+cleanup() { rm -f "${CHECKSUMS_TMP:-}" "${DOWNLOAD_TMP:-}" 2>/dev/null || true; }
+trap cleanup EXIT
 
 printf '\nSecureAI endpoint installer\n\n'
 
@@ -135,10 +146,86 @@ has_agent() {
   return 1
 }
 
+fetch_checksums() {
+  if [ -n "${CHECKSUMS_TMP}" ] && [ -f "${CHECKSUMS_TMP}" ]; then
+    return
+  fi
+  CHECKSUMS_TMP="$(mktemp)" || fail "Could not create a checksum manifest temporary file."
+  if ! curl -fsSL "${CHECKSUMS_URL}" -o "${CHECKSUMS_TMP}"; then
+    rm -f "${CHECKSUMS_TMP}"
+    CHECKSUMS_TMP=""
+    fail "Could not download checksum manifest."
+  fi
+  if [ ! -s "${CHECKSUMS_TMP}" ]; then
+    fail "Checksum manifest is empty."
+  fi
+}
+
+expected_hash_for() {
+  local release_name="$1"
+  local expected=""
+  local line
+  local hash
+  local filename
+  local extra
+
+  fetch_checksums
+  while IFS= read -r line || [ -n "${line}" ]; do
+    [ -z "${line}" ] && continue
+    case "${line}" in
+      \#*) continue ;;
+    esac
+    hash=""
+    filename=""
+    extra=""
+    read -r hash filename extra <<<"${line}"
+    if [ -z "${hash}" ] || [ -z "${filename}" ] || [ -n "${extra}" ]; then
+      fail "Checksum manifest is malformed."
+    fi
+    case "${hash}" in
+      *[!0123456789abcdefABCDEF]*)
+        fail "Checksum manifest has a malformed hash for ${filename}."
+        ;;
+    esac
+    if [ "${#hash}" -ne 64 ]; then
+      fail "Checksum manifest has a malformed hash for ${filename}."
+    fi
+    if [ "${filename}" = "${release_name}" ]; then
+      if [ -n "${expected}" ]; then
+        fail "Checksum manifest has duplicate entries for ${release_name}."
+      fi
+      expected="$(printf '%s' "${hash}" | tr '[:upper:]' '[:lower:]')"
+    fi
+  done <"${CHECKSUMS_TMP}"
+
+  if [ -z "${expected}" ]; then
+    fail "Checksum manifest has no entry for ${release_name}."
+  fi
+  printf '%s\n' "${expected}"
+}
+
+sha256_file() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "${file}" | awk '{print $1}'
+    return
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "${file}" | awk '{print $1}'
+    return
+  fi
+  if command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 -r "${file}" | awk '{print $1}'
+    return
+  fi
+  fail "No supported SHA-256 tool was found on PATH."
+}
+
 download_adapter() {
   local url="$1"
   local path="$2"
   local label="$3"
+  local release_name="$4"
 
   mkdir -p "$(dirname "${path}")"
   if [ "${DRY_RUN}" = "1" ]; then
@@ -147,11 +234,32 @@ download_adapter() {
     return
   fi
 
-  if ! curl -fsSL "${url}" -o "${path}.tmp"; then
-    rm -f "${path}.tmp"
+  local expected_hash
+  local actual_hash
+  local tmp
+  fetch_checksums
+  expected_hash="$(expected_hash_for "${release_name}")"
+  DOWNLOAD_TMP="$(mktemp)" || fail "Could not create a download temporary file for ${label} adapter."
+  tmp="${DOWNLOAD_TMP}"
+
+  if ! curl -fsSL "${url}" -o "${tmp}"; then
+    rm -f "${tmp}"
+    DOWNLOAD_TMP=""
     fail "Could not download ${label} adapter from ${url}."
   fi
-  mv "${path}.tmp" "${path}"
+  actual_hash="$(sha256_file "${tmp}" | tr '[:upper:]' '[:lower:]')"
+  if [ "${actual_hash}" != "${expected_hash}" ]; then
+    rm -f "${tmp}"
+    DOWNLOAD_TMP=""
+    fail "Checksum mismatch for ${label} adapter."
+  fi
+  ok "Verified ${label} adapter checksum"
+  if ! mv "${tmp}" "${path}"; then
+    rm -f "${tmp}"
+    DOWNLOAD_TMP=""
+    fail "Could not install ${label} adapter at ${path}."
+  fi
+  DOWNLOAD_TMP=""
   chmod 700 "${path}" 2>/dev/null || true
   ok "Downloaded ${label} adapter to ${path}"
 }
@@ -255,7 +363,7 @@ NODE
 }
 
 wire_claude() {
-  download_adapter "${CLAUDE_GUARD_URL}" "${CLAUDE_GUARD_PATH}" "Claude Code"
+  download_adapter "${CLAUDE_GUARD_URL}" "${CLAUDE_GUARD_PATH}" "Claude Code" "${CLAUDE_GUARD_RELEASE_NAME}"
   mkdir -p "$(dirname "${CLAUDE_SETTINGS_PATH}")"
   SETTINGS_PATH="${CLAUDE_SETTINGS_PATH}" \
   HOOK_COMMAND="SECUREAI_API_KEY=${GUARD_API_KEY} SECUREAI_API_URL=${API_URL} SECUREAI_DEVICE_ID=${DEVICE_ID} SECUREAI_PRIVACY_MODE=${PRIVACY_MODE} node \"${CLAUDE_GUARD_PATH}\"" \
@@ -304,7 +412,7 @@ NODE
 }
 
 wire_cursor() {
-  download_adapter "${CURSOR_GUARD_URL}" "${CURSOR_GUARD_PATH}" "Cursor"
+  download_adapter "${CURSOR_GUARD_URL}" "${CURSOR_GUARD_PATH}" "Cursor" "${CURSOR_GUARD_RELEASE_NAME}"
   mkdir -p "$(dirname "${CURSOR_HOOKS_PATH}")"
   HOOKS_PATH="${CURSOR_HOOKS_PATH}" \
   HOOK_COMMAND="node \"${CURSOR_GUARD_PATH}\"" \
@@ -346,7 +454,7 @@ NODE
 }
 
 wire_codex() {
-  download_adapter "${CODEX_GUARD_URL}" "${CODEX_GUARD_PATH}" "Codex"
+  download_adapter "${CODEX_GUARD_URL}" "${CODEX_GUARD_PATH}" "Codex" "${CODEX_GUARD_RELEASE_NAME}"
   mkdir -p "$(dirname "${CODEX_HOOKS_PATH}")"
   HOOKS_PATH="${CODEX_HOOKS_PATH}" \
   HOOK_COMMAND="node \"${CODEX_GUARD_PATH}\"" \

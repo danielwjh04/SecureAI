@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict'
+import { spawn, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import { after, test } from 'node:test'
+import { pathToFileURL } from 'node:url'
 
-import { RELEASE_ASSETS, createReleaseBundle } from './release-checksums.mjs'
+import { PROJECT_ROOT, RELEASE_ASSETS, createReleaseBundle } from './release-checksums.mjs'
 
 const tempDirs = []
+const bashPath = findUsableBash()
 
 after(async () => {
   await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })))
@@ -14,6 +19,12 @@ after(async () => {
 
 async function tempRoot() {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'secureai-release-'))
+  tempDirs.push(dir)
+  return dir
+}
+
+async function tempWorkspaceRoot() {
+  const dir = await mkdtemp(path.join(PROJECT_ROOT, '.superpowers', 'sdd', 'installer-test-'))
   tempDirs.push(dir)
   return dir
 }
@@ -31,6 +42,140 @@ async function writeReleaseFixtures(root) {
     if (asset.parityPath) {
       await writeFixture(root, asset.parityPath, content)
     }
+  }
+}
+
+function sha256Text(value) {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function shellPath(filePath) {
+  const resolved = path.resolve(filePath)
+  const relative = path.relative(PROJECT_ROOT, resolved)
+  if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+    return relative.replace(/\\/g, '/')
+  }
+  return resolved.replace(/\\/g, '/')
+}
+
+function findUsableBash() {
+  const candidates = [
+    process.env.SECUREAI_TEST_BASH,
+    'C:\\Program Files\\Git\\bin\\bash.exe',
+    'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
+    process.platform === 'win32' ? undefined : 'bash',
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    const result = spawnSync(
+      candidate,
+      ['-lc', 'command -v node >/dev/null 2>&1 && command -v curl >/dev/null 2>&1 && printf ok'],
+      { encoding: 'utf8', timeout: 5000 },
+    )
+    if (result.status === 0 && result.stdout === 'ok') {
+      return candidate
+    }
+  }
+  return null
+}
+
+async function startDeviceRegistrationServer() {
+  const requests = []
+  const server = createServer((request, response) => {
+    const chunks = []
+    request.on('data', (chunk) => chunks.push(chunk))
+    request.on('end', () => {
+      requests.push({
+        method: request.method,
+        url: request.url,
+        body: Buffer.concat(chunks).toString('utf8'),
+      })
+      if (request.method === 'POST' && request.url === '/api/guard/devices') {
+        response.writeHead(200, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ credential: 'guard_test_credential' }))
+        return
+      }
+      response.writeHead(404, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ error: 'not found' }))
+    })
+  })
+
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  const address = server.address()
+  assert.ok(address && typeof address === 'object')
+  return {
+    requests,
+    url: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  }
+}
+
+function installerEnv(root, overrides = {}) {
+  const secureAiDir = path.join(root, 'secureai')
+  return {
+    ...process.env,
+    HOME: shellPath(path.join(root, 'home')),
+    SECUREAI_AGENTS: 'claude',
+    SECUREAI_API_KEY: 'test_account_key',
+    SECUREAI_NONINTERACTIVE: '1',
+    SECUREAI_DIR: shellPath(secureAiDir),
+    SECUREAI_CONFIG_PATH: shellPath(path.join(secureAiDir, 'config.json')),
+    SECUREAI_CLAUDE_GUARD_PATH: shellPath(path.join(secureAiDir, 'secureai-guard.mjs')),
+    SECUREAI_CLAUDE_SETTINGS_PATH: shellPath(path.join(root, 'hooks', 'claude-settings.json')),
+    SECUREAI_CURSOR_HOOKS_PATH: shellPath(path.join(root, 'hooks', 'cursor-hooks.json')),
+    SECUREAI_CODEX_HOOKS_PATH: shellPath(path.join(root, 'hooks', 'codex-hooks.json')),
+    ...overrides,
+  }
+}
+
+async function runBashInstaller(root, overrides = {}) {
+  assert.ok(bashPath, 'usable Bash is required for this helper')
+  return await new Promise((resolve) => {
+    const child = spawn(bashPath, [shellPath(path.join(PROJECT_ROOT, 'scanner/public/install.sh'))], {
+      cwd: PROJECT_ROOT,
+      env: installerEnv(root, overrides),
+      windowsHide: true,
+    })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk
+    })
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk
+    })
+    child.on('error', (error) => {
+      resolve({ status: null, stdout, stderr: `${stderr}${error.message}` })
+    })
+    child.on('close', (status) => {
+      resolve({ status, stdout, stderr })
+    })
+  })
+}
+
+async function writeInstallerReleaseAsset(root, content, checksumContent) {
+  await writeFixture(root, 'release/secureai-claude-code-guard.mjs', content)
+  await writeFixture(root, 'release/SHA256SUMS.txt', checksumContent)
+  const releaseDir = path.join(root, 'release')
+  return {
+    releaseBaseUrl: pathToFileURL(releaseDir).href,
+    checksumsUrl: pathToFileURL(path.join(releaseDir, 'SHA256SUMS.txt')).href,
+    guardUrl: pathToFileURL(path.join(releaseDir, 'secureai-claude-code-guard.mjs')).href,
+  }
+}
+
+async function writeInstallerReleaseAssets(root, assets) {
+  const lines = []
+  for (const asset of assets) {
+    await writeFixture(root, `release/${asset.name}`, asset.content)
+    lines.push(`${sha256Text(asset.content)}  ${asset.name}`)
+  }
+  await writeFixture(root, 'release/SHA256SUMS.txt', `${lines.join('\n')}\n`)
+  return {
+    releaseBaseUrl: pathToFileURL(path.join(root, 'release')).href,
   }
 }
 
@@ -109,4 +254,147 @@ test('copies the browser guard release asset from scanner dist', async () => {
   const copied = await readFile(path.join(outputDir, browserGuard.releaseName), 'utf8')
   const distSource = await readFile(path.join(root, browserGuard.sourcePath), 'utf8')
   assert.equal(copied, distSource)
+})
+
+test('Bash installer accepts a valid local checksum manifest and adapter asset', { skip: bashPath ? false : 'usable Bash not found' }, async () => {
+  const root = await tempWorkspaceRoot()
+  const adapterContent = '#!/usr/bin/env node\nprocess.stdout.write("{}")\n'
+  const urls = await writeInstallerReleaseAsset(
+    root,
+    adapterContent,
+    `${sha256Text(adapterContent)}  secureai-claude-code-guard.mjs\n`,
+  )
+  const server = await startDeviceRegistrationServer()
+  try {
+    const result = await runBashInstaller(root, {
+      SECUREAI_API_URL: server.url,
+      SECUREAI_RELEASE_BASE_URL: urls.releaseBaseUrl,
+      SECUREAI_CHECKSUMS_URL: urls.checksumsUrl,
+    })
+
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(result.stdout, /Verified Claude Code adapter checksum/)
+    assert.equal(
+      await readFile(path.join(root, 'secureai', 'secureai-guard.mjs'), 'utf8'),
+      adapterContent,
+    )
+    assert.equal(server.requests.length, 1)
+  } finally {
+    await server.close()
+  }
+})
+
+test('Bash installer verifies Claude Code, Cursor, and Codex adapter mappings', { skip: bashPath ? false : 'usable Bash not found' }, async () => {
+  const root = await tempWorkspaceRoot()
+  const assets = [
+    {
+      name: 'secureai-claude-code-guard.mjs',
+      path: path.join(root, 'secureai', 'secureai-guard.mjs'),
+      content: '#!/usr/bin/env node\nprocess.stdout.write("claude")\n',
+      label: 'Claude Code',
+    },
+    {
+      name: 'secureai-cursor-guard.mjs',
+      path: path.join(root, 'secureai', 'secureai-cursor-guard.mjs'),
+      content: '#!/usr/bin/env node\nprocess.stdout.write("cursor")\n',
+      label: 'Cursor',
+    },
+    {
+      name: 'secureai-codex-guard.mjs',
+      path: path.join(root, 'secureai', 'secureai-codex-guard.mjs'),
+      content: '#!/usr/bin/env node\nprocess.stdout.write("codex")\n',
+      label: 'Codex',
+    },
+  ]
+  const urls = await writeInstallerReleaseAssets(root, assets)
+  const server = await startDeviceRegistrationServer()
+  try {
+    const result = await runBashInstaller(root, {
+      SECUREAI_API_URL: server.url,
+      SECUREAI_AGENTS: 'claude,cursor,codex',
+      SECUREAI_RELEASE_BASE_URL: urls.releaseBaseUrl,
+    })
+
+    assert.equal(result.status, 0, result.stderr)
+    for (const asset of assets) {
+      assert.match(result.stdout, new RegExp(`Verified ${asset.label} adapter checksum`))
+      assert.equal(await readFile(asset.path, 'utf8'), asset.content)
+    }
+  } finally {
+    await server.close()
+  }
+})
+
+test('Bash installer rejects a tampered adapter file', { skip: bashPath ? false : 'usable Bash not found' }, async () => {
+  const root = await tempWorkspaceRoot()
+  const expectedContent = '#!/usr/bin/env node\nprocess.stdout.write("expected")\n'
+  const tamperedContent = '#!/usr/bin/env node\nprocess.stdout.write("tampered")\n'
+  const urls = await writeInstallerReleaseAsset(
+    root,
+    tamperedContent,
+    `${sha256Text(expectedContent)}  secureai-claude-code-guard.mjs\n`,
+  )
+  const server = await startDeviceRegistrationServer()
+  try {
+    const result = await runBashInstaller(root, {
+      SECUREAI_API_URL: server.url,
+      SECUREAI_CLAUDE_GUARD_URL: urls.guardUrl,
+      SECUREAI_RELEASE_BASE_URL: urls.releaseBaseUrl,
+      SECUREAI_CHECKSUMS_URL: urls.checksumsUrl,
+    })
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /Checksum mismatch for Claude Code adapter/)
+    await assert.rejects(
+      readFile(path.join(root, 'secureai', 'secureai-guard.mjs'), 'utf8'),
+      /ENOENT/,
+    )
+  } finally {
+    await server.close()
+  }
+})
+
+test('Bash installer rejects a missing checksum entry', { skip: bashPath ? false : 'usable Bash not found' }, async () => {
+  const root = await tempWorkspaceRoot()
+  const adapterContent = '#!/usr/bin/env node\nprocess.stdout.write("{}")\n'
+  const urls = await writeInstallerReleaseAsset(
+    root,
+    adapterContent,
+    `${sha256Text('other asset')}  secureai-codex-guard.mjs\n`,
+  )
+  const server = await startDeviceRegistrationServer()
+  try {
+    const result = await runBashInstaller(root, {
+      SECUREAI_API_URL: server.url,
+      SECUREAI_CLAUDE_GUARD_URL: urls.guardUrl,
+      SECUREAI_RELEASE_BASE_URL: urls.releaseBaseUrl,
+      SECUREAI_CHECKSUMS_URL: urls.checksumsUrl,
+    })
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /Checksum manifest has no entry for secureai-claude-code-guard\.mjs/)
+    await assert.rejects(
+      readFile(path.join(root, 'secureai', 'secureai-guard.mjs'), 'utf8'),
+      /ENOENT/,
+    )
+  } finally {
+    await server.close()
+  }
+})
+
+test('Bash installer dry run does not require network or checksums', { skip: bashPath ? false : 'usable Bash not found' }, async () => {
+  const root = await tempWorkspaceRoot()
+  const result = await runBashInstaller(root, {
+    SECUREAI_API_URL: 'http://127.0.0.1:1',
+    SECUREAI_RELEASE_BASE_URL: 'file:///missing-release-base',
+    SECUREAI_CHECKSUMS_URL: 'file:///missing-checksums',
+    SECUREAI_DRY_RUN: '1',
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /Prepared Claude Code adapter/)
+  assert.equal(
+    await readFile(path.join(root, 'secureai', 'secureai-guard.mjs'), 'utf8'),
+    '#!/usr/bin/env node\nprocess.stdout.write("{}")\n',
+  )
 })
