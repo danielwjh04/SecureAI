@@ -348,37 +348,38 @@ function SignupsTrend({
 
 /** Tier breakdown as a donut for all account tiers. */
 function TierBreakdown({ tiers, total }: { tiers: AdminTierCounts; total: number }) {
-  const data = [
-    { name: 'Free', value: tiers.free, color: COLOR.free },
-    { name: 'Personal', value: tiers.personal, color: COLOR.personal },
-    { name: 'Pro', value: tiers.pro, color: COLOR.pro },
-    { name: 'Enterprise', value: tiers.enterprise, color: COLOR.enterprise },
-  ]
   const hasUsers = total > 0
-  const chartData = hasUsers
-    ? data
-    : [{ name: 'None', value: 1, color: 'rgba(255,255,255,0.08)' }]
-  // The hovered tier surfaces as a small box beside the title (outside the ring),
-  // so the centered "N users" label stays put in the donut hole instead of being
-  // overwritten by a tooltip painted in the same spot.
-  const [activeTier, setActiveTier] = useState<{
+  // Stable references: a hover sets `active`, which re-renders. If `data`/`chartData`
+  // were fresh arrays each render, recharts would treat the Pie as new data and
+  // replay its entrance animation on every hover, the cause of the "shake".
+  // Memoizing pins the references so the donut stays still.
+  const data = useMemo(
+    () => [
+      { name: 'Free', value: tiers.free, color: COLOR.free },
+      { name: 'Personal', value: tiers.personal, color: COLOR.personal },
+      { name: 'Pro', value: tiers.pro, color: COLOR.pro },
+      { name: 'Enterprise', value: tiers.enterprise, color: COLOR.enterprise },
+    ],
+    [tiers],
+  )
+  const chartData = useMemo(
+    () => (hasUsers ? data : [{ name: 'None', value: 1, color: 'rgba(255,255,255,0.08)' }]),
+    [hasUsers, data],
+  )
+  // The hovered tier surfaces in a small box pinned just OUTSIDE the ring along the
+  // slice's mid-angle (radially outward, never over the center "N users" label).
+  const [active, setActive] = useState<{
     name: string
     value: number
     color: string
+    x: number
+    y: number
   } | null>(null)
   return (
     <div className="liquid-glass rounded-2xl p-5 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[12px] font-mono uppercase tracking-[0.14em] text-white/55">
-          Tier breakdown
-        </h3>
-        {activeTier !== null && (
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white">
-            <span className="w-2 h-2 rounded-full" style={{ background: activeTier.color }} />
-            {activeTier.name} · {formatCount(activeTier.value)}
-          </span>
-        )}
-      </div>
+      <h3 className="text-[12px] font-mono uppercase tracking-[0.14em] text-white/55">
+        Tier breakdown
+      </h3>
       <div className="h-[200px] relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -390,10 +391,39 @@ function TierBreakdown({ tiers, total }: { tiers: AdminTierCounts; total: number
               outerRadius={78}
               paddingAngle={hasUsers ? 2 : 0}
               stroke="none"
-              onMouseEnter={(_, index) => {
-                if (hasUsers) setActiveTier(data[index] ?? null)
+              onMouseEnter={(sector, index) => {
+                if (!hasUsers) return
+                const entry = data[index]
+                // recharts hands back the rendered sector geometry (pixel cx/cy +
+                // angles); pin the label radially outward from the slice middle.
+                const geo = sector as unknown as {
+                  cx?: number
+                  cy?: number
+                  startAngle?: number
+                  endAngle?: number
+                  outerRadius?: number
+                }
+                if (
+                  entry === undefined ||
+                  typeof geo.cx !== 'number' ||
+                  typeof geo.cy !== 'number' ||
+                  typeof geo.startAngle !== 'number' ||
+                  typeof geo.endAngle !== 'number' ||
+                  typeof geo.outerRadius !== 'number'
+                ) {
+                  return
+                }
+                const radians = (-(geo.startAngle + geo.endAngle) / 2) * (Math.PI / 180)
+                const radius = geo.outerRadius + 16
+                setActive({
+                  name: entry.name,
+                  value: entry.value,
+                  color: entry.color,
+                  x: geo.cx + radius * Math.cos(radians),
+                  y: geo.cy + radius * Math.sin(radians),
+                })
               }}
-              onMouseLeave={() => setActiveTier(null)}
+              onMouseLeave={() => setActive(null)}
             >
               {chartData.map((entry) => (
                 <Cell key={entry.name} fill={entry.color} />
@@ -412,6 +442,15 @@ function TierBreakdown({ tiers, total }: { tiers: AdminTierCounts; total: number
             users
           </span>
         </div>
+        {active !== null && (
+          <div
+            className="pointer-events-none absolute z-10 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/[0.12] bg-black/80 px-2.5 py-1 font-mono text-[11px] text-white"
+            style={{ left: active.x, top: active.y }}
+          >
+            <span className="w-2 h-2 rounded-full" style={{ background: active.color }} />
+            {active.name} · {formatCount(active.value)}
+          </div>
+        )}
       </div>
       <div className="flex items-center justify-center gap-4 text-[11px] font-mono">
         {data.map((entry) => (

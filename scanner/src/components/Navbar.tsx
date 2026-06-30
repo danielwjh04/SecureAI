@@ -102,7 +102,7 @@ export function Navbar({ onHome, auth }: NavbarProps) {
                     key={href}
                     href={href}
                     onClick={closeMenu}
-                    className={`inline-flex items-center gap-1.5 ${linkClass(route === itemRoute)}`}
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap ${linkClass(route === itemRoute)}`}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     {label}
@@ -113,7 +113,7 @@ export function Navbar({ onHome, auth }: NavbarProps) {
                   <a
                     href="#how"
                     onClick={closeMenu}
-                    className={linkClass(route === 'howItWorks')}
+                    className={`whitespace-nowrap ${linkClass(route === 'howItWorks')}`}
                   >
                     How it works
                   </a>
