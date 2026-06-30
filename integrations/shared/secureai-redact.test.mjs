@@ -45,3 +45,38 @@ test('balanced mode keeps redacted content and hash', () => {
   assert.doesNotMatch(JSON.stringify(out), /ghp_abcdefghijklmno/)
   assert.equal(out.content_hash, 'h')
 })
+
+// Fix 1: bare keyword assignments
+test('redacts bare PASSWORD= assignment', () => {
+  assert.doesNotMatch(redactString('PASSWORD=secret123'), /secret123/)
+})
+test('redacts bare TOKEN= assignment', () => {
+  assert.doesNotMatch(redactString('TOKEN=abc123def'), /abc123def/)
+})
+test('redacts bare API_KEY= assignment', () => {
+  assert.doesNotMatch(redactString('API_KEY=k9k9k9k9'), /k9k9k9k9/)
+})
+test('does not over-redact count=5', () => {
+  assert.equal(redactString('count=5'), 'count=5')
+})
+
+// Fix 2: connection strings with empty username
+test('redacts password in redis connection string with no username', () => {
+  assert.doesNotMatch(redactString('redis://:p4ssw0rd@cache:6379'), /p4ssw0rd/)
+})
+test('redacts password in postgres connection string but keeps scheme+user and host', () => {
+  const out = redactString('postgres://user:secretpw@db/app')
+  assert.doesNotMatch(out, /secretpw/)
+  assert.match(out, /postgres:\/\/user:/)
+  assert.match(out, /@db\/app/)
+})
+
+// Fix 3: alg:none JWT with empty signature segment
+test('redacts alg:none JWT with empty third segment', () => {
+  assert.doesNotMatch(redactString('token eyJhbGciOiJub25lIn0.eyJzdWIiOiIxIn0.'), /eyJzdWIiOiIxIn0/)
+})
+
+// Fix 4: HuggingFace hf_ prefix token
+test('redacts HuggingFace hf_ prefixed token', () => {
+  assert.doesNotMatch(redactString('use hf_abcdefghijklmnop here'), /hf_abcdefghijklmnop/)
+})
