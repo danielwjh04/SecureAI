@@ -11,6 +11,9 @@ import { ParseError, SourceResolutionError } from '../errors'
 import { assertSafeUrl } from '../pipeline/redirects'
 import { parseGithubWebUrl, resolveGithubSkillUrl } from './github'
 
+const REDIRECT_STATUS_MIN = 300
+const REDIRECT_STATUS_MAX = 399
+
 export interface RemoteSourceFetchOptions {
   readonly config: ScannerConfig
   readonly fetchImpl: typeof fetch
@@ -55,19 +58,66 @@ export async function fetchRemoteSourceText(
     assertSafeUrl(fetchUrl, { allowedSchemes: schemes })
   }
 
-  const response = await options.fetchImpl(fetchUrl.href, {
-    signal: AbortSignal.timeout(options.config.redirectTimeoutMs),
-  })
+  const { response, finalUrl } = await fetchSourceResponse(fetchUrl, options, schemes)
   if (!response.ok) {
     throw new SourceResolutionError(
-      `source URL returned HTTP ${response.status}: ${fetchUrl.href}`,
+      `source URL returned HTTP ${response.status}: ${finalUrl.href}`,
     )
   }
 
   return {
     text: await readResponseTextCapped(response, options.config.skillMaxBytes),
-    source: { kind: 'url', ref: fetchUrl.href },
+    source: { kind: 'url', ref: finalUrl.href },
   }
+}
+
+async function fetchSourceResponse(
+  startUrl: URL,
+  options: RemoteSourceFetchOptions,
+  schemes: ReadonlySet<string>,
+): Promise<{ response: Response; finalUrl: URL }> {
+  let currentUrl = new URL(startUrl.href)
+  const seen = new Set<string>()
+
+  for (let hop = 0; ; hop += 1) {
+    assertSafeUrl(currentUrl, { allowedSchemes: schemes })
+    if (seen.has(currentUrl.href)) {
+      throw new SourceResolutionError(`source URL redirect loop detected: ${currentUrl.href}`)
+    }
+    seen.add(currentUrl.href)
+
+    let response: Response
+    try {
+      response = await options.fetchImpl(currentUrl.href, {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(options.config.redirectTimeoutMs),
+      })
+    } catch (error: unknown) {
+      throw new SourceResolutionError(`source URL fetch failed: ${currentUrl.href}`, {
+        cause: error,
+      })
+    }
+
+    if (!isRedirectStatus(response.status)) {
+      return { response, finalUrl: currentUrl }
+    }
+
+    if (hop >= options.config.maxRedirectHops) {
+      throw new SourceResolutionError(
+        `source URL exceeded redirect limit ${options.config.maxRedirectHops}: ${startUrl.href}`,
+      )
+    }
+
+    const location = response.headers.get('location')
+    if (location === null || location.trim().length === 0) {
+      throw new SourceResolutionError(`source URL redirect missing Location: ${currentUrl.href}`)
+    }
+    currentUrl = new URL(location, currentUrl.href)
+  }
+}
+
+function isRedirectStatus(status: number): boolean {
+  return status >= REDIRECT_STATUS_MIN && status <= REDIRECT_STATUS_MAX
 }
 
 /**
