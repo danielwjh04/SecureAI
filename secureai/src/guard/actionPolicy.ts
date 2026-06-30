@@ -10,7 +10,7 @@
 import type { RuleFinding, Verdict } from '../schemas/contract'
 import type { PreToolUsePayload } from '../schemas/validate'
 import { escalate } from '../verdict'
-import { commandTouchesSensitivePath, hasShellMetacharacters } from './commandRisk'
+import { commandTouchesSensitivePath, commandWritesToConfigPath, hasShellMetacharacters } from './commandRisk'
 
 export type GuardActionOperation =
   | 'read_file'
@@ -233,6 +233,13 @@ export function evaluateGuardActionPolicy(
         ruleId: 'guard.sensitive_path_access',
         severity: REVIEW,
         detail: `shell command accesses a sensitive path: ${action.commandStructure.command}`,
+      })
+    }
+    if (commandWritesToConfigPath(action.commandStructure.command, config.guardConfigPathMarkers)) {
+      record({
+        ruleId: 'guard.config_change',
+        severity: REVIEW,
+        detail: `shell command writes a configuration path: ${action.commandStructure.command}`,
       })
     }
     recordCommandFinding(action.commandStructure, record)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { commandTouchesSensitivePath, hasShellMetacharacters, tokenizeCommand } from './commandRisk'
+import { commandTouchesSensitivePath, commandWritesToConfigPath, hasShellMetacharacters, tokenizeCommand } from './commandRisk'
 
 const MARKERS = new Set(['.ssh/id_rsa', '.env', 'secret', 'credentials'])
 
@@ -59,5 +59,29 @@ describe('hasShellMetacharacters', () => {
 describe('tokenizeCommand', () => {
   it('splits on whitespace and the separators space, pipe, semicolon, ampersand', () => {
     expect(tokenizeCommand('echo x&&rm -rf /')).toContain('rm')
+  })
+})
+
+describe('commandWritesToConfigPath', () => {
+  const markers = new Set(['.claude', 'package.json'])
+
+  it('flags a redirect into a config path', () => {
+    expect(commandWritesToConfigPath('echo x >> .claude/settings.json', markers)).toBe(true)
+  })
+
+  it('does not flag a plain read of a config path', () => {
+    expect(commandWritesToConfigPath('cat package.json', markers)).toBe(false)
+  })
+
+  it('does not flag a partial marker match (boundary-aware)', () => {
+    expect(commandWritesToConfigPath('echo x >> mypackage.json', new Set(['package.json']))).toBe(false)
+  })
+
+  it('flags tee writing to a config path', () => {
+    expect(commandWritesToConfigPath('echo y | tee .claude/settings.json', markers)).toBe(true)
+  })
+
+  it('does not flag a write to a non-config path', () => {
+    expect(commandWritesToConfigPath('echo y >> output.log', markers)).toBe(false)
   })
 })

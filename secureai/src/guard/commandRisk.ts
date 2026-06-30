@@ -50,6 +50,38 @@ function isBoundary(text: string, index: number): boolean {
 }
 
 /**
+ * True when any marker from the set appears in `normalized` surrounded by
+ * path-ish boundaries on both sides. All inputs must already be normalized.
+ *
+ * Extracted so both `commandTouchesSensitivePath` and
+ * `commandWritesToConfigPath` share the same boundary-aware matching logic,
+ * preventing false positives such as "mypackage.json" triggering the
+ * "package.json" marker.
+ *
+ * Time complexity: O(m * n) in marker count m and text length n.
+ * Space complexity: O(1).
+ */
+function containsBoundedMarker(normalized: string, markers: ReadonlySet<string>): boolean {
+  for (const marker of markers) {
+    const normalizedMarker = normalizeCommand(marker)
+    let searchFrom = 0
+    while (searchFrom < normalized.length) {
+      const index = normalized.indexOf(normalizedMarker, searchFrom)
+      if (index === -1) {
+        break
+      }
+      const beforeBound = isBoundary(normalized, index - 1)
+      const afterBound = isBoundary(normalized, index + normalizedMarker.length)
+      if (beforeBound && afterBound) {
+        return true
+      }
+      searchFrom = index + 1
+    }
+  }
+  return false
+}
+
+/**
  * True when the raw command references any sensitive-path marker (a secret file
  * or directory), whether read or written. Reading a secret is itself the risk.
  *
@@ -67,22 +99,29 @@ export function commandTouchesSensitivePath(
   if (command.length === 0 || sensitiveMarkers.size === 0) {
     return false
   }
+  return containsBoundedMarker(normalizeCommand(command), sensitiveMarkers)
+}
+
+/** Shell redirection and copy operators that indicate the command writes a file. */
+const WRITE_OPERATORS = ['>', '>>', 'tee ']
+
+/**
+ * True when the command writes (via redirection or tee) to a path that matches
+ * any config-path marker. A plain read of a config file returns false.
+ *
+ * Marker matching is boundary-aware (reuses `containsBoundedMarker`) to prevent
+ * false positives such as "mypackage.json" matching the "package.json" marker.
+ *
+ * Time complexity: O(m) in marker count. Space complexity: O(1).
+ */
+export function commandWritesToConfigPath(
+  command: string,
+  configMarkers: ReadonlySet<string>,
+): boolean {
   const normalized = normalizeCommand(command)
-  for (const marker of sensitiveMarkers) {
-    const normalizedMarker = normalizeCommand(marker)
-    let searchFrom = 0
-    while (searchFrom < normalized.length) {
-      const index = normalized.indexOf(normalizedMarker, searchFrom)
-      if (index === -1) {
-        break
-      }
-      const beforeBound = isBoundary(normalized, index - 1)
-      const afterBound = isBoundary(normalized, index + normalizedMarker.length)
-      if (beforeBound && afterBound) {
-        return true
-      }
-      searchFrom = index + 1
-    }
+  const hasWriteOp = WRITE_OPERATORS.some((op) => normalized.includes(op))
+  if (!hasWriteOp) {
+    return false
   }
-  return false
+  return containsBoundedMarker(normalized, configMarkers)
 }

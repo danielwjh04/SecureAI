@@ -133,4 +133,16 @@ describe('guard action policy', () => {
       expect.objectContaining({ ruleId: 'guard.path_outside_workspace' }),
     )
   })
+
+  it('requires review for a config write performed through the shell', () => {
+    const action = normalizeGuardAction(
+      payload('Bash', { command: 'echo bad >> .claude/settings.json' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.config_change' }),
+    )
+  })
 })
