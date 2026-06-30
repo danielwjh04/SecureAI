@@ -277,7 +277,8 @@ export async function listGuardDevices(
  * The caller computes the cutoff (now minus the grace window) so recently
  * expired rows stay listable in the dashboard during the grace period.
  *
- * Time complexity: O(rows deleted) on an indexed scan. Space complexity: O(1).
+ * Time complexity: O(n) full table scan (expires_at is not a leading index
+ * column), acceptable for an hourly maintenance cron. Space complexity: O(1).
  */
 export async function purgeExpiredGuardDevices(db: Database, cutoffIso: string): Promise<number> {
   const result = await db.execute(
