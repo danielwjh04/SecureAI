@@ -123,6 +123,28 @@ The browser protection boundary is explicit:
 
 ---
 
+## Protection boundaries
+
+SecureAI focuses on agent-visible trust and agent-visible actions.
+
+It protects:
+
+- Scanner submissions: skills, links, repositories, and pasted content sent to `/api/scan`.
+- Guarded runtime actions: supported Claude Code, Cursor, and Codex hook payloads that reach `/api/guard`.
+- Browser-visible ingestion: pages, selected text, pasted text, and submitted text that the extension can observe.
+- Known-risk destinations: malicious hosts, redirect chains, shorteners, look-alikes, embedded execution, and configured threat-feed matches.
+- Evidence integrity: verdicts sealed into a SHA-256 proof chain that can be re-verified.
+
+It does not claim:
+
+- Full operating-system antivirus or full-disk malware cleanup.
+- Protection for agent actions that installed hooks, extensions, or API integrations cannot observe.
+- Automatic package removal, arbitrary file deletion, or credential rotation.
+- Control over actions that external AI providers run entirely on their own servers.
+- Protection when a user disables the hook, removes the API key, or runs the same tool outside a guarded agent path.
+
+---
+
 ## 👤 Accounts, plans & dashboard
 
 Sign up with email + password (hashed with PBKDF2, 100,000 iterations) and, when `RESEND_API_KEY` is set, confirm a one-time 6-digit code emailed via Resend (2FA), valid for 10 minutes (max 5 attempts). A login issues an HMAC-signed session cookie that lasts 7 days. Every account carries a rotatable API key, stored only as its SHA-256 hash, for `Authorization: Bearer` calls to `POST /api/scan`.
