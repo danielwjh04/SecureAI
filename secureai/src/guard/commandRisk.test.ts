@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { commandTouchesSensitivePath } from './commandRisk'
+import { commandTouchesSensitivePath, hasShellMetacharacters, tokenizeCommand } from './commandRisk'
 
 const MARKERS = new Set(['.ssh/id_rsa', '.env', 'secret', 'credentials'])
 
@@ -42,5 +42,22 @@ describe('commandTouchesSensitivePath', () => {
 
   it('returns true for an uppercase path that normalizes to match', () => {
     expect(commandTouchesSensitivePath('cat /home/user/.ENV', MARKERS)).toBe(true)
+  })
+})
+
+describe('hasShellMetacharacters', () => {
+  it('detects command substitution, chaining, and redirection', () => {
+    for (const cmd of ['echo $(chmod 777 /etc)', 'echo x&&rm -rf /', 'echo `id`', 'echo x > f', 'a || b', 'a | b']) {
+      expect(hasShellMetacharacters(cmd)).toBe(true)
+    }
+  })
+  it('treats a single simple command as metacharacter-free', () => {
+    expect(hasShellMetacharacters('cat README.md')).toBe(false)
+  })
+})
+
+describe('tokenizeCommand', () => {
+  it('splits on whitespace and the separators space, pipe, semicolon, ampersand', () => {
+    expect(tokenizeCommand('echo x&&rm -rf /')).toContain('rm')
   })
 })

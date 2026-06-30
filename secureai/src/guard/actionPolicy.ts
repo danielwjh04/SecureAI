@@ -10,7 +10,7 @@
 import type { RuleFinding, Verdict } from '../schemas/contract'
 import type { PreToolUsePayload } from '../schemas/validate'
 import { escalate } from '../verdict'
-import { commandTouchesSensitivePath } from './commandRisk'
+import { commandTouchesSensitivePath, hasShellMetacharacters } from './commandRisk'
 
 export type GuardActionOperation =
   | 'read_file'
@@ -339,11 +339,12 @@ function buildCommandStructure(
   return {
     command,
     words,
-    class: classifyCommand(words, config),
+    class: classifyCommand(command, words, config),
   }
 }
 
 function classifyCommand(
+  command: string,
   words: readonly string[],
   config: GuardPolicyConfig,
 ): GuardCommandClass {
@@ -360,7 +361,7 @@ function classifyCommand(
     return 'package_script_execution'
   }
   const first = firstExecutableWord(words)
-  if (first !== null && config.guardSafeShellCommands.has(first)) {
+  if (!hasShellMetacharacters(command) && first !== null && config.guardSafeShellCommands.has(first)) {
     return 'safe_shell'
   }
   return 'unknown_shell'
@@ -446,7 +447,10 @@ function shellWords(command: string): string[] {
 }
 
 function isShellSeparator(char: string): boolean {
-  return char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '|' || char === ';'
+  return (
+    char === ' ' || char === '\t' || char === '\n' || char === '\r' ||
+    char === '|' || char === ';' || char === '&'
+  )
 }
 
 function baseCommand(word: string): string {

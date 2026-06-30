@@ -8,6 +8,28 @@
  * "secret" do not fire inside longer words like "secretariat".
  */
 
+/** Shell control and expansion characters that make a command non-simple. */
+const SHELL_METACHARACTERS = ['&&', '||', '|', ';', '&', '$(', '${', '`', '>', '<']
+
+/**
+ * True when the command contains any shell control or expansion construct, so it
+ * cannot be treated as a single safe command and must escalate to review.
+ *
+ * Time complexity: O(k) in metacharacter count. Space complexity: O(1).
+ */
+export function hasShellMetacharacters(command: string): boolean {
+  return SHELL_METACHARACTERS.some((meta) => command.includes(meta))
+}
+
+/**
+ * Split a command into words on whitespace, pipe, semicolon, and ampersand.
+ *
+ * Time complexity: O(n) in command length. Space complexity: O(w) in word count.
+ */
+export function tokenizeCommand(command: string): string[] {
+  return command.split(/[\s|;&]+/).filter((word) => word.length > 0)
+}
+
 /** Normalize a command for marker matching: backslashes to slashes, lowercased. */
 function normalizeCommand(command: string): string {
   return command.replaceAll('\\', '/').toLowerCase()

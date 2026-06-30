@@ -99,4 +99,16 @@ describe('guard action policy', () => {
     expect(policy.verdict).toBe('ALLOW')
     expect(policy.findings).toEqual([])
   })
+
+  it('does not allow a destructive command hidden behind substitution', () => {
+    const action = normalizeGuardAction(payload('Bash', { command: 'echo $(chmod -R 777 /etc)' }), config)
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+  })
+
+  it('catches a destructive command chained without spaces', () => {
+    const action = normalizeGuardAction(payload('Bash', { command: 'echo ok&&rm -rf /' }), config)
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+  })
 })
