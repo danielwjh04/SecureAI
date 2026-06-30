@@ -7,6 +7,7 @@ import {
 } from './errors'
 import type {
   GuardDecision,
+  GuardDecisionTicket,
   GuardToolCall,
   InjectionFinding,
   LinkChain,
@@ -227,9 +228,46 @@ function parseVerifyResult(value: unknown): VerifyResult | null {
   return { status: value.status, firstInvalidIndex: value.firstInvalidIndex }
 }
 
+function parseGuardDecisionTicket(value: unknown): GuardDecisionTicket | null {
+  if (!isRecord(value)) return null
+  if (
+    typeof value.action_hash !== 'string' ||
+    typeof value.scope !== 'string' ||
+    !(value.decision === 'allow' || value.decision === 'ask' || value.decision === 'deny') ||
+    typeof value.policy_version !== 'string' ||
+    typeof value.trust_revision !== 'string' ||
+    typeof value.expires_at !== 'string' ||
+    typeof value.signature !== 'string' ||
+    !(
+      value.device_id === undefined ||
+      (typeof value.device_id === 'string' && value.device_id.length > 0)
+    ) ||
+    !(
+      value.integration_version === undefined ||
+      (typeof value.integration_version === 'string' && value.integration_version.length > 0)
+    )
+  ) {
+    return null
+  }
+  return {
+    action_hash: value.action_hash,
+    scope: value.scope,
+    decision: value.decision,
+    policy_version: value.policy_version,
+    trust_revision: value.trust_revision,
+    expires_at: value.expires_at,
+    signature: value.signature,
+    ...(value.device_id === undefined ? {} : { device_id: value.device_id }),
+    ...(value.integration_version === undefined
+      ? {}
+      : { integration_version: value.integration_version }),
+  }
+}
+
 function parseGuardDecision(value: unknown): GuardDecision | null {
   if (!isRecord(value)) return null
   const proof = value.proof === undefined ? undefined : parseProof(value.proof)
+  const ticket = value.ticket === undefined ? undefined : parseGuardDecisionTicket(value.ticket)
   // verdict is Verdict | null: the server returns null for a benign allow when
   // nothing scannable was present. A present-but-invalid verdict is still a parse
   // failure, so the client fail-closes on a malformed response.
@@ -238,7 +276,8 @@ function parseGuardDecision(value: unknown): GuardDecision | null {
     !(value.decision === 'allow' || value.decision === 'ask' || value.decision === 'deny') ||
     typeof value.reason !== 'string' ||
     (value.verdict !== null && verdict === null) ||
-    proof === null
+    proof === null ||
+    ticket === null
   ) {
     return null
   }
@@ -247,6 +286,7 @@ function parseGuardDecision(value: unknown): GuardDecision | null {
     reason: value.reason,
     verdict,
     ...(proof === undefined ? {} : { proof }),
+    ...(ticket === undefined ? {} : { ticket }),
   }
 }
 

@@ -65,6 +65,60 @@ describe('handleGuard', () => {
     expect(decision.verdict).toBeNull()
   })
 
+  it('issues and accepts a valid signed allow ticket', async () => {
+    const env = { GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+    const payload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+      cwd: '/workspace/project',
+      device_id: 'dev_test',
+      integration_version: '1.0.0',
+    }
+    const first = await handleGuard(post(payload), env, config)
+    expect(first.status).toBe(200)
+    const firstDecision = (await first.json()) as GuardDecision
+    expect(firstDecision.decision).toBe('allow')
+    expect(firstDecision.ticket).toBeDefined()
+
+    const second = await handleGuard(
+      post({ ...payload, decision_ticket: firstDecision.ticket }),
+      env,
+      config,
+    )
+    expect(second.status).toBe(200)
+    const secondDecision = (await second.json()) as GuardDecision
+    expect(secondDecision).toMatchObject({
+      decision: 'allow',
+      reason: 'valid signed decision ticket',
+      verdict: null,
+    })
+  })
+
+  it('ignores a signed allow ticket when the action changes', async () => {
+    const env = { GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+    const payload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+      cwd: '/workspace/project',
+      device_id: 'dev_test',
+    }
+    const first = await handleGuard(post(payload), env, config)
+    const firstDecision = (await first.json()) as GuardDecision
+
+    const changed = {
+      ...payload,
+      tool_input: { file_path: '.env' },
+      decision_ticket: firstDecision.ticket,
+    }
+    const second = await handleGuard(post(changed), env, config)
+    expect(second.status).toBe(200)
+    const secondDecision = (await second.json()) as GuardDecision
+    expect(secondDecision.decision).toBe('ask')
+    expect(secondDecision.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+  })
+
   it('returns 200 with an ask decision for a no-URL sensitive file read', async () => {
     const res = await handleGuard(
       post({

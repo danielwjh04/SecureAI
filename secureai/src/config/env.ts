@@ -41,6 +41,12 @@ export interface Env {
    */
   SESSION_SECRET?: string
   /**
+   * HMAC secret signing short-lived Guard decision tickets. A SECRET (set via
+   * `wrangler secret put GUARD_TICKET_SECRET`), so it is read from `env` at the
+   * route and never folded into {@link ScannerConfig}.
+   */
+  GUARD_TICKET_SECRET?: string
+  /**
    * API key for the Resend transactional-email provider, used to deliver 2FA
    * sign-in codes. A SECRET (set via `wrangler secret put RESEND_API_KEY`), so
    * it is read from `env` at the route, never folded into {@link ScannerConfig},
@@ -110,6 +116,8 @@ export interface ScannerConfig {
   readonly guardPolicyVersion: string
   /** Trust/intel revision folded into guard-decision cache keys. Bump on feed changes. */
   readonly guardTrustRevision: string
+  /** TTL, in seconds, for signed Guard decision tickets. Zero disables issuance. */
+  readonly guardTicketTtlSeconds: number
   /** Guard tool names treated as low-risk filesystem reads when paths are not sensitive. */
   readonly guardReadTools: ReadonlySet<string>
   /** Guard tool names treated as filesystem writes. */
@@ -316,6 +324,7 @@ export function loadConfig(env: Env): ScannerConfig {
   const guardRequireAuth = readBool(env, 'SCANNER_GUARD_REQUIRE_AUTH', true)
   const guardPolicyVersion = readString(env, 'SCANNER_GUARD_POLICY_VERSION', '1')
   const guardTrustRevision = readString(env, 'SCANNER_GUARD_TRUST_REVISION', '1')
+  const guardTicketTtlSeconds = readIntInRange(env, 'SCANNER_GUARD_TICKET_TTL_S', 300, 0, 3600)
   const guardReadTools = readSet(env, 'SCANNER_GUARD_READ_TOOLS', 'read,grep,glob,ls')
   const guardWriteTools = readSet(
     env,
@@ -507,6 +516,7 @@ export function loadConfig(env: Env): ScannerConfig {
     guardRequireAuth,
     guardPolicyVersion,
     guardTrustRevision,
+    guardTicketTtlSeconds,
     guardReadTools,
     guardWriteTools,
     guardShellTools,

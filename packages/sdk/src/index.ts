@@ -8,6 +8,7 @@ export {
 } from './errors'
 export type {
   GuardDecision,
+  GuardDecisionTicket,
   GuardToolCall,
   InjectionFinding,
   LinkChain,

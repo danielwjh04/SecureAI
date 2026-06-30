@@ -112,6 +112,8 @@ On DB-backed deployments, Guard requires an authenticated API key by default. A 
 
 Guard cache keys bind repeated decisions to the policy version, trust revision, project scope, device identity, integration version, content hash, tool name, and exact tool input when those fields are present. Bumping `SCANNER_GUARD_POLICY_VERSION` or `SCANNER_GUARD_TRUST_REVISION` invalidates old Guard cache entries without changing code.
 
+When `GUARD_TICKET_SECRET` is set, `/api/guard` also returns a short-lived signed allow ticket for an exact repeated action. Tickets bind to the action hash, policy version, trust revision, project scope, device identity, and integration version. `SCANNER_GUARD_TICKET_TTL_S` controls expiry, and a changed action or revision forces a fresh decision.
+
 The endpoint installer now creates a stable local `deviceId` in `~/.secureai/config.json` and sends it with Guard requests. `SECUREAI_DEVICE_ID` can override it, and `SECUREAI_PRIVACY_MODE` can be `balanced`, `maximum`, or `investigation`. Maximum privacy drops session and transcript context before upload while still sending the redacted tool input needed for enforcement.
 
 ## Browser extension (Chrome and Edge MV3)

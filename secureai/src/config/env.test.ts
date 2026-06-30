@@ -48,6 +48,13 @@ describe('loadConfig', () => {
     )
   })
 
+  it('defaults and parses the Guard ticket TTL', () => {
+    expect(loadConfig({}).guardTicketTtlSeconds).toBe(300)
+    expect(loadConfig({ SCANNER_GUARD_TICKET_TTL_S: '0' }).guardTicketTtlSeconds).toBe(0)
+    expect(loadConfig({ SCANNER_GUARD_TICKET_TTL_S: '60' }).guardTicketTtlSeconds).toBe(60)
+    expect(() => loadConfig({ SCANNER_GUARD_TICKET_TTL_S: '3601' })).toThrow(ConfigError)
+  })
+
   it('defaults and parses the personal-tier daily cap', () => {
     expect(loadConfig({}).capPersonalPerDay).toBe(1000)
     expect(loadConfig({ SCANNER_CAP_PERSONAL_PER_DAY: '2500' }).capPersonalPerDay).toBe(2500)

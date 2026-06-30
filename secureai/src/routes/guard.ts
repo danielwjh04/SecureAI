@@ -28,6 +28,12 @@ import {
   SourceResolutionError,
 } from '../errors'
 import { guardDecision } from '../guard/claudeCode'
+import {
+  parseGuardDecisionTicket,
+  signGuardDecisionTicket,
+  verifyGuardDecisionTicket,
+  type GuardTicketContext,
+} from '../guard/decisionTicket'
 import { resolveCachedDecision, type GuardCacheKv } from '../guard/guardCache'
 import { buildInferenceClient, type AiRunner } from '../pipeline/inference'
 import { breakerFor, type BreakerStore } from '../resilience/circuitBreaker'
@@ -149,6 +155,34 @@ export async function handleGuard(
       await enforceDailyCap(db, ctx.subject, ctx.tier, today, config)
     }
 
+    const now = new Date()
+    const ticketSecret =
+      typeof env.GUARD_TICKET_SECRET === 'string' ? env.GUARD_TICKET_SECRET : undefined
+    const ticketContext: GuardTicketContext | null = ticketSecret === undefined
+      ? null
+      : {
+          secret: ticketSecret,
+          policyVersion: config.guardPolicyVersion,
+          trustRevision: config.guardTrustRevision,
+          ttlSeconds: config.guardTicketTtlSeconds,
+          now,
+        }
+    let decision: GuardDecision | null = null
+    const presentedTicket = parseGuardDecisionTicket(
+      (payload as unknown as Record<string, unknown>).decision_ticket,
+    )
+    if (ticketContext !== null && presentedTicket !== null) {
+      const verification = await verifyGuardDecisionTicket(payload, presentedTicket, ticketContext)
+      if (verification.ok && presentedTicket.decision === 'allow') {
+        decision = {
+          decision: 'allow',
+          reason: 'valid signed decision ticket',
+          verdict: null,
+          ticket: presentedTicket,
+        }
+      }
+    }
+
     // Cost-discipline gate: paid AI stage only for eligible tiers WITH a binding.
     const aiEligible =
       aiAllowedForTier(ctx.tier, config) && env.AI !== undefined && env.AI !== null
@@ -184,21 +218,36 @@ export async function handleGuard(
     // served from KV, skipping the redirect trace + AI compute. Auth, the daily
     // cap, and metering below still run for this caller on a hit.
     const guardCacheKv = env.KV !== undefined && env.KV !== null ? (env.KV as GuardCacheKv) : null
-    const decision: GuardDecision = await resolveCachedDecision(
-      payload,
-      guardCacheKv,
-      config.verdictCacheTtlSeconds,
-      () =>
-        guardDecision(payload, {
-          config,
-          reputation,
-          inference,
-          scannedAt: new Date().toISOString(),
-          githubToken: typeof env.GITHUB_TOKEN === 'string' ? env.GITHUB_TOKEN : undefined,
-        }),
-      config.guardPolicyVersion,
-      config.guardTrustRevision,
-    )
+    let inferenceMetered = false
+    if (decision === null) {
+      inferenceMetered = inference !== null
+      decision = await resolveCachedDecision(
+        payload,
+        guardCacheKv,
+        config.verdictCacheTtlSeconds,
+        () =>
+          guardDecision(payload, {
+            config,
+            reputation,
+            inference,
+            scannedAt: now.toISOString(),
+            githubToken: typeof env.GITHUB_TOKEN === 'string' ? env.GITHUB_TOKEN : undefined,
+          }),
+        config.guardPolicyVersion,
+        config.guardTrustRevision,
+      )
+    }
+
+    if (
+      decision.decision === 'allow' &&
+      decision.ticket === undefined &&
+      ticketContext !== null
+    ) {
+      const ticket = await signGuardDecisionTicket(payload, decision.decision, ticketContext)
+      if (ticket !== null) {
+        decision = { ...decision, ticket }
+      }
+    }
     metrics.count('guard.decision', { labels: [decision.decision] })
 
     if (db !== null) {
@@ -206,7 +255,7 @@ export async function handleGuard(
       // scannable", a benign ALLOW for stats purposes. The guard decision does
       // not surface per-URL reputation, so flagged is 0 here.
       const meteredVerdict = decision.verdict ?? 'ALLOW'
-      await recordVerdict(db, ctx.subject, today, meteredVerdict, 0, { ai: inference !== null })
+      await recordVerdict(db, ctx.subject, today, meteredVerdict, 0, { ai: inferenceMetered })
     }
 
     return Response.json(decision, { status: STATUS_OK })

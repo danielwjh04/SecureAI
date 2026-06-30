@@ -209,6 +209,20 @@ export interface GuardToolCall {
   integration_version?: string
   privacy_mode?: 'maximum' | 'balanced' | 'investigation'
   content_hash?: string
+  decision_ticket?: GuardDecisionTicket
+}
+
+/** A signed, short-lived authorization for an exact repeated Guard action. */
+export interface GuardDecisionTicket {
+  action_hash: string
+  scope: string
+  decision: GuardPermissionDecision
+  policy_version: string
+  trust_revision: string
+  expires_at: string
+  signature: string
+  device_id?: string
+  integration_version?: string
 }
 
 /**
@@ -222,4 +236,5 @@ export interface GuardDecision {
   reason: string
   verdict: Verdict | null
   proof?: Proof
+  ticket?: GuardDecisionTicket
 }
