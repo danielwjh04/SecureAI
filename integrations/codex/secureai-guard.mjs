@@ -276,7 +276,7 @@ function healthFromConfig(provider, config) {
   return {
     provider,
     status: nonEmptyString(config.apiKey) ? 'enabled' : 'disabled',
-    api_url: config.apiUrl,
+    api_url: config.apiUrl === DEFAULT_API_URL ? 'default' : 'configured',
     auth: nonEmptyString(config.apiKey) ? 'present' : 'missing',
     device_id: nonEmptyString(config.deviceId) ? 'present' : 'missing',
     privacy_mode: config.privacyMode,

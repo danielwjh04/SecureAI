@@ -33,6 +33,7 @@ const DEFAULT_API_URL = 'https://secureai.software'
 const DEFAULT_TIMEOUT_MS = 5000
 const HOOK_EVENT_NAME = 'PreToolUse'
 const GUARD_PATH = '/api/guard'
+const PROVIDER = 'browser'
 // SECUREAI-REDACT:BEGIN (generated, do not edit)
 /**
  * Source of truth for guard-adapter secret redaction, content hashing, and
@@ -170,6 +171,22 @@ function attachLocalContext(payload, privacyMode, env) {
   return output
 }
 
+export function browserGuardHealth(env = process.env) {
+  const apiKey = env.SECUREAI_API_KEY
+  const privacyMode = normalizePrivacyMode(env.SECUREAI_PRIVACY_MODE)
+  return {
+    provider: PROVIDER,
+    status: nonEmptyString(apiKey) ? 'enabled' : 'disabled',
+    api_url: nonEmptyString(env.SECUREAI_API_URL) ? 'configured' : 'default',
+    auth: nonEmptyString(apiKey) ? 'present' : 'missing',
+    device_id: nonEmptyString(env.SECUREAI_DEVICE_ID) ? 'present' : 'missing',
+    privacy_mode: privacyMode,
+    integration_version: nonEmptyString(env.SECUREAI_INTEGRATION_VERSION)
+      ? 'present'
+      : 'missing',
+  }
+}
+
 function mapGuardDecision(body) {
   const decision = body && typeof body === 'object' ? body.decision : undefined
   const reason =
@@ -261,6 +278,11 @@ export async function runGuard(input, options = {}) {
  */
 async function main() {
   const env = process.env
+  if (env.SECUREAI_HEALTH === '1' || process.argv.includes('--health')) {
+    process.stdout.write(JSON.stringify(browserGuardHealth(env)))
+    process.exit(0)
+  }
+
   let input
   try {
     input = await readStdin()

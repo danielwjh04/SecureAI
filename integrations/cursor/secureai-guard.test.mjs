@@ -115,6 +115,7 @@ test('reports hook health without exposing secrets', () => {
   const health = cursorGuardHealth({
     env: {
       SECUREAI_API_KEY: KEY,
+      SECUREAI_API_URL: 'https://user:secret@example.test/guard?token=leak',
       SECUREAI_DEVICE_ID: 'dev_test',
       SECUREAI_PRIVACY_MODE: 'maximum',
       SECUREAI_INTEGRATION_VERSION: 'cursor-test',
@@ -123,12 +124,15 @@ test('reports hook health without exposing secrets', () => {
 
   assert.equal(health.provider, 'cursor')
   assert.equal(health.status, 'enabled')
+  assert.equal(health.api_url, 'configured')
   assert.equal(health.auth, 'present')
   assert.equal(health.device_id, 'present')
   assert.equal(health.privacy_mode, 'maximum')
   assert.equal(health.integration_version, 'present')
   assert.doesNotMatch(JSON.stringify(health), new RegExp(KEY))
   assert.doesNotMatch(JSON.stringify(health), /dev_test/)
+  assert.doesNotMatch(JSON.stringify(health), /user:secret/)
+  assert.doesNotMatch(JSON.stringify(health), /token=leak/)
 })
 
 test('maps beforeMCPExecution payloads and emits ask', async () => {

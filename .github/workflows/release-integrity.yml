@@ -6,13 +6,18 @@ on:
       - ".github/workflows/release-integrity.yml"
       - "docs/release-integrity.md"
       - "integrations/**/secureai-guard.mjs"
+      - "integrations/**/secureai-guard.test.mjs"
+      - "integrations/shared/**"
       - "scanner/public/install.ps1"
       - "scanner/public/install.sh"
       - "scanner/public/secureai-guard.mjs"
+      - "scanner/public/secureai-guard.test.mjs"
       - "scanner/package-lock.json"
       - "scanner/package.json"
       - "scripts/release-checksums.mjs"
       - "scripts/release-checksums.test.mjs"
+      - "scripts/sync-adapter-redaction.mjs"
+      - "scripts/sync-adapter-redaction.test.mjs"
   push:
     tags:
       - "v*"
@@ -36,6 +41,19 @@ jobs:
       - name: Install scanner dependencies
         run: npm --prefix scanner ci
 
+      - name: Run guard adapter tests
+        run: |
+          node --test \
+            integrations/shared/secureai-redact.test.mjs \
+            integrations/codex/secureai-guard.test.mjs \
+            integrations/cursor/secureai-guard.test.mjs \
+            integrations/claude-code/secureai-guard.test.mjs \
+            scanner/public/secureai-guard.test.mjs \
+            scripts/sync-adapter-redaction.test.mjs
+
+      - name: Check adapter redaction drift
+        run: node scripts/sync-adapter-redaction.mjs --check
+
       - name: Run release checksum tests
         run: node --test scripts/release-checksums.test.mjs
 
@@ -48,32 +66,58 @@ jobs:
       - name: Verify checksums
         run: cd release-assets && sha256sum -c SHA256SUMS.txt
 
-      - name: Check hook health output
+      - name: Check installer syntax
         run: |
-          SECUREAI_API_KEY=sk_test_release_health \
-          SECUREAI_DEVICE_ID=dev_release_health \
-          SECUREAI_PRIVACY_MODE=maximum \
-          SECUREAI_INTEGRATION_VERSION=release-check \
-          node integrations/claude-code/secureai-guard.mjs --health > health.json
+          bash -n scanner/public/install.sh
+          pwsh -NoProfile -Command '
+          $content = Get-Content -Raw -LiteralPath "scanner/public/install.ps1"
+          $errors = $null
+          [System.Management.Automation.PSParser]::Tokenize($content, [ref]$errors) | Out-Null
+          if ($errors) {
+            $errors | Format-List
+            exit 1
+          }
+          '
+
+      - name: Check hook health output
+        env:
+          SECUREAI_API_KEY: sk_test_release_health
+          SECUREAI_DEVICE_ID: dev_release_health
+          SECUREAI_PRIVACY_MODE: maximum
+          SECUREAI_INTEGRATION_VERSION: release-check
+          SECUREAI_API_URL: https://user:secret@example.test/guard?token=leak
+        run: |
+          node release-assets/secureai-claude-code-guard.mjs --health > health.json
+          node release-assets/secureai-cursor-guard.mjs --health > health-cursor.json
+          node release-assets/secureai-codex-guard.mjs --health > health-codex.json
+          node release-assets/secureai-browser-guard.mjs --health > health-browser.json
           python - <<'PY'
           import json
           from pathlib import Path
 
-          raw = Path("health.json").read_text(encoding="utf-8")
-          health = json.loads(raw)
+          health_files = {
+              "health.json": "claude-code",
+              "health-cursor.json": "cursor",
+              "health-codex.json": "codex",
+              "health-browser.json": "browser",
+          }
           expected = {
-              "provider": "claude-code",
               "status": "enabled",
               "auth": "present",
               "device_id": "present",
               "privacy_mode": "maximum",
               "integration_version": "present",
           }
-          for key, value in expected.items():
-              if health.get(key) != value:
-                  raise SystemExit(f"{key} was {health.get(key)!r}, expected {value!r}")
-          if "sk_test_release_health" in raw or "dev_release_health" in raw:
-              raise SystemExit("health output leaked a credential or device id")
+          for file_name, provider in health_files.items():
+              raw = Path(file_name).read_text(encoding="utf-8")
+              health = json.loads(raw)
+              if health.get("provider") != provider:
+                  raise SystemExit(f"{file_name} provider was {health.get('provider')!r}, expected {provider!r}")
+              for key, value in expected.items():
+                  if health.get(key) != value:
+                      raise SystemExit(f"{file_name} {key} was {health.get(key)!r}, expected {value!r}")
+              if "sk_test_release_health" in raw or "dev_release_health" in raw or "user:secret" in raw or "token=leak" in raw:
+                  raise SystemExit(f"{file_name} leaked a credential or device id")
           PY
 
       - name: Check release docs style

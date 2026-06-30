@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { runGuard } from './secureai-guard.mjs'
+import { claudeCodeGuardHealth, runGuard } from './secureai-guard.mjs'
 
 const KEY = 'sk_secureai_test'
 
@@ -104,6 +104,28 @@ test('balanced mode: redacted tool_input and content_hash both present', async (
   const body = JSON.parse(calls[0].init.body)
   assert.ok(body.tool_input !== undefined)
   assert.match(body.content_hash, /^[0-9a-f]{64}$/)
+})
+
+test('reports hook health without exposing secrets', () => {
+  const health = claudeCodeGuardHealth({
+    SECUREAI_API_KEY: KEY,
+    SECUREAI_API_URL: 'https://user:secret@example.test/guard?token=leak',
+    SECUREAI_DEVICE_ID: 'dev_test',
+    SECUREAI_PRIVACY_MODE: 'maximum',
+    SECUREAI_INTEGRATION_VERSION: 'claude-code-test',
+  })
+
+  assert.equal(health.provider, 'claude-code')
+  assert.equal(health.status, 'enabled')
+  assert.equal(health.api_url, 'configured')
+  assert.equal(health.auth, 'present')
+  assert.equal(health.device_id, 'present')
+  assert.equal(health.privacy_mode, 'maximum')
+  assert.equal(health.integration_version, 'present')
+  assert.doesNotMatch(JSON.stringify(health), new RegExp(KEY))
+  assert.doesNotMatch(JSON.stringify(health), /dev_test/)
+  assert.doesNotMatch(JSON.stringify(health), /user:secret/)
+  assert.doesNotMatch(JSON.stringify(health), /token=leak/)
 })
 
 test('redacts obvious secrets before forwarding guard payloads', async () => {

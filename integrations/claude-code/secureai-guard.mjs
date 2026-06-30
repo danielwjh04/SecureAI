@@ -177,14 +177,13 @@ function attachLocalContext(payload, privacyMode, env) {
   return output
 }
 
-function guardHealth(env) {
-  const apiUrl = (env.SECUREAI_API_URL || DEFAULT_API_URL).replace(/\/+$/, '')
+export function claudeCodeGuardHealth(env = process.env) {
   const apiKey = env.SECUREAI_API_KEY
   const privacyMode = normalizePrivacyMode(env.SECUREAI_PRIVACY_MODE)
   return {
     provider: 'claude-code',
     status: nonEmptyString(apiKey) ? 'enabled' : 'disabled',
-    api_url: apiUrl,
+    api_url: nonEmptyString(env.SECUREAI_API_URL) ? 'configured' : 'default',
     auth: nonEmptyString(apiKey) ? 'present' : 'missing',
     device_id: nonEmptyString(env.SECUREAI_DEVICE_ID) ? 'present' : 'missing',
     privacy_mode: privacyMode,
@@ -286,7 +285,7 @@ export async function runGuard(input, options = {}) {
 async function main() {
   const env = process.env
   if (env.SECUREAI_HEALTH === '1' || process.argv.includes('--health')) {
-    process.stdout.write(JSON.stringify(guardHealth(env)))
+    process.stdout.write(JSON.stringify(claudeCodeGuardHealth(env)))
     process.exit(0)
   }
 
