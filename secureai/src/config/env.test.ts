@@ -50,8 +50,12 @@ describe('loadConfig', () => {
 
   it('defaults and parses the Guard ticket TTL', () => {
     expect(loadConfig({}).guardTicketTtlSeconds).toBe(300)
+    expect(loadConfig({}).guardTicketKeyId).toBe('guard-ticket-v1')
     expect(loadConfig({ SCANNER_GUARD_TICKET_TTL_S: '0' }).guardTicketTtlSeconds).toBe(0)
     expect(loadConfig({ SCANNER_GUARD_TICKET_TTL_S: '60' }).guardTicketTtlSeconds).toBe(60)
+    expect(loadConfig({ SCANNER_GUARD_TICKET_KEY_ID: 'guard-ticket-2026-06-30' }).guardTicketKeyId).toBe(
+      'guard-ticket-2026-06-30',
+    )
     expect(() => loadConfig({ SCANNER_GUARD_TICKET_TTL_S: '3601' })).toThrow(ConfigError)
   })
 

@@ -231,6 +231,9 @@ function parseVerifyResult(value: unknown): VerifyResult | null {
 function parseGuardDecisionTicket(value: unknown): GuardDecisionTicket | null {
   if (!isRecord(value)) return null
   if (
+    !(value.alg === 'HS256' || value.alg === 'ES256') ||
+    typeof value.kid !== 'string' ||
+    value.kid.length === 0 ||
     typeof value.action_hash !== 'string' ||
     typeof value.scope !== 'string' ||
     !(value.decision === 'allow' || value.decision === 'ask' || value.decision === 'deny') ||
@@ -250,6 +253,8 @@ function parseGuardDecisionTicket(value: unknown): GuardDecisionTicket | null {
     return null
   }
   return {
+    alg: value.alg,
+    kid: value.kid,
     action_hash: value.action_hash,
     scope: value.scope,
     decision: value.decision,

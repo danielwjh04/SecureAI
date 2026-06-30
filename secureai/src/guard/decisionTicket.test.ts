@@ -9,7 +9,8 @@ import {
 
 const now = new Date('2026-06-30T00:00:00.000Z')
 const context = {
-  secret: 'test-ticket-secret',
+  signer: { alg: 'HS256', kid: 'guard-ticket-test', secret: 'test-ticket-secret' } as const,
+  verifiers: [{ alg: 'HS256', kid: 'guard-ticket-test', secret: 'test-ticket-secret' } as const],
   policyVersion: 'policy-1',
   trustRevision: 'trust-1',
   ttlSeconds: 300,
@@ -34,6 +35,8 @@ describe('Guard decision tickets', () => {
   it('signs and verifies an exact repeated allow action', async () => {
     const ticket = requireTicket(await signGuardDecisionTicket(payload, 'allow', context))
 
+    expect(ticket.alg).toBe('HS256')
+    expect(ticket.kid).toBe('guard-ticket-test')
     expect(ticket.action_hash).toBe(await guardActionHash(payload))
     expect(ticket.policy_version).toBe('policy-1')
     expect(ticket.trust_revision).toBe('trust-1')

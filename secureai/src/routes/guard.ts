@@ -33,6 +33,8 @@ import {
   signGuardDecisionTicket,
   verifyGuardDecisionTicket,
   type GuardTicketContext,
+  type GuardTicketSigner,
+  type GuardTicketVerifier,
 } from '../guard/decisionTicket'
 import { resolveCachedDecision, type GuardCacheKv } from '../guard/guardCache'
 import { buildInferenceClient, type AiRunner } from '../pipeline/inference'
@@ -165,17 +167,7 @@ export async function handleGuard(
           } as PreToolUsePayload)
         : payload
 
-    const ticketSecret =
-      typeof env.GUARD_TICKET_SECRET === 'string' ? env.GUARD_TICKET_SECRET : undefined
-    const ticketContext: GuardTicketContext | null = ticketSecret === undefined
-      ? null
-      : {
-          secret: ticketSecret,
-          policyVersion: config.guardPolicyVersion,
-          trustRevision: config.guardTrustRevision,
-          ttlSeconds: config.guardTicketTtlSeconds,
-          now,
-        }
+    const ticketContext = guardTicketContextFromEnv(env, config, now)
     let decision: GuardDecision | null = null
     const presentedTicket = parseGuardDecisionTicket(
       (guardPayload as unknown as Record<string, unknown>).decision_ticket,
@@ -279,5 +271,75 @@ export async function handleGuard(
       )
     }
     return Response.json({ error: className, message }, { status: statusForError(error) })
+  }
+}
+
+function optionalEnvString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function parseTicketJwk(raw: string, name: string): JsonWebKey {
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new ConfigError(`${name} must be a JSON object`)
+    }
+    return parsed as JsonWebKey
+  } catch (error: unknown) {
+    if (error instanceof ConfigError) {
+      throw error
+    }
+    throw new ConfigError(`${name} must be valid JSON`, { cause: error })
+  }
+}
+
+function guardTicketContextFromEnv(
+  env: Env,
+  config: ScannerConfig,
+  now: Date,
+): GuardTicketContext | null {
+  if (config.guardTicketTtlSeconds <= 0) {
+    return null
+  }
+
+  const privateJwkRaw = optionalEnvString(env.GUARD_TICKET_PRIVATE_JWK)
+  const publicJwkRaw = optionalEnvString(env.GUARD_TICKET_PUBLIC_JWK)
+  if (privateJwkRaw !== null || publicJwkRaw !== null) {
+    if (privateJwkRaw === null || publicJwkRaw === null) {
+      throw new ConfigError('GUARD_TICKET_PRIVATE_JWK and GUARD_TICKET_PUBLIC_JWK must be configured together')
+    }
+    const signer: GuardTicketSigner = {
+      alg: 'ES256',
+      kid: config.guardTicketKeyId,
+      privateJwk: parseTicketJwk(privateJwkRaw, 'GUARD_TICKET_PRIVATE_JWK'),
+    }
+    const verifier: GuardTicketVerifier = {
+      alg: 'ES256',
+      kid: config.guardTicketKeyId,
+      publicJwk: parseTicketJwk(publicJwkRaw, 'GUARD_TICKET_PUBLIC_JWK'),
+    }
+    return {
+      signer,
+      verifiers: [verifier],
+      policyVersion: config.guardPolicyVersion,
+      trustRevision: config.guardTrustRevision,
+      ttlSeconds: config.guardTicketTtlSeconds,
+      now,
+    }
+  }
+
+  const secret = optionalEnvString(env.GUARD_TICKET_SECRET)
+  if (secret === null) {
+    return null
+  }
+  const signer: GuardTicketSigner = { alg: 'HS256', kid: config.guardTicketKeyId, secret }
+  const verifier: GuardTicketVerifier = { alg: 'HS256', kid: config.guardTicketKeyId, secret }
+  return {
+    signer,
+    verifiers: [verifier],
+    policyVersion: config.guardPolicyVersion,
+    trustRevision: config.guardTrustRevision,
+    ttlSeconds: config.guardTicketTtlSeconds,
+    now,
   }
 }

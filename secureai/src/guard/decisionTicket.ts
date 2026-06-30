@@ -9,12 +9,41 @@ import type { GuardDecisionTicket, GuardPermissionDecision } from '../schemas/co
 import type { PreToolUsePayload } from '../schemas/validate'
 import { canonicalJson } from '../audit/chain'
 
-const SIGNATURE_ALGORITHM = 'HMAC'
+const HMAC_ALGORITHM = 'HMAC'
+const ECDSA_ALGORITHM = 'ECDSA'
 const HASH_ALGORITHM = 'SHA-256'
+const ECDSA_NAMED_CURVE = 'P-256'
 const textEncoder = new TextEncoder()
 
+export type GuardTicketAlgorithm = GuardDecisionTicket['alg']
+
+export type GuardTicketSigner =
+  | {
+      readonly alg: 'HS256'
+      readonly kid: string
+      readonly secret: string
+    }
+  | {
+      readonly alg: 'ES256'
+      readonly kid: string
+      readonly privateJwk: JsonWebKey
+    }
+
+export type GuardTicketVerifier =
+  | {
+      readonly alg: 'HS256'
+      readonly kid: string
+      readonly secret: string
+    }
+  | {
+      readonly alg: 'ES256'
+      readonly kid: string
+      readonly publicJwk: JsonWebKey
+    }
+
 export interface GuardTicketContext {
-  readonly secret: string
+  readonly signer: GuardTicketSigner
+  readonly verifiers: readonly GuardTicketVerifier[]
   readonly policyVersion: string
   readonly trustRevision: string
   readonly ttlSeconds: number
@@ -37,6 +66,9 @@ export function parseGuardDecisionTicket(value: unknown): GuardDecisionTicket | 
   }
   const record = value as Record<string, unknown>
   if (
+    !(record.alg === 'HS256' || record.alg === 'ES256') ||
+    typeof record.kid !== 'string' ||
+    record.kid.length === 0 ||
     typeof record.action_hash !== 'string' ||
     typeof record.scope !== 'string' ||
     !(record.decision === 'allow' || record.decision === 'ask' || record.decision === 'deny') ||
@@ -48,6 +80,8 @@ export function parseGuardDecisionTicket(value: unknown): GuardDecisionTicket | 
     return null
   }
   const ticket: GuardDecisionTicket = {
+    alg: record.alg,
+    kid: record.kid,
     action_hash: record.action_hash,
     scope: record.scope,
     decision: record.decision,
@@ -92,12 +126,23 @@ export async function signGuardDecisionTicket(
   decision: GuardPermissionDecision,
   context: GuardTicketContext,
 ): Promise<GuardDecisionTicket | null> {
-  if (context.ttlSeconds <= 0 || context.secret.length === 0) {
+  if (context.ttlSeconds <= 0 || context.signer.kid.length === 0) {
+    return null
+  }
+  if (context.signer.alg === 'HS256' && context.signer.secret.length === 0) {
     return null
   }
   const expiresAt = new Date(context.now.getTime() + context.ttlSeconds * 1000).toISOString()
-  const ticket = unsignedTicket(payload, decision, context, expiresAt, await guardActionHash(payload))
-  return { ...ticket, signature: await signatureFor(ticket, context.secret) }
+  const ticket = unsignedTicket(
+    payload,
+    decision,
+    context,
+    expiresAt,
+    await guardActionHash(payload),
+    context.signer.alg,
+    context.signer.kid,
+  )
+  return { ...ticket, signature: await signatureFor(ticket, context.signer) }
 }
 
 /**
@@ -110,9 +155,6 @@ export async function verifyGuardDecisionTicket(
   ticket: GuardDecisionTicket,
   context: GuardTicketContext,
 ): Promise<GuardTicketVerification> {
-  if (context.secret.length === 0) {
-    return { ok: false, reason: 'missing ticket secret' }
-  }
   const expiresMs = Date.parse(ticket.expires_at)
   if (!Number.isFinite(expiresMs) || expiresMs <= context.now.getTime()) {
     return { ok: false, reason: 'ticket expired' }
@@ -123,13 +165,29 @@ export async function verifyGuardDecisionTicket(
   if (ticket.trust_revision !== context.trustRevision) {
     return { ok: false, reason: 'trust revision mismatch' }
   }
+  const verifier = context.verifiers.find(
+    (candidate) => candidate.alg === ticket.alg && candidate.kid === ticket.kid,
+  )
+  if (verifier === undefined) {
+    return { ok: false, reason: 'ticket key mismatch' }
+  }
+  if (verifier.alg === 'HS256' && verifier.secret.length === 0) {
+    return { ok: false, reason: 'missing ticket secret' }
+  }
   const expectedHash = await guardActionHash(payload)
   if (ticket.action_hash !== expectedHash) {
     return { ok: false, reason: 'action hash mismatch' }
   }
-  const expected = unsignedTicket(payload, ticket.decision, context, ticket.expires_at, expectedHash)
-  const signature = await signatureFor(expected, context.secret)
-  if (!constantTimeEqual(ticket.signature, signature)) {
+  const expected = unsignedTicket(
+    payload,
+    ticket.decision,
+    context,
+    ticket.expires_at,
+    expectedHash,
+    ticket.alg,
+    ticket.kid,
+  )
+  if (!(await verifySignature(expected, ticket.signature, verifier))) {
     return { ok: false, reason: 'signature mismatch' }
   }
   return { ok: true, reason: 'ticket valid' }
@@ -141,9 +199,13 @@ function unsignedTicket(
   context: GuardTicketContext,
   expiresAt: string,
   actionHash: string,
+  alg: GuardTicketAlgorithm,
+  kid: string,
 ): Omit<GuardDecisionTicket, 'signature'> {
   const record = payload as unknown as Record<string, unknown>
   const ticket: Omit<GuardDecisionTicket, 'signature'> = {
+    alg,
+    kid,
     action_hash: actionHash,
     scope: stringOrNull(payload.cwd) ?? 'project:unknown',
     decision,
@@ -168,21 +230,64 @@ function stringOrNull(value: unknown): string | null {
 
 async function signatureFor(
   ticket: Omit<GuardDecisionTicket, 'signature'>,
-  secret: string,
+  signer: GuardTicketSigner,
 ): Promise<string> {
+  const bytes = textEncoder.encode(canonicalJson(ticket))
+  if (signer.alg === 'HS256') {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      textEncoder.encode(signer.secret),
+      { name: HMAC_ALGORITHM, hash: HASH_ALGORITHM },
+      false,
+      ['sign'],
+    )
+    const signature = await crypto.subtle.sign(HMAC_ALGORITHM, key, bytes)
+    return hexEncode(new Uint8Array(signature))
+  }
+
   const key = await crypto.subtle.importKey(
-    'raw',
-    textEncoder.encode(secret),
-    { name: SIGNATURE_ALGORITHM, hash: HASH_ALGORITHM },
+    'jwk',
+    signer.privateJwk,
+    { name: ECDSA_ALGORITHM, namedCurve: ECDSA_NAMED_CURVE },
     false,
     ['sign'],
   )
   const signature = await crypto.subtle.sign(
-    SIGNATURE_ALGORITHM,
+    { name: ECDSA_ALGORITHM, hash: HASH_ALGORITHM },
     key,
-    textEncoder.encode(canonicalJson(ticket)),
+    bytes,
   )
   return hexEncode(new Uint8Array(signature))
+}
+
+async function verifySignature(
+  ticket: Omit<GuardDecisionTicket, 'signature'>,
+  signatureHex: string,
+  verifier: GuardTicketVerifier,
+): Promise<boolean> {
+  const bytes = textEncoder.encode(canonicalJson(ticket))
+  if (verifier.alg === 'HS256') {
+    const signature = await signatureFor(ticket, verifier)
+    return constantTimeEqual(signatureHex, signature)
+  }
+
+  const signature = hexDecode(signatureHex)
+  if (signature === null) {
+    return false
+  }
+  const key = await crypto.subtle.importKey(
+    'jwk',
+    verifier.publicJwk,
+    { name: ECDSA_ALGORITHM, namedCurve: ECDSA_NAMED_CURVE },
+    false,
+    ['verify'],
+  )
+  return crypto.subtle.verify(
+    { name: ECDSA_ALGORITHM, hash: HASH_ALGORITHM },
+    key,
+    signature,
+    bytes,
+  )
 }
 
 async function sha256Hex(value: string): Promise<string> {
@@ -196,6 +301,17 @@ function hexEncode(bytes: Uint8Array): string {
     hex += byte.toString(16).padStart(2, '0')
   }
   return hex
+}
+
+function hexDecode(value: string): Uint8Array | null {
+  if (value.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(value)) {
+    return null
+  }
+  const bytes = new Uint8Array(value.length / 2)
+  for (let index = 0; index < value.length; index += 2) {
+    bytes[index / 2] = Number.parseInt(value.slice(index, index + 2), 16)
+  }
+  return bytes
 }
 
 function constantTimeEqual(left: string, right: string): boolean {

@@ -214,6 +214,8 @@ export interface GuardToolCall {
 
 /** A signed, short-lived authorization for an exact repeated Guard action. */
 export interface GuardDecisionTicket {
+  alg: 'HS256' | 'ES256'
+  kid: string
   action_hash: string
   scope: string
   decision: GuardPermissionDecision

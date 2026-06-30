@@ -47,6 +47,18 @@ export interface Env {
    */
   GUARD_TICKET_SECRET?: string
   /**
+   * Optional ES256 private JWK for Guard decision tickets. A SECRET (set via
+   * `wrangler secret put GUARD_TICKET_PRIVATE_JWK`). When paired with
+   * `GUARD_TICKET_PUBLIC_JWK`, tickets can be verified with the public key.
+   */
+  GUARD_TICKET_PRIVATE_JWK?: string
+  /**
+   * Public ES256 JWK matching `GUARD_TICKET_PRIVATE_JWK`. This is public key
+   * material, but it still flows through env so deployments can rotate keys
+   * without a code change.
+   */
+  GUARD_TICKET_PUBLIC_JWK?: string
+  /**
    * API key for the Resend transactional-email provider, used to deliver 2FA
    * sign-in codes. A SECRET (set via `wrangler secret put RESEND_API_KEY`), so
    * it is read from `env` at the route, never folded into {@link ScannerConfig},
@@ -118,6 +130,8 @@ export interface ScannerConfig {
   readonly guardTrustRevision: string
   /** TTL, in seconds, for signed Guard decision tickets. Zero disables issuance. */
   readonly guardTicketTtlSeconds: number
+  /** Key id embedded in signed Guard decision tickets. Bump when rotating keys. */
+  readonly guardTicketKeyId: string
   /** Whether Guard may accept account API keys or sessions instead of device credentials. */
   readonly guardAllowAccountCredentials: boolean
   /** Lifetime, in days, for newly minted Guard device credentials. */
@@ -329,6 +343,7 @@ export function loadConfig(env: Env): ScannerConfig {
   const guardPolicyVersion = readString(env, 'SCANNER_GUARD_POLICY_VERSION', '1')
   const guardTrustRevision = readString(env, 'SCANNER_GUARD_TRUST_REVISION', '1')
   const guardTicketTtlSeconds = readIntInRange(env, 'SCANNER_GUARD_TICKET_TTL_S', 300, 0, 3600)
+  const guardTicketKeyId = readString(env, 'SCANNER_GUARD_TICKET_KEY_ID', 'guard-ticket-v1')
   const guardAllowAccountCredentials = readBool(env, 'SCANNER_GUARD_ALLOW_ACCOUNT_CREDENTIALS', false)
   const guardDeviceCredentialTtlDays = readIntInRange(
     env,
@@ -529,6 +544,7 @@ export function loadConfig(env: Env): ScannerConfig {
     guardPolicyVersion,
     guardTrustRevision,
     guardTicketTtlSeconds,
+    guardTicketKeyId,
     guardAllowAccountCredentials,
     guardDeviceCredentialTtlDays,
     guardReadTools,
