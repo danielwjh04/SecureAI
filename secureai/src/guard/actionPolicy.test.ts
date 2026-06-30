@@ -145,4 +145,104 @@ describe('guard action policy', () => {
       expect.objectContaining({ ruleId: 'guard.config_change' }),
     )
   })
+
+  it('requires review for a config write using a bare single-arrow redirect', () => {
+    const action = normalizeGuardAction(
+      payload('Bash', { command: 'echo overwrite > .claude/settings.json' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.config_change' }),
+    )
+  })
+
+  it('does not flag a non-config write with a bare redirect', () => {
+    const action = normalizeGuardAction(
+      payload('Bash', { command: 'echo hello > output.log' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.findings.some((f) => f.ruleId === 'guard.config_change')).toBe(false)
+  })
+
+  it('flags a tilde path as outside the workspace when a root is known', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: '~/.bashrc', cwd: '/home/me/project' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.path_outside_workspace' }),
+    )
+  })
+
+  it('flags a Windows-style absolute path as outside a Unix workspace root', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: 'C:/Windows/System32/drivers/etc/hosts', cwd: '/home/me/project' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.path_outside_workspace' }),
+    )
+  })
+
+  it('does not flag a relative path as outside the workspace', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: 'src/index.ts', cwd: '/home/me/project' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.findings.some((f) => f.ruleId === 'guard.path_outside_workspace')).toBe(false)
+  })
+
+  it('does not flag a path that exactly equals the workspace root', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: '/home/me/project', cwd: '/home/me/project' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.findings.some((f) => f.ruleId === 'guard.path_outside_workspace')).toBe(false)
+  })
+
+  it('skips the workspace root check when no cwd is provided', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: '/etc/shadow' }),
+      config,
+    )
+    expect(action.workspaceRoot).toBeNull()
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.findings.some((f) => f.ruleId === 'guard.path_outside_workspace')).toBe(false)
+  })
+
+  it('collects paths from list fields and deduplicates repeated entries', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_paths: ['/home/me/project/a.ts', '/home/me/project/a.ts', '/home/me/project/b.ts'] }),
+      config,
+    )
+    expect(action.targetPaths).toHaveLength(2)
+    expect(action.targetPaths).toContain('/home/me/project/a.ts')
+    expect(action.targetPaths).toContain('/home/me/project/b.ts')
+  })
+
+  it('ignores non-string entries in path list fields', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_paths: [42, null, '/home/me/project/c.ts', ''] }),
+      config,
+    )
+    expect(action.targetPaths).toEqual(['/home/me/project/c.ts'])
+  })
+
+  it('strips trailing quotes from command words when resolving the base command', () => {
+    const action = normalizeGuardAction(
+      payload('Bash', { command: 'cat "README.md"' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('ALLOW')
+  })
 })
