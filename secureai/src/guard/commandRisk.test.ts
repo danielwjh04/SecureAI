@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { commandTouchesSensitivePath, commandWritesToConfigPath, hasShellMetacharacters, tokenizeCommand } from './commandRisk'
+import { commandTouchesSensitivePath, commandWritesToConfigPath, hasShellMetacharacters } from './commandRisk'
 
 const MARKERS = new Set(['.ssh/id_rsa', '.env', 'secret', 'credentials'])
+
+const BOUNDARY_MARKERS = new Set(['/root/', '.env', '.ssh/id_rsa', 'secret'])
 
 describe('commandTouchesSensitivePath', () => {
   it('returns true for a multi-segment marker in a real secret path', () => {
@@ -45,6 +47,24 @@ describe('commandTouchesSensitivePath', () => {
   })
 })
 
+describe('containsBoundedMarker boundary-char shortcuts', () => {
+  it('matches /root/ in "cat /root/wallet.dat" (marker ends with boundary char /)', () => {
+    expect(commandTouchesSensitivePath('cat /root/wallet.dat', BOUNDARY_MARKERS)).toBe(true)
+  })
+
+  it('matches .env in "cat myapp.env" (marker starts with boundary char .)', () => {
+    expect(commandTouchesSensitivePath('cat myapp.env', BOUNDARY_MARKERS)).toBe(true)
+  })
+
+  it('matches .ssh/id_rsa in "cat ~/.ssh/id_rsa" (marker starts with .)', () => {
+    expect(commandTouchesSensitivePath('cat ~/.ssh/id_rsa', BOUNDARY_MARKERS)).toBe(true)
+  })
+
+  it('does not match "secret" inside "secretariat.md" (alphanumeric on both ends)', () => {
+    expect(commandTouchesSensitivePath('cat secretariat.md', BOUNDARY_MARKERS)).toBe(false)
+  })
+})
+
 describe('hasShellMetacharacters', () => {
   it('detects command substitution, chaining, and redirection', () => {
     for (const cmd of ['echo $(chmod 777 /etc)', 'echo x&&rm -rf /', 'echo `id`', 'echo x > f', 'a || b', 'a | b']) {
@@ -53,12 +73,6 @@ describe('hasShellMetacharacters', () => {
   })
   it('treats a single simple command as metacharacter-free', () => {
     expect(hasShellMetacharacters('cat README.md')).toBe(false)
-  })
-})
-
-describe('tokenizeCommand', () => {
-  it('splits on whitespace and the separators space, pipe, semicolon, ampersand', () => {
-    expect(tokenizeCommand('echo x&&rm -rf /')).toContain('rm')
   })
 })
 

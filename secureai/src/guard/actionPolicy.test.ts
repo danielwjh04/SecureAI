@@ -108,12 +108,18 @@ describe('guard action policy', () => {
     const action = normalizeGuardAction(payload('Bash', { command: 'echo $(chmod -R 777 /etc)' }), config)
     const policy = evaluateGuardActionPolicy(action, config)
     expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.unknown_shell_command' }),
+    )
   })
 
   it('catches a destructive command chained without spaces', () => {
     const action = normalizeGuardAction(payload('Bash', { command: 'echo ok&&rm -rf /' }), config)
     const policy = evaluateGuardActionPolicy(action, config)
     expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.destructive_file_change' }),
+    )
   })
 
   it('requires review for a read of a system secret file', () => {
@@ -244,5 +250,17 @@ describe('guard action policy', () => {
     )
     const policy = evaluateGuardActionPolicy(action, config)
     expect(policy.verdict).toBe('ALLOW')
+  })
+
+  it('requires review for a shell command reading /root/ (directory marker ending in /)', () => {
+    const action = normalizeGuardAction(
+      payload('Bash', { command: 'cat /root/wallet.dat' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.sensitive_path_access' }),
+    )
   })
 })

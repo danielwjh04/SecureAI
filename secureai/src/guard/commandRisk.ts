@@ -21,15 +21,6 @@ export function hasShellMetacharacters(command: string): boolean {
   return SHELL_METACHARACTERS.some((meta) => command.includes(meta))
 }
 
-/**
- * Split a command into words on whitespace, pipe, semicolon, and ampersand.
- *
- * Time complexity: O(n) in command length. Space complexity: O(w) in word count.
- */
-export function tokenizeCommand(command: string): string[] {
-  return command.split(/[\s|;&]+/).filter((word) => word.length > 0)
-}
-
 /** Normalize a command for marker matching: backslashes to slashes, lowercased. */
 function normalizeCommand(command: string): string {
   return command.replaceAll('\\', '/').toLowerCase()
@@ -53,6 +44,14 @@ function isBoundary(text: string, index: number): boolean {
  * True when any marker from the set appears in `normalized` surrounded by
  * path-ish boundaries on both sides. All inputs must already be normalized.
  *
+ * When a marker's own first character is a non-alphanumeric boundary char (e.g.
+ * `.env` starts with `.`, `/root/` starts with `/`), the before-boundary check
+ * is automatically satisfied because the marker itself provides the delimiter.
+ * The same logic applies to the after-boundary when the marker's last char is
+ * a non-alphanumeric boundary. This prevents false negatives on directory and
+ * dotfile markers while preserving false-positive protection for alphanumeric
+ * markers like "secret" that still require adjacent non-alphanumeric delimiters.
+ *
  * Extracted so both `commandTouchesSensitivePath` and
  * `commandWritesToConfigPath` share the same boundary-aware matching logic,
  * preventing false positives such as "mypackage.json" triggering the
@@ -64,14 +63,16 @@ function isBoundary(text: string, index: number): boolean {
 function containsBoundedMarker(normalized: string, markers: ReadonlySet<string>): boolean {
   for (const marker of markers) {
     const normalizedMarker = normalizeCommand(marker)
+    const markerStartsBoundary = !/[a-z0-9]/i.test(normalizedMarker.charAt(0))
+    const markerEndsBoundary = !/[a-z0-9]/i.test(normalizedMarker.charAt(normalizedMarker.length - 1))
     let searchFrom = 0
     while (searchFrom < normalized.length) {
       const index = normalized.indexOf(normalizedMarker, searchFrom)
       if (index === -1) {
         break
       }
-      const beforeBound = isBoundary(normalized, index - 1)
-      const afterBound = isBoundary(normalized, index + normalizedMarker.length)
+      const beforeBound = markerStartsBoundary || isBoundary(normalized, index - 1)
+      const afterBound = markerEndsBoundary || isBoundary(normalized, index + normalizedMarker.length)
       if (beforeBound && afterBound) {
         return true
       }
@@ -112,12 +113,16 @@ const WRITE_OPERATORS = ['>', '>>', 'tee ']
  * Marker matching is boundary-aware (reuses `containsBoundedMarker`) to prevent
  * false positives such as "mypackage.json" matching the "package.json" marker.
  *
- * Time complexity: O(m) in marker count. Space complexity: O(1).
+ * Time complexity: O(m * n) in marker count m and command length n.
+ * Space complexity: O(1).
  */
 export function commandWritesToConfigPath(
   command: string,
   configMarkers: ReadonlySet<string>,
 ): boolean {
+  if (command.length === 0 || configMarkers.size === 0) {
+    return false
+  }
   const normalized = normalizeCommand(command)
   const hasWriteOp = WRITE_OPERATORS.some((op) => normalized.includes(op))
   if (!hasWriteOp) {
