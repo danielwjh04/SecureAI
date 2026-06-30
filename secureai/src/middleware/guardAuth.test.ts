@@ -127,6 +127,19 @@ describe('authenticateGuard', () => {
     expect(afterSecond[0]?.lastSeenAt).toBe(secondNow)
   })
 
+  it('a malformed credential resolves to anonymous (the route, not the middleware, is what 401s)', async () => {
+    const { db } = memoryDatabase()
+    // A garbage string that matches neither a guard_device prefix nor an account key.
+    const context = await authenticateGuard(
+      request('totally-garbage-credential-xyz'),
+      db,
+      loadConfig({}),
+      '2026-06-30T01:00:00.000Z',
+    )
+    expect(context.credentialKind).toBe('anonymous')
+    expect(context.tier).toBe('anonymous')
+  })
+
   it('returns the device context even when the last-seen write throws', async () => {
     const { db } = memoryDatabase()
     const { user } = await createFreeUser(db, 'throw-tolerant@example.com')

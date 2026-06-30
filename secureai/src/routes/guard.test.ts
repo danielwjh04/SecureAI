@@ -6,6 +6,7 @@ import { MemoryStore, MemoryD1 } from '../db/memory.test'
 import { d1Database } from '../db/database'
 import { createFreeUser, setUserTier } from '../db/accounts'
 import { createGuardDeviceCredential } from '../db/guardDevices'
+import { signGuardDecisionTicket } from '../guard/decisionTicket'
 import { getUsage, incrementUsage } from '../db/usage'
 import { replaceFeed } from '../db/feed'
 import { setMetricsDataset } from '../observability/metrics'
@@ -488,6 +489,122 @@ describe('handleGuard', () => {
     expect(second.status).toBe(200)
     const secondDecision = (await second.json()) as GuardDecision
     expect(secondDecision.reason).not.toBe('valid signed decision ticket')
+  })
+
+  it('an expired credential at the live guard route is rejected (401)', async () => {
+    const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
+    const db = d1Database(d1)
+    const { user } = await createFreeUser(db, 'expired-cred@example.com')
+    // Mint a credential whose expiresAt is one second in the past.
+    const minted = await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_expired',
+        name: 'expired device',
+        integration: 'codex-test',
+        scopes: ['guard:decision'],
+        createdAt: new Date(Date.now() - 7200000).toISOString(),
+        expiresAt: new Date(Date.now() - 1000).toISOString(),
+      },
+      32,
+    )
+    const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+    const res = await handleGuard(
+      post(
+        {
+          hook_event_name: 'PreToolUse',
+          tool_name: 'Read',
+          tool_input: { file_path: 'README.md' },
+        },
+        undefined,
+        { Authorization: `Bearer ${minted.credential}` },
+      ),
+      env,
+      config,
+    )
+    expect(res.status).toBe(401)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toBe('AuthError')
+  })
+
+  it('a benign would-be-ALLOW action with a bad credential under strict auth is denied (401), never an anonymous ALLOW', async () => {
+    const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
+    const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+    // A Read tool call against a benign file would produce a 200 ALLOW under anonymous or valid auth.
+    // Under strict auth a garbage credential must produce 401, not 200.
+    const res = await handleGuard(
+      post(
+        {
+          hook_event_name: 'PreToolUse',
+          tool_name: 'Read',
+          tool_input: { file_path: 'README.md' },
+        },
+        undefined,
+        { Authorization: 'Bearer gd_secureai_not_a_real_credential_garbage' },
+      ),
+      env,
+      config,
+    )
+    expect(res.status).toBe(401)
+    const body = (await res.json()) as { error: string; decision?: string }
+    expect(body.error).toBe('AuthError')
+    expect(body.decision).toBeUndefined()
+  })
+
+  it('a ticket carrying decision deny is never honored as ALLOW', async () => {
+    const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
+    const db = d1Database(d1)
+    const { user } = await createFreeUser(db, 'deny-ticket@example.com')
+    const credential = await guardCredentialFor(db, user.id)
+    const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+    const payload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+      cwd: '/workspace/project',
+    }
+
+    // Obtain a normal allow ticket first so we know the ticket context is valid.
+    const allowRes = await handleGuard(
+      post(payload, undefined, { Authorization: `Bearer ${credential}` }),
+      env,
+      config,
+    )
+    const allowDecision = (await allowRes.json()) as GuardDecision
+    expect(allowDecision.decision).toBe('allow')
+    expect(allowDecision.ticket).toBeDefined()
+
+    // Build a deny ticket manually using the same signer the route uses.
+    const now = new Date()
+    const ticketContext = {
+      signer: { alg: 'HS256' as const, kid: 'guard-ticket-kid', secret: 'guard-ticket-secret' },
+      verifiers: [{ alg: 'HS256' as const, kid: 'guard-ticket-kid', secret: 'guard-ticket-secret' }],
+      policyVersion: config.guardPolicyVersion,
+      trustRevision: config.guardTrustRevision,
+      ttlSeconds: config.guardTicketTtlSeconds,
+      now,
+    }
+    const denyTicket = await signGuardDecisionTicket(
+      { ...payload } as Parameters<typeof signGuardDecisionTicket>[0],
+      'deny',
+      ticketContext,
+    )
+    expect(denyTicket).not.toBeNull()
+
+    // Present the deny ticket to the guard route. It must NOT be honored as allow.
+    const denyRes = await handleGuard(
+      post({ ...payload, decision_ticket: denyTicket }, undefined, {
+        Authorization: `Bearer ${credential}`,
+      }),
+      env,
+      config,
+    )
+    expect(denyRes.status).toBe(200)
+    const denyDecision = (await denyRes.json()) as GuardDecision
+    expect(denyDecision.reason).not.toBe('valid signed decision ticket')
+    // The pipeline runs normally and produces the real verdict, not a ticket fast-path allow.
+    expect(denyDecision.decision).toBe('allow')
   })
 
   it('a cached decision is not reused after the feed version changes', async () => {
