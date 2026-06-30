@@ -1,5 +1,5 @@
 /**
- * The "How it works" section on the scanner landing (anchor `#how`): the real
+ * The "How it works" page (route `#how`): the real
  * six-layer, fail-closed scan pipeline, each shown as a glass card, followed by
  * the two invariants that hold across every scan (fail-closed, tighten-only).
  * Purely presentational, no state.
@@ -86,7 +86,7 @@ const RISE = {
 
 export function HowItWorks() {
   return (
-    <section id="how" className="max-w-5xl mx-auto px-6 pt-[8.5rem] pb-20">
+    <section id="how" className="max-w-5xl mx-auto px-6 pt-10 pb-20">
       <motion.div
         {...RISE}
         className="flex flex-col items-center text-center gap-3 mb-10"

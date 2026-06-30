@@ -13,14 +13,16 @@ describe('HowItWorks', () => {
     ).toBeInTheDocument()
   })
 
-  it('clears the floating navbar with its own top padding on the #how anchor', () => {
+  it('sits below the navbar with a modest top padding, not the old anchor clearance', () => {
     const { container } = render(<HowItWorks />)
     const section = container.querySelector('#how')
     expect(section).not.toBeNull()
-    // The anchor lands flush at the viewport top (no `:target` scroll-margin); its
-    // own top padding clears the floating navbar so the heading is not hidden
-    // behind it, while the lower rhythm (pb-20) stays asymmetric, not py-20.
-    expect(section?.className).toContain('pt-[8.5rem]')
+    // Now its own route (the in-flow sticky navbar already takes its space), so the
+    // section uses a modest top padding consistent with the other app pages rather
+    // than the large anchor-scroll clearance it needed under the old landing. The
+    // lower rhythm (pb-20) stays asymmetric, not py-20.
+    expect(section?.className).toContain('pt-10')
+    expect(section?.className).not.toContain('pt-[8.5rem]')
     expect(section?.className).not.toContain('py-20')
   })
 
