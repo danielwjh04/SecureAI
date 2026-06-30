@@ -60,13 +60,15 @@ describe('Navbar admin link', () => {
 })
 
 describe('Navbar app navigation', () => {
-  it('renders the six Personal app links for an authenticated user', () => {
+  it('renders the inline Personal app links for an authenticated user', () => {
     render(
       <Navbar
         auth={authState({ status: 'authenticated', user: user(false), isAdmin: false })}
       />,
     )
-    for (const label of ['How it works', 'Dashboard', 'Protection', 'Activity', 'Integrations', 'Settings']) {
+    // Settings moved to the right-side pill cluster (asserted separately), so the
+    // inline row is these five.
+    for (const label of ['How it works', 'Dashboard', 'Protection', 'Activity', 'Integrations']) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
     // The redundant "Scan" item (it duplicated the logo) is gone.
@@ -89,30 +91,33 @@ describe('Navbar app navigation', () => {
   })
 })
 
-describe('Navbar log out', () => {
-  it('renders a Log out button at the right, after the Admin pill, for an admin', () => {
+describe('Navbar right cluster', () => {
+  it('puts Settings at the right after the Admin pill for an admin, with no Log out button', () => {
     render(
       <Navbar
         auth={authState({ status: 'authenticated', user: user(true), isAdmin: true })}
       />,
     )
-    const logout = screen.getByRole('button', { name: 'Log out' })
+    const settings = screen.getByRole('link', { name: 'Settings' })
     const admin = screen.getByRole('link', { name: /Admin/ })
-    expect(logout).toBeInTheDocument()
-    // Admin sits to the LEFT of Log out: Admin appears earlier in the DOM.
+    expect(settings).toHaveAttribute('href', '#settings')
+    // Admin sits to the LEFT of Settings: Admin appears earlier in the DOM.
     expect(
-      admin.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING,
+      admin.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+    // The redundant nav Log out button is gone; sign-out lives on the Settings page.
+    expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull()
   })
 
-  it('renders Log out for an authenticated non-admin (no Admin pill)', () => {
+  it('shows the Settings pill for an authenticated non-admin (no Admin pill, no Log out)', () => {
     render(
       <Navbar
         auth={authState({ status: 'authenticated', user: user(false), isAdmin: false })}
       />,
     )
-    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '#settings')
     expect(screen.queryByRole('link', { name: /Admin/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull()
   })
 
   it('shows no Log out button for an anonymous visitor', () => {

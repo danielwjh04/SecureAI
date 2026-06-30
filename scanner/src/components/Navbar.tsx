@@ -18,7 +18,6 @@ import {
   BarChart3,
   BookOpen,
   LayoutDashboard,
-  LogOut,
   Menu,
   PlugZap,
   Settings,
@@ -27,7 +26,6 @@ import {
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { logout } from '../api/client'
 import { useHashRoute } from '../hooks/useHashRoute'
 import type { Route } from '../hooks/useHashRoute'
 import type { AuthState } from '../hooks/useAuth'
@@ -52,7 +50,6 @@ const APP_LINKS: readonly NavLink[] = [
   { href: '#protection', label: 'Protection', route: 'protection', Icon: Shield },
   { href: '#activity', label: 'Activity', route: 'activity', Icon: Activity },
   { href: '#integrations', label: 'Integrations', route: 'integrations', Icon: PlugZap },
-  { href: '#settings', label: 'Settings', route: 'settings', Icon: Settings },
 ]
 
 export function Navbar({ onHome, auth }: NavbarProps) {
@@ -67,17 +64,6 @@ export function Navbar({ onHome, auth }: NavbarProps) {
     setMenuOpen(false)
   }
   const closeMenu = (): void => setMenuOpen(false)
-  // Mirrors the Settings sign-out: clear the cookie, re-read the (now
-  // anonymous) session, and land on the login screen. Fail-closed: the
-  // redirect runs even if the logout request itself fails.
-  const handleLogout = async (): Promise<void> => {
-    try {
-      await logout()
-    } finally {
-      await auth.refresh()
-      window.location.assign('#login')
-    }
-  }
 
   return (
     <motion.nav
@@ -139,15 +125,15 @@ export function Navbar({ onHome, auth }: NavbarProps) {
                     <span className="hidden sm:inline">Admin</span>
                   </a>
                 )}
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  aria-label="Log out"
-                  className="glass-pill inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 text-white/70 hover:text-white transition-colors cursor-pointer"
+                <a
+                  href="#settings"
+                  className={`glass-pill inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 ${
+                    route === 'settings' ? 'text-white' : 'text-white/70 hover:text-white'
+                  } transition-colors`}
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Log out</span>
-                </button>
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Settings</span>
+                </a>
               </>
             ) : auth.status === 'anonymous' ? (
               <a
