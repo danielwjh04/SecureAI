@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PreToolUsePayload } from '../schemas/validate'
-import type { GuardDecisionTicket } from '../schemas/contract'
 import {
+  type GuardDecisionTicket,
   guardActionHash,
   signGuardDecisionTicket,
   verifyGuardDecisionTicket,

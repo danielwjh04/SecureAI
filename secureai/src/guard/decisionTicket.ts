@@ -5,7 +5,7 @@
  * caller before accepting a ticket.
  */
 
-import type { GuardDecisionTicket, GuardPermissionDecision } from '../schemas/contract'
+import type { GuardPermissionDecision } from '../schemas/contract'
 import type { PreToolUsePayload } from '../schemas/validate'
 import { canonicalJson } from '../audit/chain'
 
@@ -15,7 +15,21 @@ const HASH_ALGORITHM = 'SHA-256'
 const ECDSA_NAMED_CURVE = 'P-256'
 const textEncoder = new TextEncoder()
 
-export type GuardTicketAlgorithm = GuardDecisionTicket['alg']
+export type GuardTicketAlgorithm = 'HS256' | 'ES256'
+
+export interface GuardDecisionTicket {
+  readonly alg: GuardTicketAlgorithm
+  readonly kid: string
+  readonly action_hash: string
+  readonly scope: string
+  readonly decision: GuardPermissionDecision
+  readonly policy_version: string
+  readonly trust_revision: string
+  readonly expires_at: string
+  readonly signature: string
+  device_id?: string
+  integration_version?: string
+}
 
 export type GuardTicketSigner =
   | {
