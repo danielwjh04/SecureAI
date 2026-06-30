@@ -110,6 +110,19 @@ describe('runScan', () => {
     expect(scannedText).toBe(body)
   })
 
+  it('throws ParseError when a fetched source exceeds the skill byte cap', async () => {
+    const smallConfig = loadConfig({ SCANNER_SKILL_MAX_BYTES: '16' })
+    const fetchImpl = (async () =>
+      new Response('x'.repeat(17), { status: 200 })) as unknown as typeof fetch
+
+    await expect(
+      runScan(
+        { sourceUrl: 'https://example.com/SKILL.md' },
+        deps({ config: smallConfig, fetchImpl }),
+      ),
+    ).rejects.toBeInstanceOf(ParseError)
+  })
+
   it('throws ParseError when neither content nor sourceUrl is provided', async () => {
     await expect(runScan({}, deps())).rejects.toBeInstanceOf(ParseError)
   })

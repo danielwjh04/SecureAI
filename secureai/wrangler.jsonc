@@ -104,13 +104,30 @@
 		// short (default 300s = 5 min); 0 disables it; range 0..86400. Tradeoff: a
 		// changed indicator/feed can be briefly masked within the window.
 		"SCANNER_VERDICT_CACHE_TTL_S": "300",
+		// Guard capability policy. These sets classify hook tool calls before URL
+		// scanning so no-URL actions such as secret reads, package installs, and
+		// destructive shell commands still require review.
+		"SCANNER_GUARD_POLICY_VERSION": "1",
+		"SCANNER_GUARD_READ_TOOLS": "read,grep,glob,ls",
+		"SCANNER_GUARD_WRITE_TOOLS": "write,edit,multiedit,notebookedit,apply_patch",
+		"SCANNER_GUARD_SHELL_TOOLS": "bash,shell",
+		"SCANNER_GUARD_NETWORK_TOOLS": "webfetch,websearch,fetch",
+		"SCANNER_GUARD_MCP_TOOL_PREFIXES": "mcp__,mcp_",
+		"SCANNER_GUARD_SENSITIVE_PATH_MARKERS": ".env,.dev.vars,.npmrc,.pypirc,.netrc,.ssh/id_rsa,.ssh/id_ed25519,.aws/credentials,.config/gcloud,credentials,secret,secrets,token,kube/config",
+		"SCANNER_GUARD_CONFIG_PATH_MARKERS": ".claude,.cursor,.codex,.mcp,.git/config,package.json,package-lock.json,pnpm-lock.yaml,yarn.lock,bun.lock,wrangler.jsonc,tsconfig.json",
+		"SCANNER_GUARD_SAFE_SHELL_COMMANDS": "ls,pwd,cat,type,dir,echo",
+		"SCANNER_GUARD_DESTRUCTIVE_COMMANDS": "rm,rmdir,del,erase,remove-item,mv,move,move-item,cp,copy,copy-item",
+		"SCANNER_GUARD_PERMISSION_COMMANDS": "chmod,chown,attrib,icacls,takeown,set-acl",
+		"SCANNER_GUARD_PACKAGE_MANAGERS": "npm,pnpm,yarn,bun,pip,pip3,uv,cargo,go,gem,composer,npx",
+		"SCANNER_GUARD_PACKAGE_INSTALL_WORDS": "install,add,i,require,dlx,x,create",
+		"SCANNER_GUARD_PACKAGE_SCRIPT_WORDS": "run,exec,execute,start,test,build,dlx,x",
 		// Cross-origin API clients, comma-separated. Add the Chrome extension origin
 		// after the store id exists. Same-origin SPA calls do not need this.
 		"SCANNER_CORS_ORIGINS": "",
 		// Billing (Stripe). Price ids come from Stripe Dashboard. The secrets
 		// STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are NOT vars; set them with
 		// `wrangler secret put`.
-		"STRIPE_PRICE_PERSONAL": "price_1TnsldPZTz6qwIUpusmRwmzm",
+		"STRIPE_PRICE_PERSONAL": "price_REPLACE_PERSONAL",
 		"STRIPE_PRICE_PRO": "price_1TnNM9PZTz6qwIUp2lhMHLDL",
 		"SCANNER_APP_BASE_URL": "https://secureai.software",
 		// Email/password auth tunables (non-secret). The SESSION_SECRET that signs

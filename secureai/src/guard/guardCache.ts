@@ -6,10 +6,10 @@
  *
  * It caches the DECISION only; the route still authenticates, enforces the daily
  * cap, and meters usage on a hit (those live in the route, not here). The key is
- * `guard:v1:` + sha256(canonical({tool_name, tool_input})), only the
- * load-bearing scannable fields, so field ordering / unrelated context never
- * perturbs it. Unlike a scan result a {@link GuardDecision} carries no
- * time-varying field, so the cached value is returned verbatim.
+ * `guard:v2:` + sha256(canonical({policy_version, tool_name, tool_input})), so
+ * field ordering / unrelated context never perturbs it and policy retunes can
+ * invalidate old decisions. Unlike a scan result a {@link GuardDecision} carries
+ * no time-varying field, so the cached value is returned verbatim.
  *
  * Security tradeoff (same as the verdict cache): a short TTL bounds how long a
  * denylist/indicator change can be masked; `0` disables the cache.
@@ -21,7 +21,7 @@ import { canonicalJson } from '../audit/chain'
 import { log } from '../observability/logger'
 
 /** Namespaced, versioned prefix for every guard-decision cache key. */
-const CACHE_KEY_PREFIX = 'guard:v1:'
+const CACHE_KEY_PREFIX = 'guard:v2:'
 
 const textEncoder = new TextEncoder()
 
@@ -42,14 +42,21 @@ async function sha256Hex(value: string): Promise<string> {
 }
 
 /**
- * Derive the cache key from ONLY the scannable fields of a PreToolUse payload:
+ * Derive the cache key from policy version plus scannable fields of a PreToolUse payload:
  * the tool name and its input record. The context fields (`session_id`, `cwd`, …)
- * never enter the key, so the same tool call from different sessions shares an entry.
+ * never enter the key, so sessions share an entry until the policy version changes.
  *
  * Time complexity: O(n) in the payload byte length. Space complexity: O(n).
  */
-export async function cacheKeyForPayload(payload: PreToolUsePayload): Promise<string> {
-  const scannable = { tool_name: payload.tool_name, tool_input: payload.tool_input }
+export async function cacheKeyForPayload(
+  payload: PreToolUsePayload,
+  policyVersion = '1',
+): Promise<string> {
+  const scannable = {
+    policy_version: policyVersion,
+    tool_name: payload.tool_name,
+    tool_input: payload.tool_input,
+  }
   return CACHE_KEY_PREFIX + (await sha256Hex(canonicalJson(scannable)))
 }
 
@@ -82,11 +89,12 @@ export async function resolveCachedDecision(
   kv: GuardCacheKv | null,
   ttlSeconds: number,
   compute: () => Promise<GuardDecision>,
+  policyVersion = '1',
 ): Promise<GuardDecision> {
   if (kv === null || ttlSeconds <= 0) {
     return compute()
   }
-  const key = await cacheKeyForPayload(payload)
+  const key = await cacheKeyForPayload(payload, policyVersion)
   const hit = await kv.get(key)
   if (hit !== null) {
     const parsed = parseCached(hit)

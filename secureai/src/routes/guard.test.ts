@@ -53,7 +53,7 @@ describe('handleGuard', () => {
       post({
         hook_event_name: 'PreToolUse',
         tool_name: 'Read',
-        tool_input: { file_path: '/tmp/notes.txt' },
+        tool_input: { file_path: 'README.md' },
       }),
       {},
       config,
@@ -62,6 +62,22 @@ describe('handleGuard', () => {
     const decision = (await res.json()) as GuardDecision
     expect(decision.decision).toBe('allow')
     expect(decision.verdict).toBeNull()
+  })
+
+  it('returns 200 with an ask decision for a no-URL sensitive file read', async () => {
+    const res = await handleGuard(
+      post({
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Read',
+        tool_input: { file_path: '.env' },
+      }),
+      {},
+      config,
+    )
+    expect(res.status).toBe(200)
+    const decision = (await res.json()) as GuardDecision
+    expect(decision.decision).toBe('ask')
+    expect(decision.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
   })
 
   it('maps an invalid body (wrong event name) to 422', async () => {

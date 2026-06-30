@@ -55,4 +55,8 @@ describe('resolveCachedDecision', () => {
     const different: PreToolUsePayload = { ...PAYLOAD, tool_input: { command: 'ls' } }
     expect(await cacheKeyForPayload(PAYLOAD)).not.toBe(await cacheKeyForPayload(different))
   })
+
+  it('keys on the guard policy version', async () => {
+    expect(await cacheKeyForPayload(PAYLOAD, '1')).not.toBe(await cacheKeyForPayload(PAYLOAD, '2'))
+  })
 })

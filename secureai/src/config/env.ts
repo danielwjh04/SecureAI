@@ -104,6 +104,34 @@ export interface ScannerConfig {
    * feed could be briefly masked, the documented tradeoff for the latency win.
    */
   readonly verdictCacheTtlSeconds: number
+  /** Version string folded into guard-decision cache keys. Bump on policy retunes. */
+  readonly guardPolicyVersion: string
+  /** Guard tool names treated as low-risk filesystem reads when paths are not sensitive. */
+  readonly guardReadTools: ReadonlySet<string>
+  /** Guard tool names treated as filesystem writes. */
+  readonly guardWriteTools: ReadonlySet<string>
+  /** Guard tool names treated as shell execution. */
+  readonly guardShellTools: ReadonlySet<string>
+  /** Guard tool names treated as network actions. */
+  readonly guardNetworkTools: ReadonlySet<string>
+  /** Tool-name prefixes treated as MCP tool calls. */
+  readonly guardMcpToolPrefixes: ReadonlySet<string>
+  /** Path markers that require review when read or written by an agent. */
+  readonly guardSensitivePathMarkers: ReadonlySet<string>
+  /** Path markers that require review when written by an agent. */
+  readonly guardConfigPathMarkers: ReadonlySet<string>
+  /** Shell commands that are low-risk when used without sensitive paths. */
+  readonly guardSafeShellCommands: ReadonlySet<string>
+  /** Shell commands that delete, move, overwrite, or copy files. */
+  readonly guardDestructiveCommands: ReadonlySet<string>
+  /** Shell commands that alter permissions or ownership. */
+  readonly guardPermissionCommands: ReadonlySet<string>
+  /** Package-manager command names. */
+  readonly guardPackageManagers: ReadonlySet<string>
+  /** Package-manager subcommands that add or install code. */
+  readonly guardPackageInstallWords: ReadonlySet<string>
+  /** Package-manager subcommands that execute scripts or packages. */
+  readonly guardPackageScriptWords: ReadonlySet<string>
   /** Stripe Price id for the Personal tier recurring subscription. */
   readonly stripePricePersonal: string
   /** Stripe Price id for the Pro tier recurring subscription. Used at checkout. */
@@ -281,6 +309,56 @@ export function loadConfig(env: Env): ScannerConfig {
     0,
     86400,
   )
+  const guardPolicyVersion = readString(env, 'SCANNER_GUARD_POLICY_VERSION', '1')
+  const guardReadTools = readSet(env, 'SCANNER_GUARD_READ_TOOLS', 'read,grep,glob,ls')
+  const guardWriteTools = readSet(
+    env,
+    'SCANNER_GUARD_WRITE_TOOLS',
+    'write,edit,multiedit,notebookedit,apply_patch',
+  )
+  const guardShellTools = readSet(env, 'SCANNER_GUARD_SHELL_TOOLS', 'bash,shell')
+  const guardNetworkTools = readSet(env, 'SCANNER_GUARD_NETWORK_TOOLS', 'webfetch,websearch,fetch')
+  const guardMcpToolPrefixes = readSet(env, 'SCANNER_GUARD_MCP_TOOL_PREFIXES', 'mcp__,mcp_')
+  const guardSensitivePathMarkers = readSet(
+    env,
+    'SCANNER_GUARD_SENSITIVE_PATH_MARKERS',
+    '.env,.dev.vars,.npmrc,.pypirc,.netrc,.ssh/id_rsa,.ssh/id_ed25519,.aws/credentials,.config/gcloud,credentials,secret,secrets,token,kube/config',
+  )
+  const guardConfigPathMarkers = readSet(
+    env,
+    'SCANNER_GUARD_CONFIG_PATH_MARKERS',
+    '.claude,.cursor,.codex,.mcp,.git/config,package.json,package-lock.json,pnpm-lock.yaml,yarn.lock,bun.lock,wrangler.jsonc,tsconfig.json',
+  )
+  const guardSafeShellCommands = readSet(
+    env,
+    'SCANNER_GUARD_SAFE_SHELL_COMMANDS',
+    'ls,pwd,cat,type,dir,echo',
+  )
+  const guardDestructiveCommands = readSet(
+    env,
+    'SCANNER_GUARD_DESTRUCTIVE_COMMANDS',
+    'rm,rmdir,del,erase,remove-item,mv,move,move-item,cp,copy,copy-item',
+  )
+  const guardPermissionCommands = readSet(
+    env,
+    'SCANNER_GUARD_PERMISSION_COMMANDS',
+    'chmod,chown,attrib,icacls,takeown,set-acl',
+  )
+  const guardPackageManagers = readSet(
+    env,
+    'SCANNER_GUARD_PACKAGE_MANAGERS',
+    'npm,pnpm,yarn,bun,pip,pip3,uv,cargo,go,gem,composer,npx',
+  )
+  const guardPackageInstallWords = readSet(
+    env,
+    'SCANNER_GUARD_PACKAGE_INSTALL_WORDS',
+    'install,add,i,require,dlx,x,create',
+  )
+  const guardPackageScriptWords = readSet(
+    env,
+    'SCANNER_GUARD_PACKAGE_SCRIPT_WORDS',
+    'run,exec,execute,start,test,build,dlx,x',
+  )
   // Billing (Stripe). Price ids have no safe default, they are account- and
   // mode-specific, so placeholders are shipped in wrangler.jsonc and must be
   // replaced before the billing routes function. The base URL has a public
@@ -420,6 +498,20 @@ export function loadConfig(env: Env): ScannerConfig {
     capProPerDay,
     aiTiers,
     verdictCacheTtlSeconds,
+    guardPolicyVersion,
+    guardReadTools,
+    guardWriteTools,
+    guardShellTools,
+    guardNetworkTools,
+    guardMcpToolPrefixes,
+    guardSensitivePathMarkers,
+    guardConfigPathMarkers,
+    guardSafeShellCommands,
+    guardDestructiveCommands,
+    guardPermissionCommands,
+    guardPackageManagers,
+    guardPackageInstallWords,
+    guardPackageScriptWords,
     stripePricePersonal,
     stripePricePro,
     appBaseUrl,

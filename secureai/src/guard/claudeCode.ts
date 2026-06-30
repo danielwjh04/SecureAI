@@ -1,29 +1,10 @@
 /**
  * Claude Code PreToolUse guard, the inline interceptor that routes an agent's
- * tool calls through the SecureAI scanner and turns the scanner verdict into a
- * Claude Code permission decision (allow / ask / deny), fail-closed.
+ * tool calls through SecureAI before they run.
  *
- * A PreToolUse hook is invoked by Claude Code *before* a tool runs. The hook is
- * handed the tool name and its inputs and may instruct the agent to proceed,
- * pause for human approval, or refuse outright. SecureAI's job here is to treat
- * the tool call as untrusted content, scan it with the same pure
- * {@link runScan} orchestrator the `/api/scan` route uses, and map its
- * {@link Verdict} onto that permission decision.
- *
- * Safety posture (CLAUDE.md §1, §6):
- *   - Fail-closed: any unexpected internal fault (scanner crash, inference
- *     transport error, malformed dependency) yields `deny`, never `allow`. The
- *     exact error class is logged via the structured logger; the agent is never
- *     let through on a fault.
- *   - "Nothing to scan" is NOT a fault: a tool call with no URLs and no
- *     download-execute pattern carries no supply-chain indicator the scanner can
- *     reason about, so it is `allow` with a `null` verdict, detected by an empty
- *     parse result, distinct from a real fault (oversize input still fail-closes).
- *   - Tighten-only: the decision is derived solely from the scanner verdict; this
- *     module never relaxes a BLOCK into an allow.
- *
- * Pure over its injected {@link ScanDeps}: no environment, clock, or network is
- * read directly here. The route layer (`routes/guard.ts`) wires the real deps.
+ * The guard first normalizes the native hook payload into a capability-aware
+ * action, then scans content indicators when URLs or download-execute patterns
+ * are present. A missing URL is not treated as proof of safety.
  */
 
 import type { ScanDeps } from '../scanner/runScan'
@@ -32,22 +13,15 @@ import type { PreToolUsePayload } from '../schemas/validate'
 import { parseSkill } from '../pipeline/parse'
 import { runScan } from '../scanner/runScan'
 import { log } from '../observability/logger'
+import { escalate } from '../verdict'
+import { evaluateGuardActionPolicy, normalizeGuardAction } from './actionPolicy'
 
 // GuardPermissionDecision and GuardDecision are defined once in @secureai/contract
-// (the server and the SDK share that single definition, re-exported via
-// ../schemas/contract) so the guard response shape can never drift between them.
-// Re-exported here so the route layer keeps importing them from this module.
+// so the server and SDK response shapes cannot drift.
 export type { GuardDecision, GuardPermissionDecision } from '../schemas/contract'
 
 /**
- * Map a scanner {@link Verdict} to the corresponding Claude Code permission
- * decision. The mapping is total and exhaustive (a `match` over the three-state
- * enum), so a new verdict value would be a compile error rather than a silent
- * fall-through.
- *
- *   ALLOW                    → allow
- *   HUMAN_APPROVAL_REQUIRED  → ask
- *   BLOCK                    → deny
+ * Map a scanner verdict to the corresponding hook permission decision.
  *
  * Time complexity: O(1). Space complexity: O(1).
  */
@@ -62,21 +36,13 @@ function verdictToDecision(verdict: Verdict): GuardPermissionDecision {
   }
 }
 
-/**
- * The maximum number of finding details folded into a decision reason. Reasons
- * are surfaced to the agent and the user, so the most severe few findings are
- * enough; an unbounded join would bloat the hook output.
- */
+/** Maximum number of finding details folded into a guard reason. */
 const MAX_REASON_FINDINGS = 3
 
 /**
- * Build a concise, human-readable reason from a scan result. Deterministic rule
- * findings and AI injection findings are both surfaced (rules first, since they
- * are the explainable baseline), capped at {@link MAX_REASON_FINDINGS}. When no
- * finding carries a detail, a verdict-derived fallback keeps the reason
- * non-empty.
+ * Build a concise reason from deterministic findings and injection findings.
  *
- * Time complexity: O(f) in the finding count. Space complexity: O(f).
+ * Time complexity: O(f) in finding count. Space complexity: O(f).
  */
 function buildReason(
   verdict: Verdict,
@@ -104,48 +70,27 @@ function buildReason(
 }
 
 /**
- * Serialize a PreToolUse tool call into the scannable text the scanner consumes.
- * The tool name and its inputs are concatenated so any URL or download-execute
- * pattern embedded in either is surfaced by the deterministic parser exactly as
- * it would be in a pasted skill document.
+ * Serialize a PreToolUse tool call into the text consumed by the scanner.
  *
- * Time complexity: O(n) in the serialized size. Space complexity: O(n).
+ * Time complexity: O(n) in serialized size. Space complexity: O(n).
  */
 function buildScannableContent(payload: PreToolUsePayload): string {
   return `${payload.tool_name}\n${JSON.stringify(payload.tool_input)}`
 }
 
 /**
- * True when the scannable content carries an indicator the scanner can reason
- * about (at least one URL or download-execute pattern). Runs the same
- * deterministic {@link parseSkill} the scanner runs and inspects its result: an
- * empty {@link ParseResult} (no URLs, no exec patterns) is a benign, link-free
- * tool call, nothing to scan (→ allow). Oversize input is still a real fault:
- * `parseSkill` throws {@link ParseError} on it, which propagates so the caller
- * fail-closes.
+ * Return true when the serialized tool call carries scanner content indicators.
+ * Empty parse results are handled by capability policy, while parser faults
+ * propagate so the caller can fail closed.
  *
- * Doing this pre-check up front lets the guard distinguish "benign, nothing to
- * scan" (→ allow) from "the scan itself faulted" (→ deny) cleanly.
- *
- * Time complexity: O(n) in the content length (one parser pass).
- * Space complexity: O(u + e) in the extracted URL / exec-pattern counts.
- *
- * @throws {ParseError} If `parseSkill` fails (oversize input), a real fault the
- *   caller fail-closes on.
+ * Time complexity: O(n) in content length. Space complexity: O(u + e).
  */
 function hasScannableIndicators(content: string, deps: ScanDeps): boolean {
-  // parseSkill no longer throws on an empty extraction, a link-free document is
-  // benign and returns an empty result, so "nothing to scan" is the empty
-  // ParseResult. The only remaining ParseError is oversize input, which
-  // propagates uncaught so the caller fail-closes (deny).
   const result = parseSkill(content, deps.config)
   return result.urls.length > 0 || result.execPatterns.length > 0
 }
 
-/**
- * The fail-closed decision returned when an unexpected internal fault occurs.
- * Centralized so every fault path produces an identical, deny-by-default shape.
- */
+/** The fail-closed decision returned on unexpected guard faults. */
 const FAIL_CLOSED_DECISION: GuardDecision = {
   decision: 'deny',
   reason: 'SecureAI guard could not verify this tool call; blocked fail-closed',
@@ -153,24 +98,18 @@ const FAIL_CLOSED_DECISION: GuardDecision = {
 }
 
 /**
- * Evaluate a Claude Code PreToolUse tool call and return a permission decision.
+ * Evaluate a validated PreToolUse payload and return a hook permission decision.
  *
  * Pipeline:
- *   1. Serialize the tool call to scannable content (tool name + inputs).
- *   2. Pre-check for scannable indicators. None → `allow` with a `null` verdict
- *      (benign; nothing to scan). This is the clean split from a real fault.
- *   3. Run the full {@link runScan} orchestrator over the content.
- *   4. Map its {@link Verdict} to a decision and fold the findings into a reason.
- *   5. Any unexpected throw → fail-closed `deny` (logged by error class).
+ * 1. Serialize the tool call to scannable content.
+ * 2. Normalize it into a capability-aware action.
+ * 3. Evaluate deterministic guard policy.
+ * 4. If no content indicators exist, let policy decide the result.
+ * 5. Otherwise run the scanner and tighten its verdict with the policy verdict.
+ * 6. Map every unexpected fault to a fail-closed deny.
  *
- * Time complexity: dominated by `runScan` (O(U·H + R + F)).
- * Space complexity: O(result size).
- *
- * @param payload - The validated PreToolUse payload.
- * @param deps - Injected scanner dependencies (config, reputation, inference,
- *   fetch, scannedAt). Identical to what `/api/scan` injects.
- * @returns A {@link GuardDecision}. Never throws: every fault is mapped to a
- *   fail-closed `deny`.
+ * Time complexity: dominated by runScan when scanner content exists. Space
+ * complexity: O(result size).
  */
 export async function guardDecision(
   payload: PreToolUsePayload,
@@ -179,20 +118,34 @@ export async function guardDecision(
   const content = buildScannableContent(payload)
 
   try {
+    const action = normalizeGuardAction(payload, deps.config)
+    const actionPolicy = evaluateGuardActionPolicy(action, deps.config)
+
     if (!hasScannableIndicators(content, deps)) {
-      return { decision: 'allow', reason: 'no scannable indicators', verdict: null }
+      if (actionPolicy.verdict === 'ALLOW') {
+        return { decision: 'allow', reason: 'no scannable indicators', verdict: null }
+      }
+      return {
+        decision: verdictToDecision(actionPolicy.verdict),
+        reason: buildReason(actionPolicy.verdict, actionPolicy.findings, []),
+        verdict: actionPolicy.verdict,
+      }
     }
 
     const { result } = await runScan({ content }, deps)
-    const decision = verdictToDecision(result.verdict)
-    const reason = buildReason(result.verdict, result.findings, result.injections)
+    const verdict = escalate(actionPolicy.verdict, result.verdict)
+    const decision = verdictToDecision(verdict)
+    const reason = buildReason(
+      verdict,
+      [...actionPolicy.findings, ...result.findings],
+      result.injections,
+    )
+    const proof = verdict === result.verdict ? result.proof : undefined
 
-    return { decision, reason, verdict: result.verdict, proof: result.proof }
+    return { decision, reason, verdict, proof }
   } catch (error: unknown) {
-    // Fail-closed (CLAUDE.md §1, §6): an unexpected fault must never ALLOW. Log
-    // the exact class so the fault is never swallowed silently.
     const className = error instanceof Error ? error.constructor.name : typeof error
-    log.error('guardDecision', ': failing closed (deny)', { errorClass: className })
+    log.error('guardDecision', 'failing closed', { errorClass: className })
     return FAIL_CLOSED_DECISION
   }
 }

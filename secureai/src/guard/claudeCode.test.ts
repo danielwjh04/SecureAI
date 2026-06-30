@@ -36,10 +36,34 @@ function payload(toolName: string, toolInput: Record<string, unknown>): PreToolU
 
 describe('guardDecision', () => {
   it('allows a benign tool call with no scannable indicators (null verdict)', async () => {
-    const result = await guardDecision(payload('Read', { file_path: '/etc/hosts' }), deps())
+    const result = await guardDecision(payload('Read', { file_path: 'README.md' }), deps())
     expect(result.decision).toBe('allow')
     expect(result.verdict).toBeNull()
     expect(result.reason).toBe('no scannable indicators')
+    expect(result.proof).toBeUndefined()
+  })
+
+  it('asks for approval when a no-URL tool call reads a sensitive file', async () => {
+    const result = await guardDecision(payload('Read', { file_path: '.dev.vars' }), deps())
+    expect(result.decision).toBe('ask')
+    expect(result.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(result.reason).toContain('sensitive path')
+    expect(result.proof).toBeUndefined()
+  })
+
+  it('asks for approval when a no-URL shell command installs a package', async () => {
+    const result = await guardDecision(payload('Bash', { command: 'npm install left-pad' }), deps())
+    expect(result.decision).toBe('ask')
+    expect(result.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(result.reason).toContain('package install')
+    expect(result.proof).toBeUndefined()
+  })
+
+  it('asks for approval when a no-URL shell command is unknown', async () => {
+    const result = await guardDecision(payload('Bash', { command: 'node scripts/release.js' }), deps())
+    expect(result.decision).toBe('ask')
+    expect(result.verdict).toBe('HUMAN_APPROVAL_REQUIRED')
+    expect(result.reason).toContain('unknown shell command')
     expect(result.proof).toBeUndefined()
   })
 

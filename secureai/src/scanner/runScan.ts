@@ -171,8 +171,52 @@ async function resolveSkillText(
       `source URL returned HTTP ${response.status}: ${fetchUrl.href}`,
     )
   }
-  const text = await response.text()
+  const text = await readResponseTextCapped(response, config.skillMaxBytes)
   return { text, source: { kind: 'url', ref: fetchUrl.href } }
+}
+
+/**
+ * Read a fetched source body with a hard byte cap. This avoids buffering an
+ * untrusted remote page before enforcing the configured skill size limit.
+ *
+ * Time complexity: O(n) up to `maxBytes + 1`. Space complexity: O(n) up to
+ * `maxBytes`.
+ *
+ * @throws {ParseError} If the response body exceeds the configured byte cap.
+ */
+async function readResponseTextCapped(response: Response, maxBytes: number): Promise<string> {
+  if (response.body === null) {
+    return ''
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let bytesRead = 0
+  let text = ''
+
+  try {
+    for (;;) {
+      const chunk = await reader.read()
+      if (chunk.done) {
+        break
+      }
+      const value = chunk.value
+      if (value === undefined) {
+        continue
+      }
+      bytesRead += value.byteLength
+      if (bytesRead > maxBytes) {
+        await reader.cancel()
+        throw new ParseError(`source body exceeds limit ${maxBytes}`)
+      }
+      text += decoder.decode(value, { stream: true })
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  text += decoder.decode()
+  return text
 }
 
 /**

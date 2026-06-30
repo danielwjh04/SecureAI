@@ -105,7 +105,7 @@ export const preToolUseSchema = z.object({
   session_id: z.string().optional(),
   transcript_path: z.string().optional(),
   cwd: z.string().optional(),
-})
+}).passthrough()
 
 /** The validated PreToolUse payload `POST /api/guard` operates on. */
 export type PreToolUsePayload = z.infer<typeof preToolUseSchema>

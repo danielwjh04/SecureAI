@@ -78,6 +78,8 @@ What it does, step by step, cheapest and most certain first and the AI model las
 5. **Judges the text for prompt injection** with a small open-weight model that can only make the verdict stricter, never weaker.
 6. **Seals the result in a cryptographic proof**: an ordered chain of every step, each link stamped from the one before it. Tamper with any step and the chain breaks at exactly that point, re-verified live in your browser with no server round-trip.
 
+Fetched source bodies are streamed under the configured skill byte cap before parsing, so an untrusted remote source cannot force the Worker to buffer an oversized page.
+
 It ships with a gallery of real, pre-scanned skills: genuine public skills that come back clean, next to crafted attacks (redirect-cascade-to-payload, hidden injection) caught red-handed, so you can see both outcomes instantly.
 
 ### Built on Cloudflare
@@ -101,6 +103,8 @@ Deployed on Cloudflare (one Worker serves the React SPA via Static Assets plus t
 ## 🧱 Guard (defense in depth)
 
 Once an agent is running, the same verifiable-enforcement principle guards supported actions before they run. The Claude Code Guard is a zero-dependency PreToolUse hook you install in one line from your member dashboard. Cursor support now lives in `integrations/cursor/` for `beforeShellExecution` and `beforeMCPExecution` hooks. Codex support now lives in `integrations/codex/` for `PreToolUse` hooks. These adapters route actions through SecureAI before they run. A known-bad destination or an injection payload returns a real `deny` inline, and if the check cannot run the action is denied, not allowed (fail-closed).
+
+Guard decisions now evaluate the action capability before looking for links. A missing URL is not treated as proof that the action is safe. Low-risk project reads can still pass quickly, but sensitive-file reads, package installs, destructive file commands, permission changes, unknown shell commands, MCP calls, and new network destinations require review or stronger enforcement based on policy.
 
 ## Browser extension (Chrome and Edge MV3)
 
@@ -130,7 +134,7 @@ Each tier has a daily scan cap, and the AI injection judge is reserved for paid 
 
 > These caps and paid price ids mirror `secureai/wrangler.jsonc`. They are config, not code, so change them there and keep this table in sync.
 
-Free accounts subscribe to Personal or Pro through Stripe Checkout (idempotent webhooks); paid accounts manage or cancel from Settings through the Stripe billing portal. Your app navigation is How it works, Dashboard, Protection, Activity, and Integrations, with Settings (and Admin for admins) as the right-side pills and sign-out on the Settings page. The dashboard shows protection stats, a 30-day trend, recent scans, your API key (with one-click rotation), and the one-line Guard installer.
+Free accounts subscribe to Personal or Pro through Stripe Checkout (idempotent webhooks); paid accounts manage or cancel from Settings through the Stripe billing portal. Your app navigation is How it works, Dashboard, Protection, Activity, Integrations, and Settings, with Log out on the right. The dashboard shows protection stats, a 30-day trend, recent scans, your API key (with one-click rotation), and the one-line Guard installer.
 
 ## 👥 Team & admin
 
