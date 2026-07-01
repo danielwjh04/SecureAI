@@ -20,22 +20,22 @@ describe('useHashRoute', () => {
     expect(result.current).toBe('scanner')
   })
 
-  it('maps the how-it-works hash to the scanner landing (folded-in section anchor)', () => {
+  it('maps the how-it-works hash to the How it works page', () => {
     replaceHash('')
     const { result } = renderHook(() => useHashRoute())
 
     act(() => dispatchHash('#how'))
 
-    expect(result.current).toBe('scanner')
+    expect(result.current).toBe('howItWorks')
   })
 
-  it('maps the verify hash to the scanner landing (folded-in section anchor)', () => {
+  it('maps the verify hash to the How it works page', () => {
     replaceHash('')
     const { result } = renderHook(() => useHashRoute())
 
     act(() => dispatchHash('#verify'))
 
-    expect(result.current).toBe('scanner')
+    expect(result.current).toBe('howItWorks')
   })
 
   it.each([

@@ -43,7 +43,7 @@ interface NavLink {
 }
 
 const APP_LINKS: readonly NavLink[] = [
-  { href: '#how', label: 'How it works', route: 'scanner', Icon: BookOpen },
+  { href: '#how', label: 'How it works', route: 'howItWorks', Icon: BookOpen },
   { href: '#activity', label: 'Activity', route: 'activity', Icon: Activity },
   { href: '#integrations', label: 'Integrations', route: 'integrations', Icon: PlugZap },
 ]
@@ -95,7 +95,7 @@ export function Navbar({ onHome, auth }: NavbarProps) {
                   <a
                     href="#how"
                     onClick={closeMenu}
-                    className={`whitespace-nowrap ${linkClass(route === 'scanner')}`}
+                    className={`whitespace-nowrap ${linkClass(route === 'howItWorks')}`}
                   >
                     How it works
                   </a>
