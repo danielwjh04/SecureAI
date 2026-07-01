@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 
 export type Route =
   | 'scanner'
+  | 'howItWorks'
   | 'pricing'
   | 'login'
   | 'register'
@@ -20,9 +21,8 @@ export type Route =
 /**
  * Map each known hash to its route. The leading `#` is stripped so a hash with a
  * trailing query (none today, but cheap insurance) still resolves. `#how` and
- * `#verify` resolve to the scanner landing (the How it works sections are folded
- * onto it as in-page anchors, scrolled to by id); `#scan` and any unknown hash
- * also fall back to the scanner landing.
+ * `#verify` both resolve to the dedicated How it works page; `#scan` and any
+ * unknown hash fall back to the scanner landing.
  */
 const HASH_ROUTES: Record<string, Route> = {
   pricing: 'pricing',
@@ -34,8 +34,8 @@ const HASH_ROUTES: Record<string, Route> = {
   integrations: 'integrations',
   settings: 'settings',
   admin: 'admin',
-  how: 'scanner',
-  verify: 'scanner',
+  how: 'howItWorks',
+  verify: 'howItWorks',
 }
 
 const DEFAULT_ROUTE: Route = 'scanner'
