@@ -92,7 +92,9 @@ export async function guardActionHash(payload: PreToolUsePayload): Promise<strin
   const record = payload as unknown as Record<string, unknown>
   return sha256Hex(canonicalJson({
     tool_name: payload.tool_name,
-    tool_input: payload.tool_input,
+    // maximum privacy mode omits tool_input; coalesce to null so the action hash
+    // stays canonicalizable (the content hash below carries the bound content).
+    tool_input: payload.tool_input ?? null,
     cwd: stringOrNull(payload.cwd),
     device_id: stringOrNull(record.device_id),
     integration_version: stringOrNull(record.integration_version),

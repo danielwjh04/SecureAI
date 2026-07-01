@@ -70,4 +70,19 @@ describe('resolveCachedDecision', () => {
       await cacheKeyForPayload(PAYLOAD, '1', 'feed-b'),
     )
   })
+
+  it('derives a stable key for a maximum-privacy payload with a content hash but no tool_input', async () => {
+    const maxMode = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      content_hash: 'a'.repeat(64),
+    } as PreToolUsePayload
+
+    const key = await cacheKeyForPayload(maxMode)
+    expect(key.startsWith('guard:v2:')).toBe(true)
+    // Deterministic for the same hash, distinct for a different content hash.
+    expect(await cacheKeyForPayload(maxMode)).toBe(key)
+    const other = { ...maxMode, content_hash: 'b'.repeat(64) } as PreToolUsePayload
+    expect(await cacheKeyForPayload(other)).not.toBe(key)
+  })
 })

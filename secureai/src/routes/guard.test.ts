@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Env } from '../config/env'
 import type { GuardDecision } from '../guard/claudeCode'
+import type { PreToolUsePayload } from '../schemas/validate'
 import { loadConfig } from '../config/env'
 import { MemoryStore, MemoryD1 } from '../db/memory.test'
 import { d1Database } from '../db/database'
@@ -734,6 +735,106 @@ describe('handleGuard, ticket-reject metric', () => {
     expect(typeof rejectReason).toBe('string')
     expect((rejectReason ?? '').length).toBeGreaterThan(0)
   })
+
+  it('emits guard.ticket.reject with device mismatch for a valid-signature wrong-device ticket', async () => {
+    const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
+    const db = d1Database(d1)
+    const { user } = await createFreeUser(db, 'ticket-device-mismatch@example.com')
+    const credential = await guardCredentialFor(db, user.id)
+    const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+    const payload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+      cwd: '/workspace/project',
+      integration_version: '1.0.0',
+    }
+
+    // Obtain a valid allow ticket, then tamper ONLY the device_id field. The
+    // verifier rebinds device_id from the authenticated caller, so verification
+    // still passes; the allow-only honor gate rejects the cross-device replay,
+    // and that rejection must be metered.
+    const first = await handleGuard(
+      post(payload, undefined, { Authorization: `Bearer ${credential}` }),
+      env,
+      config,
+    )
+    const firstDecision = (await first.json()) as GuardDecision
+    expect(firstDecision.ticket).toBeDefined()
+    const crossDeviceTicket = { ...firstDecision.ticket, device_id: 'dev_someone_else' }
+
+    const writeDataPoint = vi.fn()
+    setMetricsDataset({ writeDataPoint })
+
+    const res = await handleGuard(
+      post({ ...payload, decision_ticket: crossDeviceTicket }, undefined, {
+        Authorization: `Bearer ${credential}`,
+      }),
+      env,
+      config,
+    )
+    const decision = (await res.json()) as GuardDecision
+    expect(decision.reason).not.toBe('valid signed decision ticket')
+
+    const rejectCall = writeDataPoint.mock.calls.find((call: unknown[]) => {
+      const event = call[0] as { blobs?: string[] }
+      return Array.isArray(event.blobs) && event.blobs[0] === 'guard.ticket.reject'
+    })
+    expect(rejectCall).toBeDefined()
+    const rejectBlobs = (rejectCall as [{ blobs: string[] }])[0].blobs
+    expect(rejectBlobs[1]).toBe('device mismatch')
+  })
+
+  it('emits guard.ticket.reject with decision-not-allow for a validly signed non-allow ticket', async () => {
+    const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
+    const db = d1Database(d1)
+    const { user } = await createFreeUser(db, 'ticket-ask-decision@example.com')
+    const credential = await guardCredentialFor(db, user.id)
+    const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+    const payload = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: 'README.md' },
+      cwd: '/workspace/project',
+      integration_version: '1.0.0',
+    }
+
+    // The server never issues a non-allow ticket, so sign one directly with the
+    // route's context. Its signature is valid, so verification passes and only
+    // the allow-only honor gate rejects it: that path must be metered too.
+    const boundPayload = { ...payload, device_id: `dev_${user.id}` } as PreToolUsePayload
+    const ticketContext = {
+      signer: { alg: 'HS256', kid: config.guardTicketKeyId, secret: 'guard-ticket-secret' } as const,
+      verifiers: [{ alg: 'HS256', kid: config.guardTicketKeyId, secret: 'guard-ticket-secret' } as const],
+      policyVersion: config.guardPolicyVersion,
+      trustRevision: config.guardTrustRevision,
+      ttlSeconds: config.guardTicketTtlSeconds,
+      now: new Date(),
+    }
+    const askTicket = await signGuardDecisionTicket(boundPayload, 'ask', ticketContext)
+    expect(askTicket).not.toBeNull()
+
+    const writeDataPoint = vi.fn()
+    setMetricsDataset({ writeDataPoint })
+
+    const res = await handleGuard(
+      post({ ...payload, decision_ticket: askTicket }, undefined, {
+        Authorization: `Bearer ${credential}`,
+      }),
+      env,
+      config,
+    )
+    const decision = (await res.json()) as GuardDecision
+    expect(decision.reason).not.toBe('valid signed decision ticket')
+
+    const rejectCall = writeDataPoint.mock.calls.find((call: unknown[]) => {
+      const event = call[0] as { blobs?: string[] }
+      return Array.isArray(event.blobs) && event.blobs[0] === 'guard.ticket.reject'
+    })
+    expect(rejectCall).toBeDefined()
+    const rejectBlobs = (rejectCall as [{ blobs: string[] }])[0].blobs
+    expect(rejectBlobs[1]).toBe('decision not allow')
+  })
 })
 
 describe('handleGuard, metering and caps', () => {
@@ -842,5 +943,65 @@ describe('handleGuard, metering and caps', () => {
     expect(proRes.status).toBe(200)
     expect(proAi.calls).toBe(1)
     expect(await getUsage(db, user.id, today)).toEqual({ scans: 1, aiScans: 1 })
+  })
+})
+
+describe('handleGuard, maximum privacy mode', () => {
+  it('accepts a maximum-mode payload (content hash, no tool_input) and returns a real decision', async () => {
+    // The whole point of maximum mode: the adapter strips tool_input/cwd and
+    // sends only the content hash. The route must parse it, key the cache, and
+    // reach a real decision rather than a 422 or a fail-closed exception.
+    const cacheStore = new Map<string, string>()
+    const kv = {
+      get: async (key: string) => cacheStore.get(key) ?? null,
+      put: async (key: string, value: string) => { cacheStore.set(key, value) },
+    }
+    const res = await handleGuard(
+      post({
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Read',
+        content_hash: 'a'.repeat(64),
+        privacy_mode: 'maximum',
+      }),
+      { KV: kv } as unknown as Env,
+      config,
+    )
+
+    expect(res.status).toBe(200)
+    const decision = (await res.json()) as GuardDecision
+    expect(['allow', 'ask', 'deny']).toContain(decision.decision)
+    expect(decision.reason).not.toContain('could not verify')
+    // The cache key was derived without throwing and the decision was stored.
+    expect(cacheStore.size).toBeGreaterThan(0)
+  })
+
+  it('returns a real allow with no ticket for a maximum-mode guard_device caller', async () => {
+    const d1 = new MemoryD1(new MemoryStore()) as unknown as D1Database
+    const db = d1Database(d1)
+    const { user } = await createFreeUser(db, 'max-privacy-ticket@example.com')
+    const credential = await guardCredentialFor(db, user.id)
+    const env = { DB: d1, GUARD_TICKET_SECRET: 'guard-ticket-secret' }
+
+    const res = await handleGuard(
+      post(
+        {
+          hook_event_name: 'PreToolUse',
+          tool_name: 'Read',
+          content_hash: 'a'.repeat(64),
+          privacy_mode: 'maximum',
+        },
+        undefined,
+        { Authorization: `Bearer ${credential}` },
+      ),
+      env as unknown as Env,
+      config,
+    )
+
+    expect(res.status).toBe(200)
+    const decision = (await res.json()) as GuardDecision
+    expect(decision.decision).toBe('allow')
+    // Decision tickets bind to a project scope (cwd), which maximum mode strips,
+    // so no ticket is minted. The path must still complete cleanly, never throw.
+    expect(decision.ticket).toBeUndefined()
   })
 })

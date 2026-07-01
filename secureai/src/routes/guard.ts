@@ -209,19 +209,23 @@ export async function handleGuard(
       ctx.credentialKind === 'guard_device'
     ) {
       const verification = await verifyGuardDecisionTicket(guardPayload, presentedTicket, ticketContext)
-      if (
-        verification.ok &&
-        presentedTicket.decision === 'allow' &&
-        presentedTicket.device_id === ctx.deviceId
-      ) {
+      // A ticket is honored only when its signature verifies AND it is an allow
+      // bound to THIS device. Every other outcome is a rejection and is metered
+      // with a low-cardinality reason (no PII), so a cross-device replay or a
+      // non-allow ticket is never a silent monitoring blind spot.
+      if (!verification.ok) {
+        metrics.count('guard.ticket.reject', { labels: [verification.reason] })
+      } else if (presentedTicket.device_id !== ctx.deviceId) {
+        metrics.count('guard.ticket.reject', { labels: ['device mismatch'] })
+      } else if (presentedTicket.decision !== 'allow') {
+        metrics.count('guard.ticket.reject', { labels: ['decision not allow'] })
+      } else {
         decision = {
           decision: 'allow',
           reason: 'valid signed decision ticket',
           verdict: null,
           ticket: presentedTicket,
         }
-      } else if (!verification.ok) {
-        metrics.count('guard.ticket.reject', { labels: [verification.reason] })
       }
     }
 

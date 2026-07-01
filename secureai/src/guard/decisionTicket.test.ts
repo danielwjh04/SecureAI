@@ -294,4 +294,16 @@ describe('Guard decision tickets', () => {
       reason: 'ticket key mismatch',
     })
   })
+
+  it('hashes a maximum-privacy payload that has a content hash but no tool_input', async () => {
+    const maxMode = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      content_hash: 'a'.repeat(64),
+      device_id: 'dev_test',
+    } as PreToolUsePayload
+
+    const hash = await guardActionHash(maxMode)
+    expect(hash).toMatch(/^[0-9a-f]{64}$/)
+  })
 })

@@ -225,6 +225,46 @@ describe('guard action policy', () => {
     expect(policy.findings.some((f) => f.ruleId === 'guard.path_outside_workspace')).toBe(false)
   })
 
+  it('flags an absolute path that escapes the workspace via .. segments', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: '/home/me/project/../outside/secret', cwd: '/home/me/project' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.path_outside_workspace' }),
+    )
+  })
+
+  it('flags a relative path that escapes the workspace via .. segments', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: '../outside/secret', cwd: '/home/me/project' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.findings).toContainEqual(
+      expect.objectContaining({ ruleId: 'guard.path_outside_workspace' }),
+    )
+  })
+
+  it('does not flag an absolute .. path that resolves back inside the workspace', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: '/home/me/project/sub/../keep.ts', cwd: '/home/me/project' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.findings.some((f) => f.ruleId === 'guard.path_outside_workspace')).toBe(false)
+  })
+
+  it('does not flag a relative .. path that resolves back inside the workspace', () => {
+    const action = normalizeGuardAction(
+      payload('Read', { file_path: 'sub/../keep.ts', cwd: '/home/me/project' }),
+      config,
+    )
+    const policy = evaluateGuardActionPolicy(action, config)
+    expect(policy.findings.some((f) => f.ruleId === 'guard.path_outside_workspace')).toBe(false)
+  })
+
   it('collects paths from list fields and deduplicates repeated entries', () => {
     const action = normalizeGuardAction(
       payload('Read', { file_paths: ['/home/me/project/a.ts', '/home/me/project/a.ts', '/home/me/project/b.ts'] }),
@@ -262,5 +302,26 @@ describe('guard action policy', () => {
     expect(policy.findings).toContainEqual(
       expect.objectContaining({ ruleId: 'guard.sensitive_path_access' }),
     )
+  })
+})
+
+describe('normalizeGuardAction, maximum privacy mode', () => {
+  it('normalizes a payload with no tool_input without throwing', () => {
+    // maximum privacy mode strips tool_input and cwd, leaving only the content
+    // hash. Normalization must degrade to a bare tool action, never throw.
+    const action = normalizeGuardAction(
+      {
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Read',
+        content_hash: 'a'.repeat(64),
+      } as PreToolUsePayload,
+      config,
+    )
+
+    expect(action.toolName).toBe('Read')
+    expect(action.targetPaths).toEqual([])
+    expect(action.commandStructure).toBeNull()
+    expect(action.networkDestinations).toEqual([])
+    expect(action.contentHash).toBe('a'.repeat(64))
   })
 })

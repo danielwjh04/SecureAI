@@ -62,7 +62,9 @@ export async function cacheKeyForPayload(
     project_scope: stringOrNull(payload.cwd),
     content_hash: stringOrNull(payloadRecord.content_hash),
     tool_name: payload.tool_name,
-    tool_input: payload.tool_input,
+    // maximum privacy mode omits tool_input; coalesce to null so the key stays
+    // canonicalizable (the content hash is what distinguishes such payloads).
+    tool_input: payload.tool_input ?? null,
   }
   return CACHE_KEY_PREFIX + (await sha256Hex(canonicalJson(scannable)))
 }

@@ -116,7 +116,9 @@ export function normalizeGuardAction(
   config: GuardPolicyConfig,
 ): NormalizedGuardAction {
   const payloadRecord = payload as unknown as Record<string, unknown>
-  const toolInput = payload.tool_input
+  // maximum privacy mode omits tool_input (only the content hash is sent), so
+  // degrade to an empty record: no command, paths, or destinations to inspect.
+  const toolInput = payload.tool_input ?? {}
   const toolName = payload.tool_name
   const toolKey = toolName.toLowerCase()
   const command = firstStringField(toolInput, ['command', 'cmd', 'script', 'shell'])
@@ -573,22 +575,64 @@ function matchesMarker(path: string, markers: ReadonlySet<string>): boolean {
 }
 
 /**
- * True when an absolute path is not contained within a known workspace root.
- * When no workspace root is known the check is skipped (returns false) to avoid
- * flagging every cwd-less call; system secret paths are still caught by the
- * sensitive-path markers, so this is a defense-in-depth layer, not the only one.
+ * True when a tool-call path is not contained within a known workspace root.
+ * The path is normalized before the containment check: `.` and `..` segments
+ * are resolved, and a relative path is resolved against the workspace root. So
+ * neither an absolute `<root>/../outside` nor a bare `../outside` can slip past
+ * a raw string prefix compare. When no workspace root is known the check is
+ * skipped (returns false) to avoid flagging every cwd-less call; system secret
+ * paths are still caught by the sensitive-path markers, so this is a
+ * defense-in-depth layer, not the only one.
  *
- * Time complexity: O(1). Space complexity: O(1).
+ * Time complexity: O(s) in the path segment count. Space complexity: O(s).
  */
 function isAbsolutePathOutsideWorkspace(path: string, workspaceRoot: string | null): boolean {
   if (workspaceRoot === null) {
     return false
   }
   const normalized = path.replaceAll('\\', '/')
+  const root = workspaceRoot.replaceAll('\\', '/')
   const isAbsolute = normalized.startsWith('/') || normalized.startsWith('~') || /^[a-z]:\//i.test(normalized)
-  if (!isAbsolute) {
+  const candidate = isAbsolute ? normalized : `${root}/${normalized}`
+  return !segmentsContainedIn(resolvePathSegments(root), resolvePathSegments(candidate))
+}
+
+/**
+ * Collapse a slash-separated path into canonical segments: empty and `.`
+ * segments are dropped, and `..` pops its parent (clamped at the root, matching
+ * POSIX resolution where `/..` stays at `/`).
+ *
+ * Time complexity: O(s). Space complexity: O(s).
+ */
+function resolvePathSegments(path: string): string[] {
+  const segments: string[] = []
+  for (const segment of path.split('/')) {
+    if (segment === '' || segment === '.') {
+      continue
+    }
+    if (segment === '..') {
+      segments.pop()
+      continue
+    }
+    segments.push(segment)
+  }
+  return segments
+}
+
+/**
+ * True when `pathSegments` begins with every segment of `rootSegments`, so the
+ * path equals the workspace root or sits beneath it.
+ *
+ * Time complexity: O(r) in the root segment count. Space complexity: O(1).
+ */
+function segmentsContainedIn(rootSegments: readonly string[], pathSegments: readonly string[]): boolean {
+  if (pathSegments.length < rootSegments.length) {
     return false
   }
-  const root = workspaceRoot.replaceAll('\\', '/').replace(/\/+$/, '')
-  return normalized !== root && !normalized.startsWith(`${root}/`)
+  for (let index = 0; index < rootSegments.length; index += 1) {
+    if (pathSegments[index] !== rootSegments[index]) {
+      return false
+    }
+  }
+  return true
 }

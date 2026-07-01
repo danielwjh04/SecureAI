@@ -91,9 +91,13 @@ export const scanRequestSchema = z
   )
 
 /**
- * Body of `POST /api/guard`: a Claude Code PreToolUse hook payload. Only the
- * three load-bearing fields are validated strictly, the literal event name, a
- * non-empty tool name, and the tool-input record the scanner serializes. The
+ * Body of `POST /api/guard`: a Claude Code PreToolUse hook payload. The literal
+ * event name and a non-empty tool name are always required. The payload then
+ * carries EITHER the raw `tool_input` record (balanced / investigation privacy
+ * modes) OR, when the adapter runs in `maximum` privacy mode and strips the raw
+ * content, the `content_hash` that stands in for it; the `.refine` requires at
+ * least one so a body with neither is a parse failure (fail closed at the
+ * boundary) rather than a hook that silently loses its scannable payload. The
  * optional context fields Claude Code sends (`session_id`, `transcript_path`,
  * `cwd`) are accepted when present but not required, and any further fields the
  * hook protocol adds in future pass through untouched (no `.strict()`), so a
@@ -102,11 +106,15 @@ export const scanRequestSchema = z
 export const preToolUseSchema = z.object({
   hook_event_name: z.literal('PreToolUse'),
   tool_name: z.string().min(1),
-  tool_input: z.record(z.string(), z.unknown()),
+  tool_input: z.record(z.string(), z.unknown()).optional(),
+  content_hash: z.string().min(1).optional(),
   session_id: z.string().optional(),
   transcript_path: z.string().optional(),
   cwd: z.string().optional(),
-}).passthrough()
+}).passthrough().refine(
+  (body) => body.tool_input !== undefined || body.content_hash !== undefined,
+  { message: 'provide `tool_input` (balanced/investigation) or `content_hash` (maximum privacy mode)' },
+)
 
 /** The validated PreToolUse payload `POST /api/guard` operates on. */
 export type PreToolUsePayload = z.infer<typeof preToolUseSchema>
