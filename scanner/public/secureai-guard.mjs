@@ -50,8 +50,14 @@ const DEFAULT_PRIVACY_MODE = 'balanced'
 const PRIVACY_MODES = new Set(['maximum', 'balanced', 'investigation'])
 
 const SECRET_KEY_PATTERN = /(token|secret|password|passwd|pwd|credential|authorization|cookie|api[_-]?key|access[_-]?key|private[_-]?key|session[_-]?key)/i
-const SECRET_ASSIGNMENT_PATTERN = /\b([A-Za-z0-9_-]*(?:token|secret|password|passwd|pwd|credential|api[_-]?key|access[_-]?key|private[_-]?key|session[_-]?key)[A-Za-z0-9_-]*)\s*=\s*("[^"]*"|'[^']*'|[^\s;&|]+)/gi
+const SECRET_ASSIGNMENT_PATTERN = /\b([A-Za-z0-9_-]*(?:token|secret|password|passwd|pwd|credential|cookie|authorization|api[_-]?key|access[_-]?key|private[_-]?key|session[_-]?key)[A-Za-z0-9_-]*)\s*=\s*("[^"]*"|'[^']*'|[^\s;&|]+)/gi
 const SECRET_COLON_PATTERN = /(["']?[A-Za-z0-9_-]*(?:token|secret|password|passwd|pwd|credential|api[_-]?key|access[_-]?key|private[_-]?key|session[_-]?key)[A-Za-z0-9_-]*["']?\s*:\s*)("[^"]*"|'[^']*'|[^\s,}\]]+)/gi
+// Cookie / Authorization header VALUES carried in raw string content. Unlike a
+// generic `key: value` these values legitimately contain `;`, `=`, and spaces
+// (a multi-cookie header), so the value runs to the next quote or line break to
+// redact the whole credential. Assignment forms (`cookie=`, `authorization=`)
+// are handled by SECRET_ASSIGNMENT_PATTERN above.
+const HEADER_CREDENTIAL_PATTERN = /(\b(?:set-cookie|cookie|authorization)\s*:\s*)([^"'\r\n]+)/gi
 const BEARER_PATTERN = /\b(Bearer\s+)\S+/gi
 const BASIC_PATTERN = /\b(Basic\s+)\S+/gi
 const SLACK_TOKEN_PATTERN = /\bxox[baprs]-[A-Za-z0-9-]{8,}/g
@@ -64,8 +70,9 @@ const QUERY_SECRET_PATTERN = /([?&][^=]*(?:token|secret|password|credential|api[
 
 /**
  * Redact likely secrets from a string. Order matters: structured blocks (PEM)
- * and assignments first (both key=value and key: value forms), then token
- * shapes, then connection credentials and query secrets.
+ * and assignments first (both key=value and key: value forms), then Cookie /
+ * Authorization header values, then token shapes, then connection credentials
+ * and query secrets.
  *
  * Time complexity: O(n) in string length across a fixed pattern set.
  */
@@ -74,6 +81,7 @@ function redactString(value) {
     .replace(PEM_PRIVATE_KEY_PATTERN, REDACTED)
     .replace(SECRET_ASSIGNMENT_PATTERN, (_m, key) => `${key}=${REDACTED}`)
     .replace(SECRET_COLON_PATTERN, (_m, prefix) => `${prefix}${REDACTED}`)
+    .replace(HEADER_CREDENTIAL_PATTERN, (_m, prefix) => `${prefix}${REDACTED}`)
     .replace(BEARER_PATTERN, (_m, prefix) => `${prefix}${REDACTED}`)
     .replace(BASIC_PATTERN, (_m, prefix) => `${prefix}${REDACTED}`)
     .replace(CONNECTION_CRED_PATTERN, (_m, head) => `${head}:${REDACTED}@`)

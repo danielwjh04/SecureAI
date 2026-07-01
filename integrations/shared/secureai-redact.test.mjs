@@ -138,3 +138,34 @@ test('does not over-redact a non-secret colon string', () => {
   assert.equal(redactString('ratio: 16'), 'ratio: 16')
   assert.equal(redactString('note: hello'), 'note: hello')
 })
+
+// P1-2: Cookie and Authorization values carried in raw string content
+test('redacts a Cookie header value inside a curl command but keeps the URL', () => {
+  const out = redactString('curl -H "Cookie: session=secretcookievalue" https://example.com')
+  assert.doesNotMatch(out, /secretcookievalue/)
+  // Over-redaction of the secret must not swallow the destination the scanner reads.
+  assert.match(out, /https:\/\/example\.com/)
+})
+test('redacts every pair in a multi-cookie header', () => {
+  const out = redactString('Cookie: a=firstsecret; b=secondsecret; c=thirdsecret')
+  assert.doesNotMatch(out, /firstsecret/)
+  assert.doesNotMatch(out, /secondsecret/)
+  assert.doesNotMatch(out, /thirdsecret/)
+})
+test('redacts a Set-Cookie response header value', () => {
+  const out = redactString('Set-Cookie: sid=deadbeefsecret; Path=/; HttpOnly')
+  assert.doesNotMatch(out, /deadbeefsecret/)
+})
+test('redacts a bare cookie= assignment', () => {
+  assert.doesNotMatch(redactString('cookie=sessiontokenvalue'), /sessiontokenvalue/)
+})
+test('redacts an Authorization header non-Bearer value', () => {
+  const out = redactString('Authorization: Token abc123secretvalue')
+  assert.doesNotMatch(out, /abc123secretvalue/)
+})
+test('redacts a bare authorization= assignment', () => {
+  assert.doesNotMatch(redactString('authorization=raw-token-99998888'), /raw-token-99998888/)
+})
+test('does not over-redact the bare word cookie in prose', () => {
+  assert.equal(redactString('the cookie jar is empty'), 'the cookie jar is empty')
+})
