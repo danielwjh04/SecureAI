@@ -51,7 +51,7 @@ import {
   handleAdminThreats,
 } from './routes/admin'
 import { d1Database, d1Session, type SessionDatabase } from './db/database'
-import { purgeExpiredGuardDevices } from './db/guardDevices'
+import { MILLISECONDS_PER_DAY, purgeExpiredGuardDevices } from './db/guardDevices'
 import { ingestFeeds } from './scanner/feedIngest'
 import { readBookmark, withBookmark } from './db/bookmark'
 import type { ObjectStore } from './storage/r2'
@@ -410,7 +410,7 @@ export default {
     }
 
     try {
-      const graceMs = config.guardDevicePurgeGraceDays * 86400000
+      const graceMs = config.guardDevicePurgeGraceDays * MILLISECONDS_PER_DAY
       const cutoffIso = new Date(controller.scheduledTime - graceMs).toISOString()
       const removed = await purgeExpiredGuardDevices(db, cutoffIso)
       log.info('index', 'guard device purge complete', { removed })

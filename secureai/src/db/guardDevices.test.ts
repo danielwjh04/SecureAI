@@ -242,11 +242,47 @@ describe('guard device credentials', () => {
       32,
     )
 
-    expect(await countActiveGuardDevices(db, user.id)).toBe(2)
+    expect(await countActiveGuardDevices(db, user.id, new Date().toISOString())).toBe(2)
 
     // Revoke one; the count drops to 1.
     await revokeGuardDevice(db, user.id, m1.device.id)
-    expect(await countActiveGuardDevices(db, user.id)).toBe(1)
+    expect(await countActiveGuardDevices(db, user.id, new Date().toISOString())).toBe(1)
+  })
+
+  it('countActiveGuardDevices excludes expired-but-unpurged active rows', async () => {
+    const { db } = memoryDatabase()
+    const { user } = await createFreeUser(db, 'count-expiry@example.com')
+    const now = '2026-07-01T00:00:00.000Z'
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_live',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-30T00:00:00.000Z',
+        expiresAt: '2026-07-30T00:00:00.000Z',
+      },
+      32,
+    )
+    await createGuardDeviceCredential(
+      db,
+      {
+        userId: user.id,
+        deviceId: 'dev_expired',
+        name: null,
+        integration: 'claude-code',
+        scopes: ['guard:decision'],
+        createdAt: '2026-06-20T00:00:00.000Z',
+        expiresAt: '2026-06-25T00:00:00.000Z',
+      },
+      32,
+    )
+
+    // The expired row is still status='active' (not yet purged) but auth rejects
+    // it, so it must not consume a cap slot.
+    expect(await countActiveGuardDevices(db, user.id, now)).toBe(1)
   })
 
   it('activeGuardDeviceExists returns true only for a matching active tuple', async () => {

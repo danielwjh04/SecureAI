@@ -186,9 +186,10 @@ export class MemoryStore {
     }
     if (sql.includes("COUNT(*) AS n FROM guard_device_credentials WHERE user_id")) {
       const userId = String(params[0])
+      const nowIso = String(params[1])
       let n = 0
       for (const record of this.guardDeviceCredentials.values()) {
-        if (record.user_id === userId && record.status === 'active') {
+        if (record.user_id === userId && record.status === 'active' && record.expires_at > nowIso) {
           n += 1
         }
       }

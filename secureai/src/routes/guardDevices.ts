@@ -10,13 +10,14 @@ import type {
   GuardDeviceRegisterPayload,
   GuardDeviceRevokePayload,
 } from '../schemas/validate'
-import { AuthError, GuardDeviceLimitError, ParseError, ScannerError } from '../errors'
+import { GuardDeviceLimitError, ParseError } from '../errors'
 import {
   guardDeviceRegisterSchema,
   guardDeviceRevokeSchema,
 } from '../schemas/validate'
 import {
   GUARD_DECISION_SCOPE,
+  MILLISECONDS_PER_DAY,
   activeGuardDeviceExists,
   countActiveGuardDevices,
   createGuardDeviceCredential,
@@ -34,7 +35,6 @@ const STATUS_TOO_MANY_REQUESTS = 429
 const STATUS_UNPROCESSABLE = 422
 const STATUS_SERVER_ERROR = 500
 const STATUS_SERVICE_UNAVAILABLE = 503
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
 
 export interface GuardDeviceDeps {
   readonly db: Database | null
@@ -101,9 +101,6 @@ function errorResponse(module: string, error: unknown): Response {
   if (error instanceof GuardDeviceLimitError) {
     return Response.json({ error: className, message }, { status: STATUS_TOO_MANY_REQUESTS })
   }
-  if (error instanceof AuthError || error instanceof ScannerError) {
-    return Response.json({ error: className, message }, { status: STATUS_SERVER_ERROR })
-  }
   return Response.json({ error: className, message }, { status: STATUS_SERVER_ERROR })
 }
 
@@ -130,12 +127,12 @@ export async function handleGuardDeviceRegister(
       'guard device register',
     )
     const deviceId = body.deviceId ?? crypto.randomUUID()
+    const createdAt = new Date()
     if (!(await activeGuardDeviceExists(db, subject, deviceId, body.integration))) {
-      if ((await countActiveGuardDevices(db, subject)) >= deps.config.guardMaxDevicesPerAccount) {
+      if ((await countActiveGuardDevices(db, subject, createdAt.toISOString())) >= deps.config.guardMaxDevicesPerAccount) {
         throw new GuardDeviceLimitError('active device limit reached for this account')
       }
     }
-    const createdAt = new Date()
     const expiresAt = new Date(
       createdAt.getTime() + deps.config.guardDeviceCredentialTtlDays * MILLISECONDS_PER_DAY,
     )

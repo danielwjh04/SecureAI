@@ -12,6 +12,8 @@ import { log } from '../observability/logger'
 
 export const DEVICE_CREDENTIAL_PREFIX = 'gd_secureai_'
 export const GUARD_DECISION_SCOPE = 'guard:decision' as const
+/** Milliseconds in one day, shared by credential TTL math and the purge cutoff. */
+export const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
 
 export interface GuardDeviceRecord {
   readonly id: string
@@ -179,14 +181,16 @@ export async function createGuardDeviceCredential(
 }
 
 /**
- * Count active Guard device credentials for one account.
+ * Count active, unexpired Guard device credentials for one account. Rows that
+ * are still `status='active'` but past `expires_at` (not yet purged by the cron)
+ * are excluded: auth already rejects them, so they must not consume a cap slot.
  *
  * Time complexity: O(1) (indexed on user_id + status). Space complexity: O(1).
  */
-export async function countActiveGuardDevices(db: Database, userId: string): Promise<number> {
+export async function countActiveGuardDevices(db: Database, userId: string, nowIso: string): Promise<number> {
   const row = await db.queryOne(
-    "SELECT COUNT(*) AS n FROM guard_device_credentials WHERE user_id = ? AND status = 'active'",
-    [userId],
+    "SELECT COUNT(*) AS n FROM guard_device_credentials WHERE user_id = ? AND status = 'active' AND expires_at > ?",
+    [userId, nowIso],
   )
   return typeof row?.['n'] === 'number' ? row['n'] : 0
 }
