@@ -127,9 +127,6 @@ export const GUARD_INSTALL_URL =
 export const BROWSER_EXTENSION_STORE_URL = '' as const
 export const BROWSER_PAIRING_HASH = '#browser-pair=' as const
 
-/** The public source repository, linked from the site footer. */
-export const REPO_URL = 'https://github.com/danielwjh04/SecureAI' as const
-
 /**
  * Build the key-embedded one-line Guard installer the member dashboard reveals
  * after minting a fresh API key. The installer reads the key from the
